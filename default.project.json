@@ -1,0 +1,44 @@
+{
+  "name": "jeu-mine",
+  "tree": {
+    "$className": "DataModel",
+
+    "ServerScriptService": {
+      "$ignoreUnknownInstances": true,
+      "Jeu": {
+        "$path": "src/server"
+      }
+    },
+
+    "ReplicatedStorage": {
+      "$ignoreUnknownInstances": true,
+      "Partage": {
+        "$path": "src/partage"
+      }
+    },
+
+    "ServerStorage": {
+      "$ignoreUnknownInstances": true,
+      "Monde": {
+        "$path": "src/monde"
+      }
+    },
+
+    "StarterPlayer": {
+      "$ignoreUnknownInstances": true,
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$ignoreUnknownInstances": true,
+        "Jeu": {
+          "$path": "src/client"
+        }
+      }
+    },
+
+    "Lighting": {
+      "$properties": {
+        "Technology": "Future"
+      }
+    }
+  }
+}

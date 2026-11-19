@@ -1,0 +1,58 @@
+-- Généré par blender/armes/jambieres.py (Jambieres, 35 pièces). Ne pas modifier à la main.
+-- Repère = Racine : origine au centre de la pièce, devant = -Z, haut = +Y, droite = +X, unités = studs.
+return {
+	Nom = "Jambières du mineur-guerrier",
+	Taille = Vector3.new(2.32, 2.02, 1.42),
+	-- nom -> {matériau, r, g, b, reflectance, facteur de teinte (nil = couleur fixe)}
+	Couleurs = {
+		["acier"] = {"Metal", 176, 184, 194, 0.15, 1},
+		["acierF"] = {"Metal", 127, 132, 140, 0.05, 0.72},
+		["cuivre"] = {"Metal", 196, 114, 62, 0.1},
+		["patine"] = {"Metal", 82, 158, 136, 0},
+		["cuir"] = {"Fabric", 96, 60, 34, 0},
+		["lanière"] = {"Fabric", 58, 36, 21, 0},
+	},
+	-- sous-groupes : nom -> centre (repère de Racine)
+	Groupes = {
+		JambeG = Vector3.new(-0.5, 0, 0),
+		JambeD = Vector3.new(0.5, 0, 0),
+	},
+	-- nom, couleur, taille, position (repère de Racine), rotation Y (degrés), groupe
+	Pieces = {
+		{"Interieur", "lanière", Vector3.new(0.96, 1.9, 0.96), Vector3.new(-0.5, 0, 0), 0, "JambeG"},
+		{"Greve", "acier", Vector3.new(0.92, 0.88, 0.14), Vector3.new(-0.5, -0.48, -0.58), 0, "JambeG"},
+		{"Greve", "acierF", Vector3.new(0.16, 0.7, 0.06), Vector3.new(-0.5, -0.46, -0.67), 0, "JambeG"},
+		{"Cuissard", "acier", Vector3.new(0.94, 0.72, 0.14), Vector3.new(-0.5, 0.54, -0.58), 0, "JambeG"},
+		{"Cuissard", "acierF", Vector3.new(1, 0.12, 0.2), Vector3.new(-0.5, 0.94, -0.58), 0, "JambeG"},
+		{"Genouillere", "acierF", Vector3.new(0.74, 0.4, 0.2), Vector3.new(-0.5, 0.04, -0.66), 0, "JambeG"},
+		{"Genouillere", "acier", Vector3.new(0.4, 0.24, 0.1), Vector3.new(-0.5, 0.04, -0.8), 0, "JambeG"},
+		{"Genouillere", "acierF", Vector3.new(0.18, 0.3, 0.56), Vector3.new(-1.05, 0.04, -0.3), 0, "JambeG"},
+		{"Plaque", "acier", Vector3.new(0.12, 0.86, 0.86), Vector3.new(-1.06, -0.48, 0.02), 0, "JambeG"},
+		{"Cheville", "acierF", Vector3.new(1.04, 0.16, 1.14), Vector3.new(-0.54, -0.94, 0), 0, "JambeG"},
+		{"Sangle", "cuir", Vector3.new(1.04, 0.12, 1.1), Vector3.new(-0.52, -0.66, 0.02), 0, "JambeG"},
+		{"Sangle", "cuir", Vector3.new(1.02, 0.12, 1.1), Vector3.new(-0.51, 0.42, 0.02), 0, "JambeG"},
+		{"Boucle", "cuivre", Vector3.new(0.06, 0.18, 0.18), Vector3.new(-1.13, -0.66, 0.1), 0, "JambeG"},
+		{"Boucle", "cuivre", Vector3.new(0.06, 0.18, 0.18), Vector3.new(-1.06, 0.42, 0.1), 0, "JambeG"},
+		{"Rivet", "cuivre", Vector3.new(0.09, 0.09, 0.06), Vector3.new(-0.8, -0.18, -0.66), 0, "JambeG"},
+		{"Rivet", "cuivre", Vector3.new(0.09, 0.09, 0.06), Vector3.new(-0.2, -0.18, -0.66), 0, "JambeG"},
+		{"Rivet", "cuivre", Vector3.new(0.09, 0.09, 0.06), Vector3.new(-0.82, 0.74, -0.66), 0, "JambeG"},
+		{"Interieur", "lanière", Vector3.new(0.96, 1.9, 0.96), Vector3.new(0.5, 0, 0), 0, "JambeD"},
+		{"Greve", "acier", Vector3.new(0.92, 0.88, 0.14), Vector3.new(0.5, -0.48, -0.58), 0, "JambeD"},
+		{"Greve", "acierF", Vector3.new(0.16, 0.7, 0.06), Vector3.new(0.5, -0.46, -0.67), 0, "JambeD"},
+		{"Cuissard", "acier", Vector3.new(0.94, 0.72, 0.14), Vector3.new(0.5, 0.54, -0.58), 0, "JambeD"},
+		{"Cuissard", "acierF", Vector3.new(1, 0.12, 0.2), Vector3.new(0.5, 0.94, -0.58), 0, "JambeD"},
+		{"Genouillere", "acierF", Vector3.new(0.74, 0.4, 0.2), Vector3.new(0.5, 0.04, -0.66), 0, "JambeD"},
+		{"Genouillere", "acier", Vector3.new(0.4, 0.24, 0.1), Vector3.new(0.5, 0.04, -0.8), 0, "JambeD"},
+		{"Genouillere", "acierF", Vector3.new(0.18, 0.3, 0.56), Vector3.new(1.05, 0.04, -0.3), 0, "JambeD"},
+		{"Plaque", "acier", Vector3.new(0.12, 0.86, 0.86), Vector3.new(1.06, -0.48, 0.02), 0, "JambeD"},
+		{"Cheville", "acierF", Vector3.new(1.04, 0.16, 1.14), Vector3.new(0.54, -0.94, 0), 0, "JambeD"},
+		{"Sangle", "cuir", Vector3.new(1.04, 0.12, 1.1), Vector3.new(0.52, -0.66, 0.02), 0, "JambeD"},
+		{"Sangle", "cuir", Vector3.new(1.02, 0.12, 1.1), Vector3.new(0.51, 0.42, 0.02), 0, "JambeD"},
+		{"Boucle", "cuivre", Vector3.new(0.06, 0.18, 0.18), Vector3.new(1.13, -0.66, 0.1), 0, "JambeD"},
+		{"Boucle", "cuivre", Vector3.new(0.06, 0.18, 0.18), Vector3.new(1.06, 0.42, 0.1), 0, "JambeD"},
+		{"Rivet", "cuivre", Vector3.new(0.09, 0.09, 0.06), Vector3.new(0.8, -0.18, -0.66), 0, "JambeD"},
+		{"Rivet", "cuivre", Vector3.new(0.09, 0.09, 0.06), Vector3.new(0.2, -0.18, -0.66), 0, "JambeD"},
+		{"Rivet", "cuivre", Vector3.new(0.09, 0.09, 0.06), Vector3.new(0.82, 0.74, -0.66), 0, "JambeD"},
+		{"Patine", "patine", Vector3.new(0.1, 0.08, 0.04), Vector3.new(-0.66, -0.7, -0.66), 0, "JambeG"},
+	},
+}

@@ -1,0 +1,3227 @@
+<title>Atelier Bestiaire</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout : établi de nuit — visionneuse 3D à gauche, fiche + scripts Roblox à droite ; une seule colonne sur téléphone. Ambiance sombre assumée (un seul thème). */
+:root {
+  --bg: #0c111c;
+  --panel: #141b2b;
+  --panel-2: #1b2438;
+  --line: #273250;
+  --fg: #e6ebf5;
+  --muted: #8c97b0;
+  --accent: #ff7a1a;
+  --font-display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", Consolas, ui-monospace, monospace;
+  color-scheme: dark;
+}
+html, body { background: var(--bg); color: var(--fg); }
+body {
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 40px;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; }
+.eyebrow { font-family: var(--font-display); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(28px, 4vw, 40px); margin: 2px 0 0; line-height: 1.1; text-wrap: balance; }
+h1 span { color: var(--accent); transition: color .4s; }
+.hint { color: var(--muted); font-size: 13px; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 880px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+.viewer { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; }
+#stage { position: relative; width: 100%; height: clamp(340px, 60vh, 580px); cursor: grab; touch-action: none; }
+#stage:active { cursor: grabbing; }
+#stage canvas { display: block; width: 100%; height: 100%; }
+.stage-tip { position: absolute; left: 14px; bottom: 12px; max-width: calc(100% - 170px); font-size: 12px; color: var(--muted); background: rgba(12,17,28,.7); padding: 4px 10px; border-radius: 12px; pointer-events: none; }
+
+.heat { position: absolute; top: 14px; left: 14px; width: min(300px, calc(100% - 28px)); display: flex; flex-direction: column; gap: 6px; pointer-events: none; }
+.heat-label { font-family: var(--font-display); font-weight: 700; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: #ffd9b0; text-shadow: 0 0 10px rgba(255,120,30,.6); }
+.heat-bar { height: 9px; border-radius: 99px; background: rgba(255,255,255,.07); overflow: hidden; border: 1px solid rgba(255,140,60,.4); }
+.heat-fill { height: 100%; width: 0; border-radius: 99px; background: linear-gradient(90deg, #ff3d0a, #ffb347 70%, #fff0c8); box-shadow: 0 0 14px #ff7a1a; }
+.heat.over .heat-label { color: #bfe6ff; text-shadow: 0 0 12px rgba(90,184,255,.9); animation: pulse .45s infinite alternate; }
+.heat.over .heat-bar { border-color: rgba(120,200,255,.6); }
+.heat.over .heat-fill { background: linear-gradient(90deg, #2a7cff, #9fd8ff, #ffffff); box-shadow: 0 0 18px #5ab8ff; }
+@keyframes pulse { to { opacity: .55; } }
+.strike { position: absolute; right: 14px; bottom: 12px; background: var(--accent); color: #160904; border: 0; border-radius: 10px; padding: 10px 18px; font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: .06em; cursor: pointer; box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 55%, transparent); transition: transform .08s; }
+.strike:active { transform: scale(.95); }
+.strike kbd { font-family: var(--font-mono); font-size: 11px; opacity: .7; margin-left: 6px; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
+.pick { flex: 1 1 140px; min-width: 0; text-align: left; background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; font: inherit; display: flex; flex-direction: column; gap: 2px; transition: border-color .2s, background .2s; }
+.pick b { font-family: var(--font-display); font-size: 16px; }
+.pick small { color: var(--muted); font-size: 12px; }
+.pick:hover { border-color: #3a4870; }
+.pick[aria-pressed="true"] { border-color: var(--c); background: color-mix(in srgb, var(--c) 12%, var(--panel-2)); }
+.pick:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.toggles { display: flex; gap: 8px; flex-wrap: wrap; padding: 0 12px 12px; }
+.chip-btn { background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 99px; padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.chip-btn[aria-pressed="true"] { color: var(--fg); border-color: var(--accent); }
+
+aside { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.card h2 { font-family: var(--font-display); font-size: 26px; margin: 0; line-height: 1.1; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.tag { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+.tag.el { color: var(--accent); border-color: var(--accent); }
+.desc { color: #c2cadb; margin: 0; max-width: 60ch; }
+.feats { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: #c2cadb; }
+.feats li { padding-left: 16px; position: relative; }
+.feats li::before { content: ""; position: absolute; left: 0; top: .55em; width: 7px; height: 7px; background: var(--accent); transform: rotate(45deg); box-shadow: 0 0 8px var(--accent); }
+.feats b { color: var(--fg); font-weight: 600; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.stat { background: var(--panel-2); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 2px; }
+.stat span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.stat b { font-family: var(--font-mono); font-weight: 500; font-size: 15px; font-variant-numeric: tabular-nums; }
+.code-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.code-head h3 { margin: 0; font-family: var(--font-display); font-size: 16px; }
+.copy { background: var(--accent); color: #12090a; border: 0; border-radius: 8px; padding: 7px 12px; font: inherit; font-weight: 600; font-size: 13px; cursor: pointer; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.tab[aria-selected="true"] { color: var(--fg); border-color: var(--accent); }
+.where { font-family: var(--font-mono); font-size: 12px; color: var(--accent); }
+pre { margin: 0; background: #090d16; border: 1px solid var(--line); border-radius: 10px; padding: 12px; max-height: 320px; overflow: auto; font-family: var(--font-mono); font-size: 12px; line-height: 1.55; color: #b9c6e0; tab-size: 4; }
+.steps { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.steps b { color: var(--fg); font-weight: 500; }
+[hidden] { display: none !important; }
+.ore-label { position: absolute; transform: translate(-50%, 0); pointer-events: none; display: flex; flex-direction: column; align-items: center; gap: 3px; white-space: nowrap; }
+.ore-label b { font-family: var(--font-display); font-weight: 700; font-size: clamp(12px, 1.8vw, 18px); color: #fff; padding: 3px 14px; border-radius: 10px; background: rgba(14, 16, 24, .85); border: 2px solid var(--rc); box-shadow: 0 0 14px color-mix(in srgb, var(--rc) 70%, transparent), inset 0 0 8px color-mix(in srgb, var(--rc) 35%, transparent); }
+.ore-label span { font-family: var(--font-display); font-weight: 700; font-size: clamp(10px, 1.4vw, 13px); color: var(--rc); text-shadow: 0 0 8px var(--rc), 0 1px 2px #000; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Atelier 3D · Pets & outils mythiques · Roblox</div>
+      <h1>Atelier <span id="titleName">Bestiaire</span></h1>
+    </div>
+    <div class="hint">Chaque bloc est mesuré en studs, comme dans Roblox Studio.</div>
+  </header>
+
+  <div class="grid">
+    <section class="viewer" aria-label="Visionneuse 3D">
+      <div id="stage">
+        <div class="heat" id="hud" hidden><div class="heat-label" id="hudLabel">Chaleur 0 %</div><div class="heat-bar"><div class="heat-fill" id="hudFill"></div></div></div>
+        <div class="stage-tip">Glisser pour tourner · molette ou pincer pour zoomer</div>
+        <button class="strike" id="strikeBtn" hidden>Frapper<kbd>Espace</kbd></button>
+      </div>
+      <div class="toolbar" id="picker"></div>
+      <div class="toggles">
+        <button class="chip-btn" id="tAuto" aria-pressed="true" hidden>Frappe auto</button>
+        <button class="chip-btn" id="tAura" aria-pressed="true" hidden>Aura</button>
+        <button class="chip-btn" id="tRotate" aria-pressed="true">Rotation auto</button>
+        <button class="chip-btn" id="tAnim" aria-pressed="true">Animation</button>
+        <button class="chip-btn" id="tFx" aria-pressed="true">Particules</button>
+      </div>
+    </section>
+
+    <aside>
+      <div class="card">
+        <div class="tags"><span class="tag el" id="cElement"></span><span class="tag" id="cRarity"></span><span class="tag" id="cKind"></span></div>
+        <h2 id="cName"></h2>
+        <p class="desc" id="cDesc"></p>
+        <ul class="feats" id="feats" hidden></ul>
+        <div class="stats" id="stats"></div>
+      </div>
+      <div class="card">
+        <div class="code-head"><h3>Script Roblox (Luau)</h3><button class="copy" id="copyBtn">Copier</button></div>
+        <div class="tabs" id="tabs" role="tablist" hidden></div>
+        <div class="where" id="where"></div>
+        <pre id="code" tabindex="0"></pre>
+        <ol class="steps" id="steps"></ol>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script type="text/plain" id="luau-pioche-serveur">
+-- Pioche de Braise v2 · SCRIPT SERVEUR
+-- Où : ServerScriptService > Script
+-- Va avec le SCRIPT CLIENT (secousses de caméra, flash, jauge de chaleur).
+--
+-- Ce qu'elle fait :
+--  • Flammes, étincelles et lave qui goutte au bout du pic, traînée de feu à chaque coup
+--  • Impact : onde de choc, gerbe de feu, flash de lumière, sol brûlé
+--  • Chaque coup ajoute de la chaleur : la pioche chauffe jusqu'au blanc
+--  • À 100 % : SURCHAUFFE (feu bleu). Le coup suivant déclenche une ÉRUPTION :
+--    double onde de choc, colonne de feu, 8 geysers et dégâts de zone
+--  • Brûlure : la cible flambe de partout, perd des PV et finit en cendres si elle meurt
+--  • Minerais : ils rougissent à chaque coup puis explosent en éclats brûlants
+--  • Aura : halo de feu et braises flottantes ici ; anneaux de runes, braises en orbite
+--    et sceau au sol dans le SCRIPT CLIENT
+--
+-- Minerais : ajoute le tag "Minerai" à tes blocs (Propriétés > Tags),
+-- attribut "PV" en option (nombre de coups, 3 par défaut).
+
+local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
+local Debris = game:GetService("Debris")
+local TweenService = game:GetService("TweenService")
+local ServerStorage = game:GetService("ServerStorage")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local CONFIG = {
+	DEGATS_COUP = 12,          -- dégâts directs du coup
+	BRULURE_DEGATS = 4,        -- dégâts par tick de brûlure
+	BRULURE_TICKS = 5,         -- nombre de ticks
+	BRULURE_INTERVALLE = 0.6,  -- secondes entre deux ticks
+	RECHARGE = 0.6,            -- secondes entre deux coups
+	PORTEE = 5,                -- studs devant le joueur
+	PVP = false,               -- true = la pioche brûle aussi les autres joueurs
+	DEGATS_MINERAI = 1,        -- PV retirés à un minerai par coup
+	TAG_MINERAI = "Minerai",
+	CHALEUR_PAR_COUP = 20,     -- % de chaleur gagné par coup réussi
+	CHALEUR_PERTE = 6,         -- % perdu par seconde sans frapper
+	ERUPTION_RAYON = 12,       -- studs
+	ERUPTION_DEGATS = 35,
+	ERUPTION_MINERAI = 3,      -- PV retirés aux minerais pris dans l'éruption
+}
+
+-- Sons intégrés à Roblox. Remplace-les par tes propres ID (rbxassetid://...) si tu veux.
+local SONS = {
+	EQUIPER = "rbxasset://sounds/unsheath.wav",
+	FRAPPE = "rbxasset://sounds/swordslash.wav",
+	ERUPTION = "rbxasset://sounds/swordlunge.wav",
+}
+
+-- Le joueur tient le manche par le bas. Si la pioche est mal orientée, ajuste ici.
+local GRIP = CFrame.new(0, -1.6, 0)
+
+local ORANGE = Color3.fromRGB(255, 120, 30)
+local BRAISE = Color3.fromRGB(255, 70, 15)
+local BLANC_CHAUD = Color3.fromRGB(255, 236, 190)
+local BLEU = Color3.fromRGB(110, 200, 255)
+local CENDRE = Color3.fromRGB(28, 22, 19)
+
+local TEX_FEU = "rbxasset://textures/particles/fire_main.dds"
+local TEX_ETINCELLE = "rbxasset://textures/particles/sparkles_main.dds"
+local TEX_FUMEE = "rbxasset://textures/particles/smoke_main.dds"
+
+-- Le serveur prévient les clients (secousse, flash). Les clients n'envoient jamais rien.
+local fxEvent = Instance.new("RemoteEvent")
+fxEvent.Name = "PiocheFX"
+fxEvent.Parent = ReplicatedStorage
+
+-- Pour ton propre code (récompenses, inventaire…) : MineraiCasse.Event:Connect(function(joueur, bloc) ... end)
+local mineraiCasse = Instance.new("BindableEvent")
+mineraiCasse.Name = "MineraiCasse"
+mineraiCasse.Parent = ServerStorage
+
+-- {nom, taille, position locale (Y = manche, -Z = pointe), couleur, matériau}
+local R = math.rad
+local BOIS = Color3.fromRGB(59, 42, 31)
+local PIERRE = Color3.fromRGB(43, 37, 34)
+local PIERRE2 = Color3.fromRGB(51, 43, 39)
+local LAVE = Color3.fromRGB(255, 106, 26)
+local LAVE2 = Color3.fromRGB(255, 138, 42)
+local OR_CHAUD = Color3.fromRGB(255, 179, 71)
+local CUIR = Color3.fromRGB(74, 42, 26)
+local METAL = Color3.fromRGB(90, 78, 72)
+local RIVET = Color3.fromRGB(138, 122, 112)
+local NEON, BASALTE = Enum.Material.Neon, Enum.Material.Basalt
+
+local PARTS = {
+	-- Manche
+	{"Handle", Vector3.new(0.35, 4.4, 0.35), CFrame.new(0, 0, 0), BOIS, Enum.Material.Wood},
+	{"Veine", Vector3.new(0.08, 1.6, 0.37), CFrame.new(0.05, 0.2, 0), Color3.fromRGB(42, 28, 20), Enum.Material.Wood},
+	{"Poignee", Vector3.new(0.45, 1.3, 0.45), CFrame.new(0, -1.45, 0), Color3.fromRGB(31, 23, 22), Enum.Material.Fabric},
+	{"Laniere1", Vector3.new(0.49, 0.1, 0.49), CFrame.new(0, -0.95, 0) * CFrame.Angles(0, 0, R(8)), CUIR, Enum.Material.Fabric},
+	{"Laniere2", Vector3.new(0.49, 0.1, 0.49), CFrame.new(0, -1.45, 0) * CFrame.Angles(0, 0, R(-8)), CUIR, Enum.Material.Fabric},
+	{"Laniere3", Vector3.new(0.49, 0.1, 0.49), CFrame.new(0, -1.95, 0) * CFrame.Angles(0, 0, R(8)), CUIR, Enum.Material.Fabric},
+	{"Pommeau", Vector3.new(0.55, 0.3, 0.55), CFrame.new(0, -2.25, 0), PIERRE, Enum.Material.Slate},
+	{"PommeauGemme", Vector3.new(0.28, 0.28, 0.28), CFrame.new(0, -2.5, 0) * CFrame.Angles(R(45), 0, R(45)), LAVE, NEON},
+	{"Collier", Vector3.new(0.5, 0.25, 0.5), CFrame.new(0, 1.6, 0), METAL, Enum.Material.Metal},
+	{"Anneau1", Vector3.new(0.42, 0.12, 0.42), CFrame.new(0, 0.6, 0), LAVE, NEON},
+	{"Anneau2", Vector3.new(0.42, 0.12, 0.42), CFrame.new(0, 1.2, 0), LAVE, NEON},
+	-- Tête
+	{"Tete", Vector3.new(0.6, 0.7, 0.8), CFrame.new(0, 2.05, 0), PIERRE, BASALTE},
+	{"Fissure", Vector3.new(0.62, 0.1, 0.82), CFrame.new(0, 2.05, 0), LAVE2, NEON},
+	{"CoeurG", Vector3.new(0.05, 0.32, 0.32), CFrame.new(0.31, 2.05, 0) * CFrame.Angles(R(45), 0, 0), Color3.fromRGB(255, 210, 122), NEON},
+	{"CoeurD", Vector3.new(0.05, 0.32, 0.32), CFrame.new(-0.31, 2.05, 0) * CFrame.Angles(R(45), 0, 0), Color3.fromRGB(255, 210, 122), NEON},
+	{"Rivet1G", Vector3.new(0.06, 0.1, 0.1), CFrame.new(0.31, 2.3, 0.28), RIVET, Enum.Material.Metal},
+	{"Rivet1D", Vector3.new(0.06, 0.1, 0.1), CFrame.new(-0.31, 2.3, 0.28), RIVET, Enum.Material.Metal},
+	{"Rivet2G", Vector3.new(0.06, 0.1, 0.1), CFrame.new(0.31, 2.3, -0.28), RIVET, Enum.Material.Metal},
+	{"Rivet2D", Vector3.new(0.06, 0.1, 0.1), CFrame.new(-0.31, 2.3, -0.28), RIVET, Enum.Material.Metal},
+	{"Rivet3G", Vector3.new(0.06, 0.1, 0.1), CFrame.new(0.31, 1.8, 0.28), RIVET, Enum.Material.Metal},
+	{"Rivet3D", Vector3.new(0.06, 0.1, 0.1), CFrame.new(-0.31, 1.8, 0.28), RIVET, Enum.Material.Metal},
+	{"Rivet4G", Vector3.new(0.06, 0.1, 0.1), CFrame.new(0.31, 1.8, -0.28), RIVET, Enum.Material.Metal},
+	{"Rivet4D", Vector3.new(0.06, 0.1, 0.1), CFrame.new(-0.31, 1.8, -0.28), RIVET, Enum.Material.Metal},
+	{"Crete", Vector3.new(0.22, 0.3, 0.22), CFrame.new(0, 2.52, 0) * CFrame.Angles(0, R(45), 0), OR_CHAUD, NEON},
+	-- Pic (avant)
+	{"Pic1", Vector3.new(0.44, 0.46, 1), CFrame.new(0, 2.05, -0.85), PIERRE2, BASALTE},
+	{"FissurePic", Vector3.new(0.46, 0.06, 0.9), CFrame.new(0, 2.29, -0.85), LAVE, NEON},
+	{"RuneG", Vector3.new(0.02, 0.08, 0.6), CFrame.new(0.225, 2.05, -0.85), LAVE2, NEON},
+	{"RuneD", Vector3.new(0.02, 0.08, 0.6), CFrame.new(-0.225, 2.05, -0.85), LAVE2, NEON},
+	{"RuneTraitG", Vector3.new(0.02, 0.25, 0.06), CFrame.new(0.225, 2.05, -0.7), LAVE2, NEON},
+	{"RuneTraitD", Vector3.new(0.02, 0.25, 0.06), CFrame.new(-0.225, 2.05, -0.7), LAVE2, NEON},
+	{"Dent1", Vector3.new(0.2, 0.18, 0.18), CFrame.new(0, 1.78, -0.6) * CFrame.Angles(R(45), 0, 0), PIERRE, BASALTE},
+	{"Dent2", Vector3.new(0.2, 0.18, 0.18), CFrame.new(0, 1.78, -1) * CFrame.Angles(R(45), 0, 0), PIERRE, BASALTE},
+	{"Pic2", Vector3.new(0.36, 0.38, 0.8), CFrame.new(0, 1.93, -1.6) * CFrame.Angles(R(-15), 0, 0), PIERRE, BASALTE},
+	{"FissurePic2", Vector3.new(0.38, 0.05, 0.7), CFrame.new(0, 2.13, -1.55) * CFrame.Angles(R(-15), 0, 0), LAVE, NEON},
+	{"PicPointe", Vector3.new(0.26, 0.28, 0.45), CFrame.new(0, 1.75, -2.15) * CFrame.Angles(R(-28), 0, 0), OR_CHAUD, NEON},
+	-- Dos (arrière)
+	{"Dos", Vector3.new(0.44, 0.46, 0.8), CFrame.new(0, 2.05, 0.75), PIERRE2, BASALTE},
+	{"DosLame", Vector3.new(0.5, 0.55, 0.35), CFrame.new(0, 2, 1.3) * CFrame.Angles(R(15), 0, 0), LAVE2, NEON},
+	{"CorneG", Vector3.new(0.12, 0.4, 0.12), CFrame.new(0.3, 2.25, 1.25) * CFrame.Angles(R(20), 0, R(-30)), PIERRE, BASALTE},
+	{"CorneD", Vector3.new(0.12, 0.4, 0.12), CFrame.new(-0.3, 2.25, 1.25) * CFrame.Angles(R(20), 0, R(30)), PIERRE, BASALTE},
+	{"DosPic", Vector3.new(0.18, 0.35, 0.18), CFrame.new(0, 1.7, 1.25) * CFrame.Angles(R(-20), 0, 0), PIERRE, BASALTE},
+}
+
+-- ================= Fabriques d'effets =================
+
+local function emetteur(props: {[string]: any}): ParticleEmitter
+	local e = Instance.new("ParticleEmitter")
+	e.LightEmission = 1
+	for cle, valeur in props do
+		e[cle] = valeur
+	end
+	return e
+end
+
+local function flammes(): ParticleEmitter
+	return emetteur({
+		Name = "Flammes",
+		Texture = TEX_FEU,
+		Color = ColorSequence.new(Color3.fromRGB(255, 210, 110), BRAISE),
+		Size = NumberSequence.new(0.5, 0),
+		Transparency = NumberSequence.new(0.15, 1),
+		Lifetime = NumberRange.new(0.3, 0.6),
+		Rate = 30,
+		Speed = NumberRange.new(1, 2.5),
+		SpreadAngle = Vector2.new(25, 25),
+		Acceleration = Vector3.new(0, 6, 0),
+		Rotation = NumberRange.new(0, 360),
+		RotSpeed = NumberRange.new(-90, 90),
+	})
+end
+
+local function etincelles(): ParticleEmitter
+	return emetteur({
+		Name = "Etincelles",
+		Texture = TEX_ETINCELLE,
+		Color = ColorSequence.new(Color3.fromRGB(255, 225, 150), ORANGE),
+		Size = NumberSequence.new(0.16, 0),
+		Lifetime = NumberRange.new(0.4, 0.9),
+		Rate = 10,
+		Speed = NumberRange.new(3, 7),
+		SpreadAngle = Vector2.new(70, 70),
+		Acceleration = Vector3.new(0, -25, 0),
+	})
+end
+
+local function gouttesLave(): ParticleEmitter
+	return emetteur({
+		Name = "GouttesLave",
+		Texture = TEX_ETINCELLE,
+		Color = ColorSequence.new(Color3.fromRGB(255, 200, 90), BRAISE),
+		Size = NumberSequence.new(0.14, 0.05),
+		Lifetime = NumberRange.new(0.6, 1),
+		Rate = 4,
+		Speed = NumberRange.new(0.2, 0.6),
+		EmissionDirection = Enum.NormalId.Bottom,
+		Acceleration = Vector3.new(0, -22, 0),
+	})
+end
+
+local function fumee(): ParticleEmitter
+	return emetteur({
+		Name = "Fumee",
+		Texture = TEX_FUMEE,
+		LightEmission = 0,
+		Color = ColorSequence.new(Color3.fromRGB(60, 50, 45)),
+		Size = NumberSequence.new(0.8, 2.6),
+		Transparency = NumberSequence.new(0.5, 1),
+		Lifetime = NumberRange.new(1, 1.6),
+		Rate = 4,
+		Speed = NumberRange.new(1, 2),
+		Acceleration = Vector3.new(0, 2, 0),
+		RotSpeed = NumberRange.new(-40, 40),
+	})
+end
+
+local function son(parent: Instance, id: string, volume: number, vitesse: number?)
+	local s = Instance.new("Sound")
+	s.SoundId = id
+	s.Volume = volume
+	s.PlaybackSpeed = vitesse or 1
+	s.RollOffMaxDistance = 90
+	s.Parent = parent
+	s:Play()
+	Debris:AddItem(s, 4)
+end
+
+-- Pièce d'effet ancrée, sans collision, invisible aux détections
+local function effetPart(props: {[string]: any}): Part
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Material = Enum.Material.Neon
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	for cle, valeur in props do
+		p[cle] = valeur
+	end
+	p.Parent = workspace
+	return p
+end
+
+-- Point invisible où accrocher des particules
+local function ancre(position: Vector3, duree: number): Part
+	local p = effetPart({Transparency = 1, Size = Vector3.new(0.2, 0.2, 0.2), Position = position})
+	Debris:AddItem(p, duree)
+	return p
+end
+
+local function sol(position: Vector3): Vector3?
+	local exclus = {}
+	for _, j in Players:GetPlayers() do
+		if j.Character then
+			table.insert(exclus, j.Character)
+		end
+	end
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = exclus
+	local r = workspace:Raycast(position + Vector3.new(0, 3, 0), Vector3.new(0, -15, 0), params)
+	return r and r.Position or nil
+end
+
+local function onde(position: Vector3, rayon: number, couleur: Color3, duree: number)
+	local cf = CFrame.new(position) * CFrame.Angles(0, 0, math.rad(90))
+	local p = effetPart({Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.15, 1, 1), CFrame = cf, Color = couleur, Transparency = 0.05})
+	TweenService:Create(p, TweenInfo.new(duree, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		Size = Vector3.new(0.15, rayon * 2, rayon * 2),
+		Transparency = 1,
+	}):Play()
+	Debris:AddItem(p, duree + 0.1)
+end
+
+local function brulureSol(position: Vector3, taille: number)
+	local p = sol(position)
+	if not p then return end
+	local cf = CFrame.new(p + Vector3.new(0, 0.03, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	local tache = effetPart({Shape = Enum.PartType.Cylinder, Material = Enum.Material.Slate, Color = CENDRE, Size = Vector3.new(0.05, taille * 2, taille * 2), CFrame = cf, Transparency = 0.1})
+	local braise = effetPart({Shape = Enum.PartType.Cylinder, Color = BRAISE, Size = Vector3.new(0.07, taille * 1.3, taille * 1.3), CFrame = cf, Transparency = 0.2})
+	TweenService:Create(braise, TweenInfo.new(2), {Transparency = 1, Size = Vector3.new(0.07, taille * 0.3, taille * 0.3)}):Play()
+	TweenService:Create(tache, TweenInfo.new(5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 1}):Play()
+	Debris:AddItem(braise, 2.1)
+	Debris:AddItem(tache, 5.1)
+end
+
+-- Impact : force 1 = coup normal, 3 = éruption
+local function impact(position: Vector3, force: number)
+	onde(position, 3 + 2 * force, ORANGE, 0.3 + 0.12 * force)
+
+	local a = ancre(position, 3)
+	local att = Instance.new("Attachment")
+	att.Parent = a
+
+	local f = flammes()
+	f.Rate = 0
+	f.Speed = NumberRange.new(4, 9)
+	f.SpreadAngle = Vector2.new(60, 60)
+	f.Size = NumberSequence.new(0.9, 0)
+	f.Parent = att
+	f:Emit(math.floor(18 * force))
+
+	local e = etincelles()
+	e.Rate = 0
+	e.Speed = NumberRange.new(10, 22)
+	e.SpreadAngle = Vector2.new(80, 80)
+	e.Parent = att
+	e:Emit(math.floor(30 * force))
+
+	local s = fumee()
+	s.Rate = 0
+	s.Parent = att
+	s:Emit(math.floor(5 * force))
+
+	local l = Instance.new("PointLight")
+	l.Color = ORANGE
+	l.Brightness = 5 * force
+	l.Range = 10 + 5 * force
+	l.Parent = a
+	TweenService:Create(l, TweenInfo.new(0.35 + 0.1 * force), {Brightness = 0}):Play()
+
+	brulureSol(position, 1 + 0.5 * force)
+	fxEvent:FireAllClients("impact", position, force)
+end
+
+-- Le minerai explose en éclats brûlants qui refroidissent
+local function eclats(bloc: BasePart)
+	local taille = math.max(bloc.Size.X, bloc.Size.Y, bloc.Size.Z)
+	for i = 1, 12 do
+		local t = (0.2 + math.random() * 0.3) * math.min(taille, 4)
+		local e = Instance.new("Part")
+		e.Size = Vector3.new(t, t, t)
+		e.CFrame = bloc.CFrame
+			* CFrame.new((math.random() - 0.5) * bloc.Size.X, (math.random() - 0.5) * bloc.Size.Y, (math.random() - 0.5) * bloc.Size.Z)
+			* CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6)
+		e.Color = (i % 3 == 0) and bloc.Color or ORANGE
+		e.Material = Enum.Material.Neon
+		e.CanQuery = false
+		e.CanTouch = false
+		e.TopSurface = Enum.SurfaceType.Smooth
+		e.BottomSurface = Enum.SurfaceType.Smooth
+		e.Parent = workspace
+		e.AssemblyLinearVelocity = Vector3.new(math.random(-18, 18), math.random(18, 34), math.random(-18, 18))
+		e.AssemblyAngularVelocity = Vector3.new(math.random(-10, 10), math.random(-10, 10), math.random(-10, 10))
+		if i % 4 == 0 then
+			local f = flammes()
+			f.Rate = 15
+			f.Size = NumberSequence.new(0.35, 0)
+			f.Parent = e
+		end
+		TweenService:Create(e, TweenInfo.new(1.5), {Color = CENDRE}):Play()
+		task.delay(1.6, function()
+			if e.Parent then
+				TweenService:Create(e, TweenInfo.new(0.5), {Transparency = 1, Size = e.Size * 0.3}):Play()
+			end
+		end)
+		Debris:AddItem(e, 2.2)
+	end
+	impact(bloc.Position, 1.5)
+end
+
+local function frapperMinerai(bloc: BasePart, joueur: Player?, degats: number)
+	if not bloc.Parent or not CollectionService:HasTag(bloc, CONFIG.TAG_MINERAI) then return end
+	local pvMax = bloc:GetAttribute("PVMax") or bloc:GetAttribute("PV") or 3
+	bloc:SetAttribute("PVMax", pvMax)
+	local pv = (bloc:GetAttribute("PV") or pvMax) - degats
+	bloc:SetAttribute("PV", pv)
+
+	-- Le bloc rougit un peu plus à chaque coup
+	local lueur = bloc:FindFirstChild("Chauffe")
+	if not lueur then
+		lueur = Instance.new("Highlight")
+		lueur.Name = "Chauffe"
+		lueur.FillColor = ORANGE
+		lueur.OutlineColor = BLANC_CHAUD
+		lueur.DepthMode = Enum.HighlightDepthMode.Occluded
+		lueur.Parent = bloc
+	end
+	local chauffe = math.clamp(1 - pv / pvMax, 0, 1)
+	lueur.FillTransparency = 1 - 0.65 * chauffe
+	lueur.OutlineTransparency = 1 - 0.8 * chauffe
+
+	if pv <= 0 then
+		CollectionService:RemoveTag(bloc, CONFIG.TAG_MINERAI)
+		eclats(bloc)
+		mineraiCasse:Fire(joueur, bloc)
+		bloc.Transparency = 1
+		bloc.CanCollide = false
+		bloc.CanQuery = false
+		lueur:Destroy()
+		Debris:AddItem(bloc, 1)
+	end
+end
+
+-- La cible tombe en cendres
+local function incinerer(perso: Model)
+	for _, partie in perso:GetDescendants() do
+		if partie:IsA("BasePart") and partie.Transparency < 1 then
+			TweenService:Create(partie, TweenInfo.new(0.8), {Color = CENDRE}):Play()
+		end
+	end
+	local racine = perso:FindFirstChild("HumanoidRootPart")
+	if racine then
+		local att = Instance.new("Attachment")
+		att.Parent = racine
+		local s = fumee()
+		s.Rate = 0
+		s.Color = ColorSequence.new(Color3.fromRGB(90, 85, 80))
+		s.Parent = att
+		s:Emit(25)
+		local e = etincelles()
+		e.Rate = 0
+		e.Parent = att
+		e:Emit(40)
+		Debris:AddItem(att, 3)
+	end
+end
+
+-- Brûlure : dégâts sur la durée, la cible flambe de partout. Un nouveau coup prolonge la brûlure.
+local function bruler(humanoid: Humanoid)
+	local fin = os.clock() + CONFIG.BRULURE_TICKS * CONFIG.BRULURE_INTERVALLE
+	local enCours = humanoid:GetAttribute("BrulureFin")
+	humanoid:SetAttribute("BrulureFin", fin)
+	if enCours and enCours > os.clock() then return end
+
+	local perso = humanoid.Parent
+	if not perso then return end
+
+	local effets = {}
+	for _, partie in perso:GetChildren() do
+		if partie:IsA("BasePart") and partie.Name ~= "HumanoidRootPart" then
+			local f = flammes()
+			f.Rate = 8
+			f.Size = NumberSequence.new(0.7, 0)
+			f.Parent = partie
+			table.insert(effets, f)
+		end
+	end
+	local racine = perso:FindFirstChild("HumanoidRootPart")
+	if racine then
+		local feu = Instance.new("Fire")
+		feu.Color = ORANGE
+		feu.SecondaryColor = BRAISE
+		feu.Size = 6
+		feu.Heat = 9
+		feu.Parent = racine
+		table.insert(effets, feu)
+		local s = fumee()
+		s.Parent = racine
+		table.insert(effets, s)
+		local l = Instance.new("PointLight")
+		l.Color = ORANGE
+		l.Brightness = 2
+		l.Range = 10
+		l.Parent = racine
+		table.insert(effets, l)
+	end
+
+	task.spawn(function()
+		while humanoid.Parent and humanoid.Health > 0 and os.clock() < (humanoid:GetAttribute("BrulureFin") or 0) do
+			task.wait(CONFIG.BRULURE_INTERVALLE)
+			if humanoid.Health > 0 then
+				humanoid:TakeDamage(CONFIG.BRULURE_DEGATS)
+			end
+		end
+		local mort = humanoid.Health <= 0
+		for _, ef in effets do
+			ef:Destroy()
+		end
+		humanoid:SetAttribute("BrulureFin", nil)
+		if mort and perso.Parent then
+			incinerer(perso)
+		end
+	end)
+end
+
+local function toucherCible(cible: Humanoid, modele: Model, degats: number): boolean
+	if cible.Health <= 0 then return false end
+	if not CONFIG.PVP and Players:GetPlayerFromCharacter(modele) then return false end
+	cible:TakeDamage(degats)
+	bruler(cible)
+	return true
+end
+
+local function eruption(position: Vector3, perso: Model, joueur: Player?)
+	local base = sol(position) or position
+	impact(position, 3)
+
+	local a = ancre(base, 4)
+	son(a, SONS.ERUPTION, 1, 0.6)
+
+	task.delay(0.08, function()
+		onde(base + Vector3.new(0, 0.2, 0), CONFIG.ERUPTION_RAYON, BLANC_CHAUD, 0.55)
+	end)
+	task.delay(0.2, function()
+		onde(base + Vector3.new(0, 0.2, 0), CONFIG.ERUPTION_RAYON * 1.4, BRAISE, 0.9)
+	end)
+
+	-- Colonne de feu
+	local colonne = effetPart({
+		Shape = Enum.PartType.Cylinder,
+		Color = BLANC_CHAUD,
+		Size = Vector3.new(1, 3, 3),
+		CFrame = CFrame.new(base) * CFrame.Angles(0, 0, math.rad(90)),
+	})
+	TweenService:Create(colonne, TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		Size = Vector3.new(30, 6, 6),
+		CFrame = CFrame.new(base + Vector3.new(0, 15, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+		Transparency = 1,
+		Color = ORANGE,
+	}):Play()
+	Debris:AddItem(colonne, 0.7)
+
+	local att = Instance.new("Attachment")
+	att.Parent = a
+	local jet = flammes()
+	jet.Rate = 0
+	jet.Speed = NumberRange.new(25, 45)
+	jet.SpreadAngle = Vector2.new(8, 8)
+	jet.Size = NumberSequence.new(2.2, 0)
+	jet.Lifetime = NumberRange.new(0.6, 1)
+	jet.Acceleration = Vector3.zero
+	jet.Parent = att
+	jet:Emit(60)
+
+	-- Cercle de geysers
+	for i = 1, 8 do
+		local angle = (i / 8) * math.pi * 2
+		local p = base + Vector3.new(math.cos(angle), 0, math.sin(angle)) * CONFIG.ERUPTION_RAYON * 0.65
+		task.delay(0.15 + 0.04 * i, function()
+			local g = ancre(p, 2.5)
+			local ga = Instance.new("Attachment")
+			ga.Parent = g
+			local f = flammes()
+			f.Rate = 0
+			f.Speed = NumberRange.new(14, 24)
+			f.SpreadAngle = Vector2.new(10, 10)
+			f.Size = NumberSequence.new(1.4, 0)
+			f.Lifetime = NumberRange.new(0.5, 0.9)
+			f.Parent = ga
+			f:Emit(22)
+			local e = etincelles()
+			e.Rate = 0
+			e.Speed = NumberRange.new(12, 20)
+			e.Parent = ga
+			e:Emit(15)
+			brulureSol(p, 1.6)
+		end)
+	end
+
+	fxEvent:FireAllClients("eruption", position, 3)
+
+	-- Dégâts de zone
+	local params = OverlapParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = {perso}
+	local vus = {}
+	for _, partie in workspace:GetPartBoundsInRadius(base, CONFIG.ERUPTION_RAYON, params) do
+		local modele = partie:FindFirstAncestorOfClass("Model")
+		local cible = modele and modele:FindFirstChildOfClass("Humanoid")
+		if cible then
+			if not vus[cible] then
+				vus[cible] = true
+				toucherCible(cible, modele, CONFIG.ERUPTION_DEGATS)
+			end
+		elseif CollectionService:HasTag(partie, CONFIG.TAG_MINERAI) and not vus[partie] then
+			vus[partie] = true
+			frapperMinerai(partie, joueur, CONFIG.ERUPTION_MINERAI)
+		end
+	end
+end
+
+-- ================= L'outil =================
+
+local function creerPioche(): Tool
+	local tool = Instance.new("Tool")
+	tool.Name = "Pioche de Braise"
+	tool.ToolTip = "Enflamme tout ce qu'elle frappe"
+	tool.CanBeDropped = false
+	tool.Grip = GRIP
+
+	local handle
+	local neons = {}
+	for i, d in ipairs(PARTS) do
+		local p = Instance.new("Part")
+		p.Name = d[1]
+		p.Size = d[2]
+		p.Color = d[4]
+		p.Material = d[5]
+		p.CanCollide = false
+		p.Massless = true
+		p.TopSurface = Enum.SurfaceType.Smooth
+		p.BottomSurface = Enum.SurfaceType.Smooth
+		if i == 1 then
+			handle = p
+			p.CFrame = d[3]
+		else
+			p.CFrame = handle.CFrame * d[3]
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = handle
+			weld.Part1 = p
+			weld.Parent = p
+		end
+		if d[5] == Enum.Material.Neon then
+			table.insert(neons, {partie = p, couleur = d[4]})
+		end
+		p.Parent = tool
+	end
+
+	-- Effets permanents au bout du pic
+	local pointe = Instance.new("Attachment")
+	pointe.Name = "Pointe"
+	pointe.CFrame = CFrame.new(0, 1.7, -2.3)
+	pointe.Parent = handle
+	local flammesPointe = flammes()
+	flammesPointe.Parent = pointe
+	etincelles().Parent = pointe
+	gouttesLave().Parent = pointe
+
+	-- Aura de chaleur autour de la tête (visible quand la pioche est bien chaude)
+	local centre = Instance.new("Attachment")
+	centre.Name = "Centre"
+	centre.CFrame = CFrame.new(0, 2.05, 0)
+	centre.Parent = handle
+	local aura = emetteur({
+		Name = "Aura",
+		Texture = TEX_FEU,
+		Color = ColorSequence.new(ORANGE),
+		Size = NumberSequence.new(1.6, 0.4),
+		Transparency = NumberSequence.new(0.75, 1),
+		Lifetime = NumberRange.new(0.4, 0.7),
+		Rate = 6,
+		Speed = NumberRange.new(0.5, 1),
+		SpreadAngle = Vector2.new(180, 180),
+	})
+	aura.Parent = centre
+
+	-- Braises qui flottent autour de la tête
+	local braisesFlottantes = emetteur({
+		Name = "BraisesFlottantes",
+		Texture = TEX_ETINCELLE,
+		Color = ColorSequence.new(Color3.fromRGB(255, 220, 140), ORANGE),
+		Size = NumberSequence.new(0.14, 0),
+		Lifetime = NumberRange.new(1, 1.6),
+		Rate = 6,
+		Speed = NumberRange.new(0.3, 0.8),
+		SpreadAngle = Vector2.new(180, 180),
+		Acceleration = Vector3.new(0, 1.5, 0),
+		LockedToPart = true,
+	})
+	braisesFlottantes.Parent = centre
+
+	-- Traînée de feu pendant la frappe
+	local t0 = Instance.new("Attachment")
+	t0.CFrame = CFrame.new(0, 1.75, -2.2)
+	t0.Parent = handle
+	local t1 = Instance.new("Attachment")
+	t1.CFrame = CFrame.new(0, 2.4, -0.4)
+	t1.Parent = handle
+	local trainee = Instance.new("Trail")
+	trainee.Attachment0 = t0
+	trainee.Attachment1 = t1
+	trainee.Lifetime = 0.22
+	trainee.LightEmission = 1
+	trainee.Color = ColorSequence.new(BLANC_CHAUD, BRAISE)
+	trainee.Transparency = NumberSequence.new(0.1, 1)
+	trainee.WidthScale = NumberSequence.new(1, 0.3)
+	trainee.Enabled = false
+	trainee.Parent = handle
+
+	local lumiere = Instance.new("PointLight")
+	lumiere.Color = ORANGE
+	lumiere.Brightness = 2
+	lumiere.Range = 9
+	lumiere.Parent = tool:FindFirstChild("Tete")
+
+	-- ===== Chaleur =====
+	local chaleur = 0
+	local derniere = -1
+	tool:SetAttribute("Chaleur", 0)
+
+	local function appliquerChaleur()
+		local h = chaleur / 100
+		if math.abs(h - derniere) < 0.02 then return end
+		derniere = h
+		local surchauffe = chaleur >= 100
+		for _, n in neons do
+			n.partie.Color = surchauffe and BLEU or n.couleur:Lerp(BLANC_CHAUD, h * 0.8)
+		end
+		lumiere.Color = surchauffe and BLEU or ORANGE
+		lumiere.Brightness = 2 + 5 * h
+		lumiere.Range = 9 + 7 * h
+		flammesPointe.Rate = 30 + 60 * h
+		flammesPointe.Color = surchauffe
+			and ColorSequence.new(Color3.fromRGB(210, 245, 255), Color3.fromRGB(40, 120, 255))
+			or ColorSequence.new(Color3.fromRGB(255, 210, 110), BRAISE)
+		aura.Rate = 6 + 24 * h
+		aura.Color = ColorSequence.new(surchauffe and BLEU or ORANGE)
+		braisesFlottantes.Rate = 6 + 14 * h
+		braisesFlottantes.Color = surchauffe
+			and ColorSequence.new(Color3.fromRGB(220, 245, 255), BLEU)
+			or ColorSequence.new(Color3.fromRGB(255, 220, 140), ORANGE)
+		trainee.Color = surchauffe
+			and ColorSequence.new(Color3.fromRGB(220, 245, 255), BLEU)
+			or ColorSequence.new(BLANC_CHAUD, BRAISE)
+		tool:SetAttribute("Chaleur", math.floor(chaleur + 0.5))
+	end
+	appliquerChaleur()
+
+	task.defer(function()
+		while tool.Parent do
+			local dt = task.wait(0.1)
+			if chaleur > 0 and chaleur < 100 then
+				chaleur = math.max(0, chaleur - CONFIG.CHALEUR_PERTE * dt)
+				appliquerChaleur()
+			end
+		end
+	end)
+
+	-- ===== Frappe =====
+	local dernierCoup = 0
+	local occupe = false
+
+	local function coup()
+		local perso = tool.Parent
+		if not perso or not perso:IsA("Model") then return end
+		local humanoid = perso:FindFirstChildOfClass("Humanoid")
+		local racine = perso:FindFirstChild("HumanoidRootPart")
+		if not humanoid or humanoid.Health <= 0 or not racine then return end
+		if occupe or os.clock() - dernierCoup < CONFIG.RECHARGE then return end
+		dernierCoup = os.clock()
+		occupe = true
+
+		-- Mouvement de frappe (pas besoin d'animation importée)
+		trainee.Enabled = true
+		son(handle, SONS.FRAPPE, 0.6, 0.9 + math.random() * 0.2)
+		task.spawn(function()
+			for _, etape in ipairs({{35, 0.07}, {70, 0.07}, {-40, 0.05}, {-25, 0.08}, {0, 0.08}}) do
+				tool.Grip = GRIP * CFrame.Angles(math.rad(etape[1]), 0, 0)
+				task.wait(etape[2])
+			end
+			trainee.Enabled = false
+			occupe = false
+		end)
+
+		task.wait(0.17)
+		if tool.Parent ~= perso then return end
+
+		local params = OverlapParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		params.FilterDescendantsInstances = {perso}
+		local zone = racine.CFrame * CFrame.new(0, -0.5, -CONFIG.PORTEE / 2)
+		local touches = workspace:GetPartBoundsInBox(zone, Vector3.new(4, 6, CONFIG.PORTEE), params)
+
+		local joueur = Players:GetPlayerFromCharacter(perso)
+		local cibles = {}
+		local minerai, distMin = nil, math.huge
+		for _, partie in touches do
+			local modele = partie:FindFirstAncestorOfClass("Model")
+			local cible = modele and modele:FindFirstChildOfClass("Humanoid")
+			if cible then
+				cibles[cible] = modele
+			elseif CollectionService:HasTag(partie, CONFIG.TAG_MINERAI) then
+				local d = (partie.Position - racine.Position).Magnitude
+				if d < distMin then
+					minerai, distMin = partie, d
+				end
+			end
+		end
+
+		local surchauffe = chaleur >= 100
+		local aTouche = minerai ~= nil
+		local point = minerai and (minerai.Position + Vector3.new(0, minerai.Size.Y / 2, 0)) or nil
+		for cible, modele in cibles do
+			local degats = surchauffe and 0 or CONFIG.DEGATS_COUP -- en surchauffe, l'éruption s'en charge
+			if surchauffe and cible.Health > 0 and (CONFIG.PVP or not Players:GetPlayerFromCharacter(modele)) then
+				aTouche = true
+			elseif degats > 0 and toucherCible(cible, modele, degats) then
+				aTouche = true
+			end
+			if aTouche and not point then
+				local r = modele:FindFirstChild("HumanoidRootPart")
+				point = r and r.Position or nil
+			end
+		end
+		point = point or (racine.Position + racine.CFrame.LookVector * 3)
+
+		if not aTouche then
+			-- Coup dans le vide : quelques étincelles au sol
+			local p = sol(racine.Position + racine.CFrame.LookVector * 3)
+			if p then
+				local a = ancre(p, 1.5)
+				local att = Instance.new("Attachment")
+				att.Parent = a
+				local e = etincelles()
+				e.Rate = 0
+				e.Parent = att
+				e:Emit(12)
+			end
+			return
+		end
+
+		if surchauffe then
+			chaleur = 0
+			appliquerChaleur()
+			eruption(point, perso, joueur)
+		else
+			chaleur = math.min(100, chaleur + CONFIG.CHALEUR_PAR_COUP)
+			appliquerChaleur()
+			impact(point, 1)
+			if minerai then
+				frapperMinerai(minerai, joueur, CONFIG.DEGATS_MINERAI)
+			end
+		end
+	end
+
+	tool.Activated:Connect(coup)
+	tool.Equipped:Connect(function()
+		son(handle, SONS.EQUIPER, 0.5)
+	end)
+	return tool
+end
+
+-- ================= Distribution =================
+
+local function donnerPioche(joueur: Player)
+	local sac = joueur:WaitForChild("Backpack")
+	if not sac:FindFirstChild("Pioche de Braise") then
+		creerPioche().Parent = sac
+	end
+end
+
+local function surJoueur(joueur: Player)
+	joueur.CharacterAdded:Connect(function()
+		donnerPioche(joueur)
+	end)
+	if joueur.Character then
+		donnerPioche(joueur)
+	end
+end
+
+Players.PlayerAdded:Connect(surJoueur)
+for _, joueur in Players:GetPlayers() do
+	surJoueur(joueur)
+end
+</script>
+
+<script type="text/plain" id="luau-pioche-client">
+-- Pioche de Braise v2 · SCRIPT CLIENT
+-- Où : StarterPlayer > StarterPlayerScripts > LocalScript
+-- Ce que seul ton écran voit : secousses de caméra, flash, zoom de l'éruption,
+-- l'aura (anneaux de runes, braises en orbite, sceau au sol)
+-- et la jauge de chaleur quand tu tiens la pioche.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+
+local joueur = Players.LocalPlayer
+local fxEvent = ReplicatedStorage:WaitForChild("PiocheFX")
+
+local NOM_OUTIL = "Pioche de Braise"
+local ORANGE = Color3.fromRGB(255, 120, 30)
+local BLANC_CHAUD = Color3.fromRGB(255, 236, 190)
+local BLEU = Color3.fromRGB(110, 200, 255)
+local BLANC = Color3.new(1, 1, 1)
+
+-- ================= Secousse, flash et zoom =================
+
+local secousse = 0
+local FOV_BASE = workspace.CurrentCamera.FieldOfView
+
+local flash = Instance.new("ColorCorrectionEffect")
+flash.Name = "PiocheFlash"
+flash.Parent = Lighting
+
+local function eclair(force: number, couleur: Color3)
+	flash.TintColor = BLANC:Lerp(couleur, math.clamp(force * 0.25, 0, 0.6))
+	flash.Brightness = 0.06 * force
+	flash.Contrast = 0.08 * force
+	TweenService:Create(flash, TweenInfo.new(0.3 + 0.1 * force), {
+		TintColor = BLANC,
+		Brightness = 0,
+		Contrast = 0,
+	}):Play()
+end
+
+fxEvent.OnClientEvent:Connect(function(genre: string, position: Vector3, force: number)
+	local camera = workspace.CurrentCamera
+	local distance = (position - camera.CFrame.Position).Magnitude
+	local proche = math.clamp(1 - distance / 80, 0, 1)
+	if proche <= 0 then return end
+
+	secousse = math.max(secousse, force * proche)
+	if genre == "eruption" then
+		eclair(force * proche, BLEU)
+		local monte = TweenService:Create(camera, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			FieldOfView = FOV_BASE + 14 * proche,
+		})
+		monte:Play()
+		monte.Completed:Once(function()
+			TweenService:Create(camera, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				FieldOfView = FOV_BASE,
+			}):Play()
+		end)
+	else
+		eclair(force * proche, ORANGE)
+	end
+end)
+
+RunService:BindToRenderStep("PiocheSecousse", Enum.RenderPriority.Camera.Value + 1, function(dt)
+	if secousse < 0.01 then
+		secousse = 0
+		return
+	end
+	local camera = workspace.CurrentCamera
+	local t = os.clock() * 30
+	local rx = math.noise(t, 0.31) * secousse * 0.04
+	local ry = math.noise(0.73, t) * secousse * 0.04
+	local rz = math.noise(t, t * 0.5) * secousse * 0.02
+	camera.CFrame = camera.CFrame * CFrame.Angles(rx, ry, rz)
+	secousse *= math.exp(-dt * 6)
+end)
+
+-- ================= Aura de la pioche =================
+-- Chaque client dessine l'aura de toutes les pioches équipées (la sienne et celles des autres).
+-- Les pièces vivent dans la caméra : elles ne sont pas répliquées et restent fluides.
+
+local auras = {}
+
+local function cubeNeon(parent: Instance, taille: Vector3): Part
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Material = Enum.Material.Neon
+	p.Size = taille
+	p.Color = ORANGE
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Parent = parent
+	return p
+end
+
+local function creerAura()
+	local dossier = Instance.new("Folder")
+	dossier.Name = "AuraPioche"
+	dossier.Parent = workspace.CurrentCamera
+	local a = {dossier = dossier, anneau1 = {}, anneau2 = {}, braises = {}, hexagone = {}}
+	for i = 1, 12 do a.anneau1[i] = cubeNeon(dossier, Vector3.new(0.12, 0.06, 0.2)) end
+	for i = 1, 9 do a.anneau2[i] = cubeNeon(dossier, Vector3.new(0.1, 0.05, 0.17)) end
+	for i = 1, 6 do a.braises[i] = cubeNeon(dossier, Vector3.new(0.16, 0.16, 0.16)) end
+	for i = 1, 6 do a.hexagone[i] = cubeNeon(dossier, Vector3.new(2.2, 0.05, 0.12)) end
+	a.disque = cubeNeon(dossier, Vector3.new(0.04, 4.4, 4.4))
+	a.disque.Shape = Enum.PartType.Cylinder
+	a.cercle = cubeNeon(dossier, Vector3.new(0.05, 2.6, 2.6))
+	a.cercle.Shape = Enum.PartType.Cylinder
+	return a
+end
+
+local function placerAura(a, handle: BasePart, racine: BasePart, humanoid: Humanoid, chaleur: number, t: number)
+	local h = math.clamp(chaleur / 100, 0, 1)
+	local surchauffe = chaleur >= 100
+	local couleur = surchauffe and BLEU or ORANGE:Lerp(BLANC_CHAUD, h * 0.55)
+	local vitesse = 1 + 2 * h
+
+	-- Anneaux de runes autour de la tête de la pioche
+	local tete = handle.CFrame * CFrame.new(0, 2.05, -0.3)
+	local cf1 = tete * CFrame.Angles(1.15, 0, 0.2) * CFrame.Angles(0, t * vitesse, 0)
+	for i, p in a.anneau1 do
+		local ang = (i / #a.anneau1) * math.pi * 2
+		p.CFrame = cf1 * CFrame.Angles(0, ang, 0) * CFrame.new(1.15, 0, 0)
+		p.Color = couleur
+		p.Transparency = 0.35 - 0.3 * h
+	end
+	local cf2 = tete * CFrame.Angles(0.4, 0, 1.0) * CFrame.Angles(0, -t * vitesse * 0.8, 0)
+	for i, p in a.anneau2 do
+		local ang = (i / #a.anneau2) * math.pi * 2
+		p.CFrame = cf2 * CFrame.Angles(0, ang, 0) * CFrame.new(1.45, 0, 0)
+		p.Color = couleur
+		p.Transparency = 0.35 - 0.3 * h
+	end
+
+	-- Braises en orbite
+	for i, p in a.braises do
+		local ang = t * (1.5 + h) + i * math.pi / 3
+		local r = 1.5 + 0.15 * math.sin(t * 2 + i)
+		p.CFrame = handle.CFrame
+			* CFrame.new(math.cos(ang) * r, 2.05 + math.sin(t * 3 + i) * 0.5, -0.3 + math.sin(ang) * r)
+			* CFrame.Angles(t * 3 + i, t * 2, 0)
+		p.Color = couleur
+	end
+
+	-- Sceau de feu au sol, sous le joueur
+	local y = racine.Position.Y - (humanoid.HipHeight + racine.Size.Y / 2) + 0.05
+	local base = CFrame.new(racine.Position.X, y, racine.Position.Z) * CFrame.Angles(0, t * 0.5, 0)
+	local apotheme = 2.2 * math.cos(math.rad(30))
+	for i, p in a.hexagone do
+		local theta = math.rad(i * 60 + 30)
+		p.CFrame = base * CFrame.new(math.cos(theta) * apotheme, 0, math.sin(theta) * apotheme) * CFrame.Angles(0, -(theta + math.pi / 2), 0)
+		p.Color = couleur
+		p.Transparency = 0.45 - 0.3 * h
+	end
+	local plat = CFrame.Angles(0, 0, math.rad(90))
+	a.disque.CFrame = CFrame.new(base.Position) * plat
+	a.disque.Color = couleur
+	a.disque.Transparency = 0.9 - 0.12 * h - 0.04 * math.sin(t * 4)
+	local s = 2.6 * (1 + 0.05 * math.sin(t * 4))
+	a.cercle.Size = Vector3.new(0.05, s, s)
+	a.cercle.CFrame = CFrame.new(base.Position + Vector3.new(0, 0.01, 0)) * plat
+	a.cercle.Color = couleur
+	a.cercle.Transparency = 0.75 - 0.25 * h
+end
+
+RunService.RenderStepped:Connect(function()
+	local t = os.clock()
+	local vues = {}
+	for _, j in Players:GetPlayers() do
+		local perso = j.Character
+		local outil = perso and perso:FindFirstChild(NOM_OUTIL)
+		local handle = outil and outil:FindFirstChild("Handle")
+		local racine = perso and perso:FindFirstChild("HumanoidRootPart")
+		local humanoid = perso and perso:FindFirstChildOfClass("Humanoid")
+		if handle and racine and humanoid and humanoid.Health > 0 then
+			vues[outil] = true
+			local a = auras[outil]
+			if not a then
+				a = creerAura()
+				auras[outil] = a
+			end
+			placerAura(a, handle, racine, humanoid, outil:GetAttribute("Chaleur") or 0, t)
+		end
+	end
+	for outil, a in auras do
+		if not vues[outil] then
+			a.dossier:Destroy()
+			auras[outil] = nil
+		end
+	end
+end)
+
+-- ================= Jauge de chaleur =================
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "PiocheChaleur"
+gui.ResetOnSpawn = false
+gui.Enabled = false
+gui.Parent = joueur:WaitForChild("PlayerGui")
+
+local cadre = Instance.new("Frame")
+cadre.AnchorPoint = Vector2.new(0.5, 1)
+cadre.Position = UDim2.new(0.5, 0, 1, -100)
+cadre.Size = UDim2.fromOffset(280, 12)
+cadre.BackgroundColor3 = Color3.fromRGB(25, 18, 15)
+cadre.BorderSizePixel = 0
+cadre.Parent = gui
+
+local coin = Instance.new("UICorner")
+coin.CornerRadius = UDim.new(1, 0)
+coin.Parent = cadre
+
+local contour = Instance.new("UIStroke")
+contour.Color = ORANGE
+contour.Thickness = 1.5
+contour.Transparency = 0.3
+contour.Parent = cadre
+
+local rempli = Instance.new("Frame")
+rempli.Size = UDim2.fromScale(0, 1)
+rempli.BackgroundColor3 = ORANGE
+rempli.BorderSizePixel = 0
+rempli.Parent = cadre
+
+local coin2 = Instance.new("UICorner")
+coin2.CornerRadius = UDim.new(1, 0)
+coin2.Parent = rempli
+
+local texte = Instance.new("TextLabel")
+texte.BackgroundTransparency = 1
+texte.AnchorPoint = Vector2.new(0.5, 1)
+texte.Position = UDim2.new(0.5, 0, 0, -4)
+texte.Size = UDim2.new(1, 160, 0, 20)
+texte.Font = Enum.Font.GothamBold
+texte.TextSize = 15
+texte.TextColor3 = BLANC
+texte.TextStrokeTransparency = 0.4
+texte.Parent = cadre
+
+local affichee = 0
+RunService.RenderStepped:Connect(function(dt)
+	local perso = joueur.Character
+	local outil = perso and perso:FindFirstChild(NOM_OUTIL)
+	gui.Enabled = outil ~= nil
+	if not outil then return end
+
+	local chaleur = (outil:GetAttribute("Chaleur") or 0) / 100
+	affichee += (chaleur - affichee) * math.min(1, dt * 12)
+	rempli.Size = UDim2.fromScale(affichee, 1)
+
+	if chaleur >= 1 then
+		local p = (math.sin(os.clock() * 12) + 1) / 2
+		rempli.BackgroundColor3 = BLEU:Lerp(BLANC, p * 0.5)
+		contour.Color = BLEU
+		texte.Text = "SURCHAUFFE · prochain coup = ÉRUPTION"
+		texte.TextColor3 = BLEU:Lerp(BLANC, p)
+	else
+		rempli.BackgroundColor3 = ORANGE:Lerp(BLANC_CHAUD, chaleur)
+		contour.Color = ORANGE
+		texte.Text = "CHALEUR " .. math.floor(chaleur * 100 + 0.5) .. " %"
+		texte.TextColor3 = BLANC
+	end
+end)
+</script>
+
+<script type="text/plain" id="luau-minerais-serveur">
+-- Minerais · SCRIPT SERVEUR
+-- Où : ServerScriptService > Script
+-- 4 minerais : Charbon (Commun), Bronze (Peu commun), Fer (Rare), Gold (Légendaire).
+-- Ils marchent avec la Pioche de Braise (tag "Minerai") et donnent des Pièces quand on les casse.
+-- Chaque minerai : grappe de rochers, amas de cristaux, veines lumineuses, cailloux au sol,
+-- et des fissures qui s'allument à chaque coup.
+-- Va avec le SCRIPT CLIENT des minerais (éclats en orbite, tourbillons, arcs, rayons, cercle).
+--
+-- Où ils apparaissent : pose des Parts avec le tag "SpawnMinerai" dans ta map.
+-- Elles deviennent invisibles et un minerai pousse dessus, tiré au hasard selon sa rareté.
+-- Pour forcer un type, ajoute à la Part un attribut "Type" (Charbon, Bronze, Fer ou Gold).
+-- Sans point d'apparition, une rangée de démonstration des 4 minerais apparaît en (0, 0, -25).
+
+local Players = game:GetService("Players")
+local CollectionService = game:GetService("CollectionService")
+local ServerStorage = game:GetService("ServerStorage")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+local CONFIG = {
+	REAPPARITION = 20,                    -- secondes avant qu'un minerai repousse
+	TAG_MINERAI = "Minerai",
+	TAG_SPAWN = "SpawnMinerai",
+	DEMO_POSITION = Vector3.new(0, 0, -25),
+	DEMO_ECART = 9,
+	MONNAIE = "Pièces",
+}
+
+local TEX_ETINCELLE = "rbxasset://textures/particles/sparkles_main.dds"
+local TEX_FUMEE = "rbxasset://textures/particles/smoke_main.dds"
+
+local MINERAIS = {
+	Charbon = {
+		rarete = "Commun", couleurRarete = Color3.fromRGB(184, 188, 198), chance = 60, pv = 2, valeur = 1, taille = 1,
+		couleur = Color3.fromRGB(30, 30, 34), couleur2 = Color3.fromRGB(48, 48, 54), materiau = Enum.Material.Slate, reflet = 0.15,
+		cristal = Color3.fromRGB(70, 72, 82), cristalMat = Enum.Material.Glass, cristaux = 4, lumiere = nil,
+	},
+	Bronze = {
+		rarete = "Peu commun", couleurRarete = Color3.fromRGB(255, 154, 60), chance = 25, pv = 3, valeur = 3, taille = 1.05,
+		couleur = Color3.fromRGB(180, 98, 44), couleur2 = Color3.fromRGB(140, 72, 32), materiau = Enum.Material.Metal, reflet = 0.1,
+		cristal = Color3.fromRGB(255, 140, 50), cristalMat = Enum.Material.Neon, cristaux = 5, lumiere = Color3.fromRGB(255, 130, 50),
+	},
+	Fer = {
+		rarete = "Rare", couleurRarete = Color3.fromRGB(79, 141, 255), chance = 12, pv = 5, valeur = 8, taille = 1.1,
+		couleur = Color3.fromRGB(152, 158, 170), couleur2 = Color3.fromRGB(112, 118, 130), materiau = Enum.Material.Metal, reflet = 0.25,
+		cristal = Color3.fromRGB(175, 215, 255), cristalMat = Enum.Material.Glass, cristaux = 6, lumiere = Color3.fromRGB(140, 190, 255),
+	},
+	Gold = {
+		rarete = "Légendaire", couleurRarete = Color3.fromRGB(179, 92, 255), chance = 3, pv = 8, valeur = 25, taille = 1.2,
+		couleur = Color3.fromRGB(255, 196, 48), couleur2 = Color3.fromRGB(232, 160, 30), materiau = Enum.Material.Foil, reflet = 0.2,
+		cristal = Color3.fromRGB(255, 226, 120), cristalMat = Enum.Material.Neon, cristaux = 8, lumiere = Color3.fromRGB(255, 200, 60),
+	},
+}
+local ORDRE = {"Charbon", "Bronze", "Fer", "Gold"}
+
+-- Détails : {amas de cristaux, veines lumineuses, couleur des veines et fissures}
+local DETAILS = {
+	Charbon = {1, 3, Color3.fromRGB(140, 35, 12)},   -- braises qui couvent
+	Bronze = {2, 5, Color3.fromRGB(255, 160, 70)},   -- lave
+	Fer = {2, 5, Color3.fromRGB(160, 215, 255)},     -- givre bleu
+	Gold = {3, 6, Color3.fromRGB(255, 245, 190)},    -- or blanc
+}
+for nom, d in DETAILS do
+	MINERAIS[nom].amas, MINERAIS[nom].veines, MINERAIS[nom].veine = d[1], d[2], d[3]
+end
+MINERAIS.Charbon.cristal = Color3.fromRGB(14, 14, 20) -- obsidienne
+
+local dossier = Instance.new("Folder")
+dossier.Name = "Minerais"
+dossier.Parent = workspace
+
+local function emetteur(parent: Instance, props: {[string]: any}): ParticleEmitter
+	local e = Instance.new("ParticleEmitter")
+	e.LightEmission = 1
+	for cle, valeur in props do
+		e[cle] = valeur
+	end
+	e.Parent = parent
+	return e
+end
+
+local function piece(parent: Instance, nom: string, taille: Vector3, cf: CFrame, couleur: Color3, materiau: Enum.Material): Part
+	local p = Instance.new("Part")
+	p.Name = nom
+	p.Size = taille
+	p.CFrame = cf
+	p.Color = couleur
+	p.Material = materiau
+	p.Anchored = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Parent = parent
+	return p
+end
+
+-- Rocher taillé : un cœur + des blocs inclinés (facettes) + des cristaux qui dépassent
+local function construire(nom: string, sol: CFrame): (Model, Part)
+	local def = MINERAIS[nom]
+	local rng = Random.new()
+	local s = def.taille
+	local modele = Instance.new("Model")
+	modele.Name = "Minerai_" .. nom
+
+	local centre = sol * CFrame.new(0, 1.25 * s, 0) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+	local coeur = piece(modele, "Coeur", Vector3.new(2.3, 2, 2.2) * s,
+		centre * CFrame.Angles(rng:NextNumber(-0.2, 0.2), 0, rng:NextNumber(-0.2, 0.2)), def.couleur, def.materiau)
+	coeur.Reflectance = def.reflet
+
+	local function decor(p: Part)
+		p.CanQuery = false
+		p.CanCollide = false
+		if p.Material == Enum.Material.Glass then
+			p.Transparency = 0.15
+			p.Reflectance = 0.35
+		end
+	end
+
+	-- Facettes : blocs inclinés autour d'un centre
+	local function facettes(c: Vector3, rayon: number, nombre: number, echelle: number)
+		for i = 1, nombre do
+			local dir = Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-0.5, 1), rng:NextNumber(-1, 1)).Unit
+			local t = Vector3.new(rng:NextNumber(1, 1.6), rng:NextNumber(0.8, 1.4), rng:NextNumber(1, 1.6)) * s * echelle
+			local cf = CFrame.new(c + dir * rayon)
+				* CFrame.Angles(rng:NextNumber(0, 6.28), rng:NextNumber(0, 6.28), rng:NextNumber(0, 6.28))
+			local p = piece(modele, "Facette", t, cf, (i % 2 == 0) and def.couleur or def.couleur2, def.materiau)
+			p.Reflectance = def.reflet
+			p.CanQuery = false
+		end
+	end
+	facettes(centre.Position, 0.8 * s, 14, 1)
+
+	-- Petits rochers soudés au bloc principal
+	for _, decalage in {Vector3.new(1.3, -0.5, 0.6), Vector3.new(-1.2, -0.6, -0.5), Vector3.new(0.2, -0.8, -1.2)} do
+		facettes((centre * CFrame.new(decalage * s)).Position, 0.35 * s, 5, 0.5)
+	end
+
+	-- Cristaux isolés
+	for _ = 1, def.cristaux do
+		local dir = Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-0.1, 1), rng:NextNumber(-1, 1)).Unit
+		local pos = centre.Position + dir * 1.2 * s
+		local h = rng:NextNumber(0.5, 0.95) * s
+		local cf = CFrame.lookAt(pos, pos + dir) * CFrame.Angles(-math.pi / 2, 0, 0) * CFrame.Angles(0, math.rad(45), 0)
+		decor(piece(modele, "Cristal", Vector3.new(0.28 * s, h, 0.28 * s), cf, def.cristal, def.cristalMat))
+	end
+
+	-- Amas de cristaux : prisme + pointe en diamant, groupés par 3
+	for a = 1, def.amas do
+		local angle = a * 2.4 + rng:NextNumber(0, 1)
+		local dir = Vector3.new(math.cos(angle), rng:NextNumber(0.25, 0.9), math.sin(angle)).Unit
+		local base = centre.Position + dir * 1.0 * s
+		for _ = 1, 3 do
+			local d2 = (dir + Vector3.new(rng:NextNumber(-0.4, 0.4), rng:NextNumber(-0.2, 0.2), rng:NextNumber(-0.4, 0.4))).Unit
+			local pos = base + Vector3.new(rng:NextNumber(-0.2, 0.2), rng:NextNumber(-0.2, 0.2), rng:NextNumber(-0.2, 0.2)) * s
+			local h = rng:NextNumber(0.6, 1.2) * s
+			local r = rng:NextNumber(0.22, 0.34) * s
+			local axe = CFrame.lookAt(pos, pos + d2) * CFrame.Angles(-math.pi / 2, 0, 0)
+			decor(piece(modele, "Cristal", Vector3.new(r, h, r), axe * CFrame.new(0, h / 2, 0) * CFrame.Angles(0, math.rad(45), 0), def.cristal, def.cristalMat))
+			decor(piece(modele, "Pointe", Vector3.new(r * 0.72, r * 0.72, r * 0.72), axe * CFrame.new(0, h, 0) * CFrame.Angles(math.rad(45), 0, math.rad(45)), def.cristal, def.cristalMat))
+		end
+	end
+
+	-- Veines lumineuses à la surface
+	for _ = 1, def.veines do
+		local dir = Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-0.6, 1), rng:NextNumber(-1, 1)).Unit
+		local pos = centre.Position + dir * 1.12 * s
+		local tangente = dir:Cross(Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-1, 1), rng:NextNumber(-1, 1))).Unit
+		decor(piece(modele, "Veine", Vector3.new(0.09, 0.09, rng:NextNumber(0.8, 1.6) * s), CFrame.lookAt(pos, pos + tangente), def.veine, Enum.Material.Neon))
+	end
+
+	-- Cailloux tombés au sol
+	for _ = 1, 6 do
+		local a = rng:NextNumber(0, math.pi * 2)
+		local r = rng:NextNumber(1.8, 2.8) * s
+		local t = rng:NextNumber(0.25, 0.55) * s
+		local cf = sol * CFrame.new(math.cos(a) * r, t * 0.3, math.sin(a) * r) * CFrame.Angles(rng:NextNumber(0, 6), rng:NextNumber(0, 6), rng:NextNumber(0, 6))
+		local p = piece(modele, "Caillou", Vector3.new(t, t * 0.7, t * 1.2), cf, def.couleur2, def.materiau)
+		p.Reflectance = def.reflet
+		decor(p)
+	end
+
+	modele.PrimaryPart = coeur
+	return modele, coeur
+end
+
+local function effets(coeur: Part, nom: string)
+	local def = MINERAIS[nom]
+	local s = def.taille
+	if nom == "Charbon" then
+		emetteur(coeur, {
+			Name = "Fumee", Texture = TEX_FUMEE, LightEmission = 0,
+			Color = ColorSequence.new(Color3.fromRGB(35, 35, 40)),
+			Size = NumberSequence.new(1.5 * s, 3.5 * s), Transparency = NumberSequence.new(0.65, 1),
+			Lifetime = NumberRange.new(2.5, 4), Rate = 3, Speed = NumberRange.new(0.4, 0.9),
+			SpreadAngle = Vector2.new(35, 35), Acceleration = Vector3.new(0, 0.4, 0),
+			Rotation = NumberRange.new(0, 360), RotSpeed = NumberRange.new(-20, 20),
+		})
+		emetteur(coeur, {
+			Name = "Poussiere", Texture = TEX_ETINCELLE, LightEmission = 0,
+			Color = ColorSequence.new(Color3.fromRGB(20, 20, 24)),
+			Size = NumberSequence.new(0.15, 0), Lifetime = NumberRange.new(1.5, 2.5), Rate = 6,
+			Speed = NumberRange.new(0.5, 1), SpreadAngle = Vector2.new(180, 180), Acceleration = Vector3.new(0, -0.6, 0),
+		})
+		emetteur(coeur, {
+			Name = "BraisesCouvantes", Texture = TEX_ETINCELLE,
+			Color = ColorSequence.new(Color3.fromRGB(255, 90, 30), Color3.fromRGB(160, 20, 5)),
+			Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.5, 0.35), NumberSequenceKeypoint.new(1, 0)}),
+			Lifetime = NumberRange.new(0.8, 1.5), Rate = 3, Speed = NumberRange.new(0),
+			Shape = Enum.ParticleEmitterShape.Sphere, ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface,
+		})
+	elseif nom == "Bronze" then
+		emetteur(coeur, {
+			Name = "Braises", Texture = TEX_ETINCELLE,
+			Color = ColorSequence.new(Color3.fromRGB(255, 210, 130), Color3.fromRGB(255, 100, 30)),
+			Size = NumberSequence.new(0.2, 0), Lifetime = NumberRange.new(1, 2), Rate = 12,
+			Speed = NumberRange.new(1, 2), SpreadAngle = Vector2.new(60, 60), Acceleration = Vector3.new(0, 2, 0),
+		})
+		emetteur(coeur, {
+			Name = "Coulees", Texture = TEX_ETINCELLE,
+			Color = ColorSequence.new(Color3.fromRGB(255, 200, 90), Color3.fromRGB(255, 70, 15)),
+			Size = NumberSequence.new(0.18, 0.08), Lifetime = NumberRange.new(0.6, 1),
+			Rate = 4, Speed = NumberRange.new(0.2, 0.5), EmissionDirection = Enum.NormalId.Bottom,
+			Acceleration = Vector3.new(0, -18, 0),
+		})
+	elseif nom == "Fer" then
+		emetteur(coeur, {
+			Name = "Scintillement", Texture = TEX_ETINCELLE,
+			Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(160, 205, 255)),
+			Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.4, 0.5), NumberSequenceKeypoint.new(1, 0)}),
+			Lifetime = NumberRange.new(0.6, 1.1), Rate = 7, Speed = NumberRange.new(0, 0.2),
+			Shape = Enum.ParticleEmitterShape.Sphere, ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume,
+		})
+		emetteur(coeur, {
+			Name = "PoussiereBleue", Texture = TEX_ETINCELLE,
+			Color = ColorSequence.new(Color3.fromRGB(190, 225, 255), Color3.fromRGB(80, 140, 255)),
+			Size = NumberSequence.new(0.12, 0), Lifetime = NumberRange.new(1, 2), Rate = 5,
+			Speed = NumberRange.new(0.3, 0.8), SpreadAngle = Vector2.new(60, 60), Acceleration = Vector3.new(0, 0.8, 0),
+		})
+	elseif nom == "Gold" then
+		emetteur(coeur, {
+			Name = "Etoiles", Texture = TEX_ETINCELLE,
+			Color = ColorSequence.new(Color3.fromRGB(255, 250, 220), Color3.fromRGB(255, 200, 60)),
+			Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.4, 0.7), NumberSequenceKeypoint.new(1, 0)}),
+			Lifetime = NumberRange.new(0.6, 1.2), Rate = 14, Speed = NumberRange.new(0, 0.3),
+			Shape = Enum.ParticleEmitterShape.Sphere, ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume,
+		})
+		emetteur(coeur, {
+			Name = "PoussiereOr", Texture = TEX_ETINCELLE,
+			Color = ColorSequence.new(Color3.fromRGB(255, 240, 160), Color3.fromRGB(255, 170, 30)),
+			Size = NumberSequence.new(0.16, 0), Lifetime = NumberRange.new(1.2, 2.2), Rate = 16,
+			Speed = NumberRange.new(0.5, 1.2), SpreadAngle = Vector2.new(70, 70), Acceleration = Vector3.new(0, 1, 0),
+		})
+		emetteur(coeur, {
+			Name = "Halo", Texture = TEX_ETINCELLE,
+			Color = ColorSequence.new(Color3.fromRGB(255, 200, 60)),
+			Size = NumberSequence.new(6 * s),
+			Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.85), NumberSequenceKeypoint.new(1, 1)}),
+			Lifetime = NumberRange.new(1.2), Rate = 2, Speed = NumberRange.new(0), LockedToPart = true,
+		})
+	end
+	if def.lumiere then
+		local l = Instance.new("PointLight")
+		l.Color = def.lumiere
+		l.Brightness = (nom == "Gold") and 3 or 1.6
+		l.Range = (nom == "Gold") and 16 or 12
+		l.Parent = coeur
+	end
+end
+
+-- Étiquette au-dessus du minerai : nom + rareté
+local function etiquette(coeur: Part, nom: string)
+	local def = MINERAIS[nom]
+	local b = Instance.new("BillboardGui")
+	b.Name = "Etiquette"
+	b.Size = UDim2.fromOffset(170, 60)
+	b.StudsOffsetWorldSpace = Vector3.new(0, 2.8 * def.taille, 0)
+	b.MaxDistance = 50
+	b.LightInfluence = 0
+	b.Parent = coeur
+
+	local cadre = Instance.new("Frame")
+	cadre.Size = UDim2.new(1, 0, 0, 34)
+	cadre.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+	cadre.BackgroundTransparency = 0.15
+	cadre.Parent = b
+	local coin = Instance.new("UICorner")
+	coin.CornerRadius = UDim.new(0, 10)
+	coin.Parent = cadre
+	local bord = Instance.new("UIStroke")
+	bord.Color = def.couleurRarete
+	bord.Thickness = 2.5
+	bord.Parent = cadre
+
+	local titre = Instance.new("TextLabel")
+	titre.Size = UDim2.fromScale(1, 1)
+	titre.BackgroundTransparency = 1
+	titre.Font = Enum.Font.GothamBlack
+	titre.TextSize = 22
+	titre.TextColor3 = Color3.new(1, 1, 1)
+	titre.Text = nom
+	titre.Parent = cadre
+
+	local rarete = Instance.new("TextLabel")
+	rarete.Position = UDim2.fromOffset(0, 36)
+	rarete.Size = UDim2.new(1, 0, 0, 22)
+	rarete.BackgroundTransparency = 1
+	rarete.Font = Enum.Font.GothamBold
+	rarete.TextSize = 17
+	rarete.TextColor3 = def.couleurRarete
+	rarete.TextStrokeTransparency = 0.4
+	rarete.Text = def.rarete
+	rarete.Parent = b
+end
+
+local function tirerType(): string
+	local total = 0
+	for _, nom in ORDRE do
+		total += MINERAIS[nom].chance
+	end
+	local r = math.random() * total
+	for _, nom in ORDRE do
+		r -= MINERAIS[nom].chance
+		if r <= 0 then
+			return nom
+		end
+	end
+	return "Charbon"
+end
+
+local surCasse = {}
+
+-- Une fissure lumineuse apparaît sur le minerai à chaque coup reçu
+local function fissure(modele: Model, coeur: Part, def)
+	local dir = Vector3.new(math.random() * 2 - 1, math.random() * 2 - 1, math.random() * 2 - 1).Unit
+	local pos = coeur.Position + dir * coeur.Size.Y * 0.56
+	local tangente = dir:Cross(Vector3.new(math.random() * 2 - 1, math.random() * 2 - 1, math.random() * 2 - 1)).Unit
+	local longueur = (0.6 + math.random() * 0.8) * def.taille
+	local f = piece(modele, "Fissure", Vector3.new(0.08, 0.08, longueur), CFrame.lookAt(pos, pos + tangente), def.veine, Enum.Material.Neon)
+	f.CanQuery = false
+	f.CanCollide = false
+	f.Transparency = 1
+	TweenService:Create(f, TweenInfo.new(0.15), {Transparency = 0}):Play()
+end
+
+local function apparaitre(sol: CFrame, typeFixe: string?)
+	local nom = (typeFixe and MINERAIS[typeFixe]) and typeFixe or tirerType()
+	local def = MINERAIS[nom]
+	local modele, coeur = construire(nom, sol)
+	coeur:SetAttribute("Type", nom)
+	coeur:SetAttribute("Taille", def.taille)
+	coeur:SetAttribute("PV", def.pv)
+	coeur:SetAttribute("PVMax", def.pv)
+	effets(coeur, nom)
+	etiquette(coeur, nom)
+	modele.Parent = dossier
+
+	-- Le minerai pousse depuis le sol
+	local echelle = Instance.new("NumberValue")
+	echelle.Value = 0.2
+	modele:ScaleTo(0.2)
+	echelle.Changed:Connect(function(v)
+		if modele.Parent then
+			modele:ScaleTo(v)
+		end
+	end)
+	TweenService:Create(echelle, TweenInfo.new(0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Value = 1}):Play()
+	Debris:AddItem(echelle, 1)
+
+	CollectionService:AddTag(coeur, CONFIG.TAG_MINERAI)
+
+	local pvAvant = def.pv
+	coeur:GetAttributeChangedSignal("PV"):Connect(function()
+		local pv = coeur:GetAttribute("PV") or 0
+		local perdus = math.max(0, pvAvant - pv)
+		pvAvant = pv
+		if pv > 0 then
+			for _ = 1, perdus * 2 do
+				fissure(modele, coeur, def)
+			end
+		end
+	end)
+
+	surCasse[coeur] = function()
+		-- La pioche a cassé le cœur : le reste du rocher disparaît, puis un minerai repousse
+		local b = coeur:FindFirstChild("Etiquette")
+		if b then b.Enabled = false end
+		for _, d in modele:GetDescendants() do
+			if d:IsA("ParticleEmitter") then
+				d.Enabled = false
+			elseif d:IsA("PointLight") then
+				TweenService:Create(d, TweenInfo.new(0.4), {Brightness = 0}):Play()
+			elseif d:IsA("BasePart") and d ~= coeur then
+				d.CanCollide = false
+				TweenService:Create(d, TweenInfo.new(0.35), {Transparency = 1, Size = d.Size * 0.5}):Play()
+			end
+		end
+		Debris:AddItem(modele, 1.5)
+		task.delay(CONFIG.REAPPARITION, function()
+			apparaitre(sol, typeFixe)
+		end)
+	end
+end
+
+CollectionService:GetInstanceRemovedSignal(CONFIG.TAG_MINERAI):Connect(function(instance)
+	local f = surCasse[instance]
+	if f then
+		surCasse[instance] = nil
+		f()
+	end
+end)
+
+-- ===== Récompenses =====
+local function surJoueur(joueur: Player)
+	local stats = joueur:FindFirstChild("leaderstats")
+	if not stats then
+		stats = Instance.new("Folder")
+		stats.Name = "leaderstats"
+		stats.Parent = joueur
+	end
+	if not stats:FindFirstChild(CONFIG.MONNAIE) then
+		local v = Instance.new("IntValue")
+		v.Name = CONFIG.MONNAIE
+		v.Parent = stats
+	end
+end
+Players.PlayerAdded:Connect(surJoueur)
+for _, joueur in Players:GetPlayers() do
+	surJoueur(joueur)
+end
+
+task.spawn(function()
+	local evenement = ServerStorage:WaitForChild("MineraiCasse", 60)
+	if not evenement then
+		warn("Minerais : script de la Pioche de Braise introuvable, pas de récompense.")
+		return
+	end
+	evenement.Event:Connect(function(joueur, bloc)
+		local nom = bloc and bloc:GetAttribute("Type")
+		local def = nom and MINERAIS[nom]
+		if not joueur or not def then return end
+		local stats = joueur:FindFirstChild("leaderstats")
+		local v = stats and stats:FindFirstChild(CONFIG.MONNAIE)
+		if v then
+			v.Value += def.valeur
+		end
+	end)
+end)
+
+-- ===== Apparition =====
+local points = CollectionService:GetTagged(CONFIG.TAG_SPAWN)
+if #points == 0 then
+	for i, nom in ORDRE do
+		local x = (i - 2.5) * CONFIG.DEMO_ECART
+		apparaitre(CFrame.new(CONFIG.DEMO_POSITION + Vector3.new(x, 0, 0)), nom)
+	end
+else
+	for _, p in points do
+		if p:IsA("BasePart") then
+			p.Transparency = 1
+			p.CanCollide = false
+			p.CanQuery = false
+			apparaitre(CFrame.new(p.Position - Vector3.new(0, p.Size.Y / 2, 0)), p:GetAttribute("Type"))
+		end
+	end
+end
+</script>
+
+<script type="text/plain" id="luau-minerais-client">
+-- Minerais · SCRIPT CLIENT
+-- Où : StarterPlayer > StarterPlayerScripts > LocalScript
+-- Effets fluides autour de chaque minerai : éclats en orbite, tourbillons lumineux,
+-- arcs électriques (Fer), rayons divins + sceau au sol (Gold) et lumière qui respire.
+-- Tout est créé uniquement sur ton écran : rien n'est envoyé au serveur.
+
+local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService")
+
+local TAG = "Minerai"
+local DISTANCE_MAX = 160
+
+local STYLE = {
+	Charbon = {
+		eclats = 6, couleur = Color3.fromRGB(26, 26, 30), materiau = Enum.Material.Slate, rayon = 2.2, vitesse = 0.5, tourbillons = {},
+		lueur = Color3.fromRGB(255, 70, 20), lumiere = 0.6,
+	},
+	Bronze = {
+		eclats = 6, couleur = Color3.fromRGB(255, 130, 50), materiau = Enum.Material.Neon, rayon = 2.3, vitesse = 0.9, lumiere = 1.2,
+		tourbillons = {
+			{couleur = Color3.fromRGB(255, 150, 60), inclinaison = CFrame.Angles(math.rad(65), 0, math.rad(20)), vitesse = 2.4, largeur = 0.22},
+		},
+	},
+	Fer = {
+		eclats = 6, couleur = Color3.fromRGB(165, 172, 186), materiau = Enum.Material.Metal, rayon = 2.4, vitesse = 1.1,
+		lueur = Color3.fromRGB(150, 200, 255), lumiere = 1.4, arcs = 2,
+		tourbillons = {
+			{couleur = Color3.fromRGB(160, 205, 255), inclinaison = CFrame.Angles(math.rad(70), 0, math.rad(15)), vitesse = 2.6, largeur = 0.2},
+			{couleur = Color3.fromRGB(220, 240, 255), inclinaison = CFrame.Angles(math.rad(110), 0, math.rad(-25)), vitesse = -2.1, largeur = 0.14},
+		},
+	},
+	Gold = {
+		eclats = 8, couleur = Color3.fromRGB(255, 205, 60), materiau = Enum.Material.Neon, rayon = 2.6, vitesse = 1.3,
+		lumiere = 2, rayons = 8,
+		tourbillons = {
+			{couleur = Color3.fromRGB(255, 215, 90), inclinaison = CFrame.Angles(math.rad(70), 0, math.rad(20)), vitesse = 2.8, largeur = 0.3},
+			{couleur = Color3.fromRGB(255, 240, 170), inclinaison = CFrame.Angles(math.rad(105), 0, math.rad(-30)), vitesse = -2.3, largeur = 0.2},
+		},
+	},
+}
+
+local dossier = Instance.new("Folder")
+dossier.Name = "EffetsMinerais"
+dossier.Parent = workspace
+
+local actifs = {}
+
+local function partieLocale(taille: Vector3, couleur: Color3, materiau: Enum.Material, cf: CFrame): Part
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Size = taille
+	p.Color = couleur
+	p.Material = materiau
+	p.CFrame = cf
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Parent = dossier
+	return p
+end
+
+local function ajouter(coeur: Instance)
+	if not coeur:IsA("BasePart") or actifs[coeur] then return end
+	local style = STYLE[coeur:GetAttribute("Type")]
+	if not style then return end
+	local taille = coeur:GetAttribute("Taille") or 1
+
+	local e = {style = style, taille = taille, eclats = {}, tourbillons = {}, phase = math.random() * 10, cache = false}
+	for i = 1, style.eclats do
+		local t = (0.22 + math.random() * 0.22) * taille
+		local p = partieLocale(Vector3.new(t, t * 1.3, t), style.couleur, style.materiau, coeur.CFrame)
+		table.insert(e.eclats, {
+			partie = p,
+			angle = (i / style.eclats) * math.pi * 2,
+			hauteur = math.random() * 1.8 - 0.7,
+			vitesse = 0.7 + math.random() * 0.6,
+			spin = Vector3.new(math.random() * 4 - 2, math.random() * 4 - 2, math.random() * 4 - 2),
+		})
+	end
+	for _, def in style.tourbillons do
+		local porteur = partieLocale(Vector3.new(0.1, 0.1, 0.1), def.couleur, Enum.Material.Neon, coeur.CFrame)
+		porteur.Transparency = 1
+		local a0 = Instance.new("Attachment")
+		a0.Position = Vector3.new(0, def.largeur / 2, 0)
+		a0.Parent = porteur
+		local a1 = Instance.new("Attachment")
+		a1.Position = Vector3.new(0, -def.largeur / 2, 0)
+		a1.Parent = porteur
+		local trainee = Instance.new("Trail")
+		trainee.Attachment0 = a0
+		trainee.Attachment1 = a1
+		trainee.Lifetime = 0.8
+		trainee.LightEmission = 1
+		trainee.LightInfluence = 0
+		trainee.Color = ColorSequence.new(def.couleur)
+		trainee.Transparency = NumberSequence.new(0, 1)
+		trainee.WidthScale = NumberSequence.new(1, 0.1)
+		trainee.FaceCamera = true
+		trainee.Parent = porteur
+		table.insert(e.tourbillons, {partie = porteur, trainee = trainee, def = def})
+	end
+
+	-- Extras : arcs électriques (Fer), rayons + sceau au sol (Gold), lumière qui respire
+	e.extras, e.faisceaux = {}, {}
+	local support = partieLocale(Vector3.new(0.1, 0.1, 0.1), style.couleur, Enum.Material.SmoothPlastic, coeur.CFrame)
+	support.Transparency = 1
+	table.insert(e.extras, support)
+	e.support = support
+
+	local lumiere = Instance.new("PointLight")
+	lumiere.Color = style.lueur or style.couleur
+	lumiere.Range = 12 * taille
+	lumiere.Brightness = 0
+	lumiere.Shadows = false
+	lumiere.Parent = support
+	e.lumiere = lumiere
+
+	local function faisceau(couleur: Color3, largeur0: number, largeur1: number, transparence: NumberSequence): (Beam, Attachment, Attachment)
+		local a0 = Instance.new("Attachment")
+		a0.Parent = support
+		local a1 = Instance.new("Attachment")
+		a1.Parent = support
+		local b = Instance.new("Beam")
+		b.Attachment0 = a0
+		b.Attachment1 = a1
+		b.Color = ColorSequence.new(couleur)
+		b.LightEmission = 1
+		b.LightInfluence = 0
+		b.Width0 = largeur0
+		b.Width1 = largeur1
+		b.Transparency = transparence
+		b.FaceCamera = true
+		b.Segments = 12
+		b.Parent = support
+		table.insert(e.faisceaux, b)
+		return b, a0, a1
+	end
+
+	if style.arcs then
+		e.arcs = {}
+		for _ = 1, style.arcs do
+			local b, a0, a1 = faisceau(Color3.fromRGB(190, 225, 255), 0.12, 0.04, NumberSequence.new(0))
+			table.insert(e.arcs, {beam = b, a0 = a0, a1 = a1, prochain = 0})
+		end
+	end
+
+	if style.rayons then
+		e.rayons = {}
+		local centreA = Instance.new("Attachment")
+		centreA.Parent = support
+		for i = 1, style.rayons do
+			local b, _, a1 = faisceau(Color3.fromRGB(255, 225, 130), 0.8 * taille, 0, NumberSequence.new(0.55, 1))
+			b.Attachment0 = centreA
+			table.insert(e.rayons, {beam = b, bout = a1, angle = (i / style.rayons) * math.pi * 2, longueur = (2.6 + math.random() * 1.6) * taille})
+		end
+
+		-- Sceau hexagonal au sol
+		local sceau = Instance.new("Model")
+		sceau.Name = "Sceau"
+		local disque = partieLocale(Vector3.new(0.05, 4.6 * taille, 4.6 * taille), Color3.fromRGB(255, 200, 60), Enum.Material.Neon, coeur.CFrame)
+		disque.Shape = Enum.PartType.Cylinder
+		disque.Transparency = 0.82
+		disque.Parent = sceau
+		local barres = {}
+		for i = 1, 6 do
+			local b = partieLocale(Vector3.new(3.2 * taille * 0.66, 0.06, 0.08), Color3.fromRGB(255, 220, 110), Enum.Material.Neon, coeur.CFrame)
+			b.Transparency = 0.35
+			b.Parent = sceau
+			barres[i] = b
+		end
+		sceau.Parent = dossier
+		table.insert(e.extras, sceau)
+		e.sceau = {disque = disque, barres = barres}
+	end
+
+	actifs[coeur] = e
+end
+
+local function retirer(coeur: Instance)
+	local e = actifs[coeur]
+	if not e then return end
+	for _, f in e.eclats do f.partie:Destroy() end
+	for _, w in e.tourbillons do w.partie:Destroy() end
+	for _, x in e.extras do x:Destroy() end
+	actifs[coeur] = nil
+end
+
+-- Point au hasard sur une coquille autour du minerai
+local function surCoquille(centre: Vector3, rMin: number, rMax: number): Vector3
+	local d = Vector3.new(math.random() * 2 - 1, math.random() * 1.6 - 0.5, math.random() * 2 - 1)
+	if d.Magnitude < 0.01 then d = Vector3.yAxis end
+	return centre + d.Unit * (rMin + math.random() * (rMax - rMin))
+end
+
+CollectionService:GetInstanceAddedSignal(TAG):Connect(ajouter)
+CollectionService:GetInstanceRemovedSignal(TAG):Connect(retirer)
+for _, coeur in CollectionService:GetTagged(TAG) do
+	ajouter(coeur)
+end
+
+RunService.RenderStepped:Connect(function()
+	local t = os.clock()
+	local camera = workspace.CurrentCamera.CFrame.Position
+	for coeur, e in actifs do
+		if not coeur.Parent then
+			retirer(coeur)
+			continue
+		end
+		local centre = coeur.Position
+		local cache = (centre - camera).Magnitude > DISTANCE_MAX or coeur.Transparency >= 1
+		if cache ~= e.cache then
+			e.cache = cache
+			for _, f in e.eclats do f.partie.Transparency = cache and 1 or 0 end
+			for _, w in e.tourbillons do w.trainee.Enabled = not cache end
+			for _, b in e.faisceaux do b.Enabled = not cache end
+			e.lumiere.Enabled = not cache
+			if e.sceau then
+				e.sceau.disque.Transparency = cache and 1 or 0.82
+				for _, b in e.sceau.barres do b.Transparency = cache and 1 or 0.35 end
+			end
+		end
+		if not cache then
+			local echelle = coeur.Size.Y / 2 -- suit l'animation de pousse
+			local st = e.style
+			e.support.CFrame = CFrame.new(centre)
+			e.lumiere.Brightness = (st.lumiere or 0) * (0.75 + 0.25 * math.sin(t * 2.2 + e.phase))
+
+			-- Fer : arcs électriques qui sautent d'un point à l'autre
+			if e.arcs then
+				for _, arc in e.arcs do
+					if t >= arc.prochain then
+						arc.prochain = t + 0.06 + math.random() * 0.08
+						arc.a0.WorldPosition = surCoquille(centre, 1.0 * echelle, 1.3 * echelle)
+						arc.a1.WorldPosition = surCoquille(centre, 1.6 * echelle, 2.4 * echelle)
+						arc.beam.CurveSize0 = math.random() * 4 - 2
+						arc.beam.CurveSize1 = math.random() * 4 - 2
+						arc.beam.Enabled = math.random() < 0.7
+					end
+				end
+			end
+
+			-- Gold : rayons divins face caméra + sceau qui tourne au sol
+			if e.rayons then
+				local cam = workspace.CurrentCamera.CFrame
+				for i, r in e.rayons do
+					local a = r.angle + t * 0.35
+					local pulse = 0.8 + 0.2 * math.sin(t * 3 + i)
+					local dir = cam.RightVector * math.cos(a) + cam.UpVector * math.sin(a)
+					r.bout.WorldPosition = centre + dir * r.longueur * pulse * echelle / math.max(e.taille, 0.01)
+				end
+				local sol = CFrame.new(centre - Vector3.new(0, 1.25 * echelle, 0)) * CFrame.Angles(0, t * 0.6, 0)
+				e.sceau.disque.CFrame = sol * CFrame.Angles(0, 0, math.pi / 2)
+				local apotheme = 2.1 * echelle * 0.866
+				for i, b in e.sceau.barres do
+					local a = (i / 6) * math.pi * 2
+					b.Size = Vector3.new(2.1 * echelle, 0.06, 0.08)
+					b.CFrame = sol * CFrame.Angles(0, a, 0) * CFrame.new(0, 0, apotheme)
+				end
+			end
+			for _, f in e.eclats do
+				local a = f.angle + t * 0.5 * st.vitesse * f.vitesse
+				local r = st.rayon * echelle
+				local pos = centre + Vector3.new(math.cos(a) * r, (f.hauteur + math.sin(t * 1.5 + f.angle) * 0.25) * echelle, math.sin(a) * r)
+				f.partie.CFrame = CFrame.new(pos) * CFrame.Angles(t * f.spin.X, t * f.spin.Y, t * f.spin.Z)
+			end
+			for _, w in e.tourbillons do
+				local a = t * w.def.vitesse + e.phase
+				w.partie.CFrame = CFrame.new(centre) * w.def.inclinaison * CFrame.Angles(0, a, 0) * CFrame.new(st.rayon * echelle * 0.8, 0, 0)
+			end
+		end
+	end
+end)
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script>
+// ---------- Données (unités = studs) ----------
+const P = (g, n, pos, size, c, glow = false, rot = [0, 0, 0]) => ({ g, n, pos, size, c, glow, rot });
+const sym = (g, n, pos, size, c, glow = false, rot = [0, 0, 0]) => [
+  P(g, n + 'G', [pos[0], pos[1], pos[2]], size, c, glow, rot),
+  P(g, n + 'D', [-pos[0], pos[1], pos[2]], size, c, glow, [rot[0], -rot[1], -rot[2]])
+];
+const wing = (g, s) => [
+  P(g, 'Aile', [0.15 * s, -0.95, 0], [0.3, 2.0, 1.7], '#c5dcf2'),
+  P(g, 'Lisere', [0.32 * s, -0.6, 0], [0.04, 0.14, 1.4], '#9cc8ef'),
+  P(g, 'Remiges', [0.15 * s, -2.05, -0.2], [0.3, 0.3, 1.2], '#8fe3ff', true)
+];
+
+const ORE_SCRIPTS = [
+  { id: 'luau-minerais-serveur', label: 'Serveur', where: 'ServerScriptService › Script' },
+  { id: 'luau-minerais-client', label: 'Client', where: 'StarterPlayer › StarterPlayerScripts › LocalScript' }
+];
+const ORE_STEPS = `<li>Onglet <b>Serveur</b> : colle-le dans un <b>Script</b> de <b>ServerScriptService</b>.</li>
+  <li>Onglet <b>Client</b> : colle-le dans un <b>LocalScript</b> de <b>StarterPlayer › StarterPlayerScripts</b>.</li>
+  <li>Pose des Parts avec le tag <b>SpawnMinerai</b> là où les minerais doivent pousser. Sans ça, une rangée de démo apparaît en (0, 0, -25).</li>
+  <li>Ils se cassent avec la <b>Pioche de Braise</b> et donnent des <b>Pièces</b> (leaderstats).</li>`;
+const ORE_VIEW = { target: [0, 0.75, 0], pos: [3.4, 2.3, 4.6] };
+const oreEntry = (id, name, rarity, rcol, accent, ores, desc, stats, view, feats) => ({
+  id, name, kind: ores.length > 1 ? 'Collection' : 'Minerai', element: 'Minerai', rarity, rcol, accent, ores, desc, stats, view, feats,
+  scripts: ORE_SCRIPTS, steps: ORE_STEPS, groups: {}, parts: [], fx: null
+});
+
+const CREATURES = [
+  {
+    id: 'pioche', name: 'Pioche de Braise', kind: 'Outil de minage', element: 'Feu', rarity: 'Mythique', accent: '#ff8a2a', fx: null, tool: true,
+    view: { target: [0, 2.7, -1.0], pos: [7.6, 5.6, 6.6] },
+    scripts: [
+      { id: 'luau-pioche-serveur', label: 'Serveur', where: 'ServerScriptService › Script' },
+      { id: 'luau-pioche-client', label: 'Client', where: 'StarterPlayer › StarterPlayerScripts › LocalScript' }
+    ],
+    desc: "Forgée dans le cœur de Vulkarn. Plus tu frappes, plus elle chauffe, jusqu'à passer au feu bleu.",
+    feats: [
+      '<b>Chaque coup</b> : traînée de feu, onde de choc, gerbe d\'étincelles et sol brûlé.',
+      '<b>Chaleur</b> : +20 % par coup. La pioche passe de l\'orange au blanc.',
+      '<b>Surchauffe</b> à 100 % : feu bleu. Le coup suivant déclenche une <b>Éruption</b> (colonne de feu, 8 geysers, dégâts de zone).',
+      '<b>Brûlure</b> : la cible flambe de partout et finit en cendres si elle meurt.',
+      '<b>Minerais</b> : ils rougissent à chaque coup puis explosent en éclats brûlants.',
+      '<b>Aura</b> : deux anneaux de runes qui tournent, des braises en orbite et un sceau de feu au sol. Elle grandit avec la chaleur.'
+    ],
+    groups: { outil: { pivot: [0, 2.8, 0], anim: 'tool' } },
+    parts: [
+      P('outil', 'Handle', [0, 0, 0], [0.35, 4.4, 0.35], '#3b2a1f'),
+      P('outil', 'Veine', [0.05, 0.2, 0], [0.08, 1.6, 0.37], '#2a1c14'),
+      P('outil', 'Poignee', [0, -1.45, 0], [0.45, 1.3, 0.45], '#1f1716'),
+      P('outil', 'Laniere1', [0, -0.95, 0], [0.49, 0.1, 0.49], '#4a2a1a', false, [0, 0, 8]),
+      P('outil', 'Laniere2', [0, -1.45, 0], [0.49, 0.1, 0.49], '#4a2a1a', false, [0, 0, -8]),
+      P('outil', 'Laniere3', [0, -1.95, 0], [0.49, 0.1, 0.49], '#4a2a1a', false, [0, 0, 8]),
+      P('outil', 'Pommeau', [0, -2.25, 0], [0.55, 0.3, 0.55], '#2b2522'),
+      P('outil', 'PommeauGemme', [0, -2.5, 0], [0.28, 0.28, 0.28], '#ff6a1a', true, [45, 0, 45]),
+      P('outil', 'Collier', [0, 1.6, 0], [0.5, 0.25, 0.5], '#5a4e48'),
+      P('outil', 'Anneau1', [0, 0.6, 0], [0.42, 0.12, 0.42], '#ff6a1a', true),
+      P('outil', 'Anneau2', [0, 1.2, 0], [0.42, 0.12, 0.42], '#ff6a1a', true),
+      P('outil', 'Tete', [0, 2.05, 0], [0.6, 0.7, 0.8], '#2b2522'),
+      P('outil', 'Fissure', [0, 2.05, 0], [0.62, 0.1, 0.82], '#ff8a2a', true),
+      ...sym('outil', 'Coeur', [0.31, 2.05, 0], [0.05, 0.32, 0.32], '#ffd27a', true, [45, 0, 0]),
+      ...sym('outil', 'Rivet1', [0.31, 2.3, 0.28], [0.06, 0.1, 0.1], '#8a7a70'),
+      ...sym('outil', 'Rivet2', [0.31, 2.3, -0.28], [0.06, 0.1, 0.1], '#8a7a70'),
+      ...sym('outil', 'Rivet3', [0.31, 1.8, 0.28], [0.06, 0.1, 0.1], '#8a7a70'),
+      ...sym('outil', 'Rivet4', [0.31, 1.8, -0.28], [0.06, 0.1, 0.1], '#8a7a70'),
+      P('outil', 'Crete', [0, 2.52, 0], [0.22, 0.3, 0.22], '#ffb347', true, [0, 45, 0]),
+      P('outil', 'Pic1', [0, 2.05, -0.85], [0.44, 0.46, 1.0], '#332b27'),
+      P('outil', 'FissurePic', [0, 2.29, -0.85], [0.46, 0.06, 0.9], '#ff6a1a', true),
+      ...sym('outil', 'Rune', [0.225, 2.05, -0.85], [0.02, 0.08, 0.6], '#ff8a2a', true),
+      ...sym('outil', 'RuneTrait', [0.225, 2.05, -0.7], [0.02, 0.25, 0.06], '#ff8a2a', true),
+      P('outil', 'Dent1', [0, 1.78, -0.6], [0.2, 0.18, 0.18], '#2b2522', false, [45, 0, 0]),
+      P('outil', 'Dent2', [0, 1.78, -1.0], [0.2, 0.18, 0.18], '#2b2522', false, [45, 0, 0]),
+      P('outil', 'Pic2', [0, 1.93, -1.6], [0.36, 0.38, 0.8], '#2b2522', false, [-15, 0, 0]),
+      P('outil', 'FissurePic2', [0, 2.13, -1.55], [0.38, 0.05, 0.7], '#ff6a1a', true, [-15, 0, 0]),
+      P('outil', 'PicPointe', [0, 1.75, -2.15], [0.26, 0.28, 0.45], '#ffb347', true, [-28, 0, 0]),
+      P('outil', 'Dos', [0, 2.05, 0.75], [0.44, 0.46, 0.8], '#332b27'),
+      P('outil', 'DosLame', [0, 2.0, 1.3], [0.5, 0.55, 0.35], '#ff8a2a', true, [15, 0, 0]),
+      ...sym('outil', 'Corne', [0.3, 2.25, 1.25], [0.12, 0.4, 0.12], '#2b2522', false, [20, 0, -30]),
+      P('outil', 'DosPic', [0, 1.7, 1.25], [0.18, 0.35, 0.18], '#2b2522', false, [-20, 0, 0])
+    ]
+  },
+  oreEntry('minerais', 'Les 4 minerais', 'Commun → Légendaire', '#ffc23a', '#ffc23a', ['charbon', 'bronze', 'fer', 'gold'],
+    "Du charbon qu'on trouve partout au gold qui ne sort que 3 fois sur 100. Chaque minerai a sa matière, sa lumière et ses effets.",
+    [['Minerais', '4'], ['PV', '2 à 8'], ['Valeur', '1 à 25']], { target: [0, 0.6, 0], pos: [0, 3.0, 9.6] },
+    ['<b>Charbon</b> : roche noire brillante, cristaux d\'obsidienne, braises qui couvent dans les fissures, fumée sombre.',
+     '<b>Bronze</b> : métal cuivré, cristaux en fusion, veines de lave, coulées qui gouttent et flaque brûlante au sol.',
+     '<b>Fer</b> : acier poli, cristaux de glace, veines bleues, arcs électriques et deux tourbillons.',
+     '<b>Gold</b> : or pur, cristaux dorés, rayons de lumière, cercle magique au sol, étoiles et deux tourbillons.',
+     'Chaque minerai : grappe de rochers, amas de cristaux, veines qui pulsent et cailloux au sol.']),
+  oreEntry('charbon', 'Charbon', 'Commun', '#b8bcc6', '#c9ced8', ['charbon'],
+    "Roche noire et brillante qu'on trouve partout dans la mine. Une fumée sombre en sort et des éclats flottent autour.",
+    [['PV', '2'], ['Valeur', '1 pièce'], ['Chance', '60 %']], ORE_VIEW),
+  oreEntry('bronze', 'Bronze', 'Peu commun', '#ff9a3c', '#ff8a3a', ['bronze'],
+    "Un bloc de métal cuivré encore chaud. Ses arêtes rougeoient et des braises s'en échappent.",
+    [['PV', '3'], ['Valeur', '3 pièces'], ['Chance', '25 %']], ORE_VIEW),
+  oreEntry('fer', 'Fer', 'Rare', '#4f8dff', '#8fc4ff', ['fer'],
+    "De l'acier brut si pur qu'il reflète la lumière. Des éclats d'étoile scintillent sur ses facettes.",
+    [['PV', '5'], ['Valeur', '8 pièces'], ['Chance', '12 %']], ORE_VIEW),
+  oreEntry('gold', 'Gold', 'Légendaire', '#b35cff', '#ffc23a', ['gold'],
+    "Le minerai le plus rare de la mine. Il brille tellement qu'on le repère de loin, entouré d'étoiles et de poussière d'or.",
+    [['PV', '8'], ['Valeur', '25 pièces'], ['Chance', '3 %']], ORE_VIEW),
+  {
+    id: 'vulkarn', name: 'Vulkarn', kind: 'Salamandre de lave', element: 'Feu', rarity: 'Mythique', accent: '#ff7a1a', fx: 'embers',
+    desc: "Née dans les galeries les plus profondes de la mine. Sa peau de basalte se fissure quand elle s'énerve et laisse voir la lave dessous.",
+    groups: { corps: { pivot: [0, 0, 0] }, tete: { pivot: [0, 1.9, 1.7], anim: 'nod' }, queue: { pivot: [0, 1.6, -1.7], anim: 'sway' } },
+    parts: [
+      P('corps', 'Corps', [0, 1.6, 0], [2.2, 1.4, 3.4], '#2b2522'),
+      P('corps', 'Ventre', [0, 0.87, 0], [1.8, 0.08, 3.0], '#ff6a1a', true),
+      ...sym('corps', 'Fissure', [1.11, 1.75, 0.4], [0.06, 0.18, 1.4], '#ff8a2a', true),
+      ...sym('corps', 'Fissure2', [1.11, 1.35, -0.8], [0.06, 0.14, 0.9], '#ff8a2a', true),
+      P('corps', 'Pic1', [0, 2.5, 1.0], [0.4, 0.6, 0.4], '#ffb347', true, [0, 45, 0]),
+      P('corps', 'Pic2', [0, 2.55, 0], [0.45, 0.7, 0.45], '#ffb347', true, [0, 45, 0]),
+      P('corps', 'Pic3', [0, 2.5, -1.0], [0.4, 0.6, 0.4], '#ffb347', true, [0, 45, 0]),
+      ...sym('corps', 'PatteAv', [1.25, 0.55, 1.1], [0.6, 1.1, 0.7], '#3a312c'),
+      ...sym('corps', 'PatteAr', [1.25, 0.55, -1.1], [0.6, 1.1, 0.7], '#3a312c'),
+      ...sym('corps', 'Griffes', [1.25, 0.05, 1.5], [0.6, 0.1, 0.2], '#ffb347', true),
+      P('tete', 'Tete', [0, 0, 0.8], [1.8, 1.2, 1.6], '#2b2522'),
+      P('tete', 'Museau', [0, -0.25, 1.85], [1.4, 0.7, 0.6], '#332b27'),
+      P('tete', 'Gueule', [0, -0.55, 1.9], [1.2, 0.08, 0.5], '#ff6a1a', true),
+      ...sym('tete', 'Oeil', [0.55, 0.3, 1.62], [0.34, 0.28, 0.06], '#ffe066', true),
+      ...sym('tete', 'Corne', [0.6, 0.8, 0.3], [0.25, 0.7, 0.25], '#4a3e37', false, [-25, 0, -15]),
+      P('tete', 'Crete', [0, 0.7, 0.6], [0.2, 0.3, 0.9], '#ffb347', true),
+      P('queue', 'Queue1', [0, 0, -0.6], [1.4, 1.0, 1.2], '#2b2522'),
+      P('queue', 'QueueFissure', [0, 0.51, -0.6], [0.2, 0.04, 1.0], '#ff8a2a', true),
+      P('queue', 'Queue2', [0, -0.1, -1.7], [1.0, 0.8, 1.1], '#332b27'),
+      P('queue', 'Queue3', [0, -0.2, -2.7], [0.6, 0.6, 1.0], '#2b2522'),
+      P('queue', 'Flamme', [0, 0.15, -3.35], [0.5, 0.9, 0.5], '#ff8a00', true),
+      P('queue', 'Flamme2', [0, 0.75, -3.35], [0.3, 0.4, 0.3], '#ffd27a', true)
+    ]
+  },
+  {
+    id: 'givrelune', name: 'Givrelune', kind: 'Chouette de givre', element: 'Glace', rarity: 'Légendaire', accent: '#5ad1ff', fx: 'snow',
+    desc: "Elle ne sort que les nuits de pleine lune. Le cristal sur sa tête garde le froid des sommets, même au fond d'une forge.",
+    groups: {
+      corps: { pivot: [0, 0, 0] }, tete: { pivot: [0, 3.3, 0], anim: 'tilt' },
+      aile: { pivot: [1.25, 2.9, 0], anim: 'flapL' }, aileD: { pivot: [-1.25, 2.9, 0], anim: 'flapR' }
+    },
+    parts: [
+      P('corps', 'Corps', [0, 2.0, 0], [2.4, 2.6, 2.0], '#d3dfee'),
+      P('corps', 'Plastron', [0, 1.8, 1.02], [1.6, 1.8, 0.06], '#e9f0f8'),
+      P('corps', 'Plume1', [0, 2.25, 1.06], [0.8, 0.12, 0.04], '#9cc8ef'),
+      P('corps', 'Plume2', [0, 1.85, 1.06], [1.1, 0.12, 0.04], '#9cc8ef'),
+      P('corps', 'Plume3', [0, 1.45, 1.06], [0.8, 0.12, 0.04], '#9cc8ef'),
+      ...sym('corps', 'Serre', [0.5, 0.55, 0.5], [0.5, 0.3, 0.7], '#f2b84b'),
+      P('corps', 'QueuePlumes', [0, 1.0, -1.15], [1.2, 0.7, 0.4], '#9cc8ef'),
+      P('corps', 'QueueCristal', [0, 0.75, -1.4], [0.6, 0.3, 0.2], '#8fe3ff', true),
+      P('tete', 'Tete', [0, 0.9, 0], [2.6, 1.8, 2.2], '#dbe6f3'),
+      P('tete', 'Masque', [0, 0.85, 1.12], [2.0, 1.3, 0.06], '#eef3f9'),
+      ...sym('tete', 'Oeil', [0.5, 0.95, 1.17], [0.55, 0.55, 0.06], '#5ad1ff', true),
+      ...sym('tete', 'Pupille', [0.5, 0.95, 1.21], [0.2, 0.2, 0.04], '#0b1a2e'),
+      P('tete', 'Bec', [0, 0.45, 1.25], [0.3, 0.4, 0.3], '#f2b84b'),
+      ...sym('tete', 'Aigrette', [0.95, 2.0, 0], [0.45, 0.7, 0.45], '#9cc8ef', false, [0, 0, -15]),
+      P('tete', 'Cristal', [0, 2.05, 0], [0.35, 0.7, 0.35], '#8fe3ff', true, [0, 45, 0]),
+      ...wing('aile', 1),
+      ...wing('aileD', -1)
+    ]
+  },
+  {
+    id: 'sylvaroc', name: 'Sylvaroc', kind: 'Cerf de mousse', element: 'Nature', rarity: 'Mythique', accent: '#9be05a', fx: 'spores',
+    desc: "Il garde l'entrée des vieilles mines abandonnées. Des fleurs poussent sur son dos et ses bois brillent quand un minerai rare est proche.",
+    groups: { corps: { pivot: [0, 0, 0] }, tete: { pivot: [0, 3.55, 1.75], anim: 'nod' } },
+    parts: [
+      P('corps', 'Corps', [0, 2.2, 0], [1.8, 1.6, 3.2], '#5f8a46'),
+      P('corps', 'Ventre', [0, 1.38, 0], [1.5, 0.06, 2.8], '#4a6b36'),
+      ...sym('corps', 'PatteAv', [0.6, 0.85, 1.1], [0.45, 1.5, 0.45], '#5a4632'),
+      ...sym('corps', 'PatteAr', [0.6, 0.85, -1.1], [0.45, 1.5, 0.45], '#5a4632'),
+      ...sym('corps', 'SaboAv', [0.6, 0.06, 1.1], [0.5, 0.12, 0.5], '#3a2d20'),
+      ...sym('corps', 'SaboAr', [0.6, 0.06, -1.1], [0.5, 0.12, 0.5], '#3a2d20'),
+      P('corps', 'Cou', [0, 3.0, 1.35], [0.9, 1.4, 0.9], '#5f8a46', false, [25, 0, 0]),
+      P('corps', 'Mousse', [0, 3.04, 0.1], [1.3, 0.1, 1.8], '#8fc25e'),
+      P('corps', 'Fleur1', [0.4, 3.15, -0.4], [0.22, 0.22, 0.22], '#ff9be0', true),
+      P('corps', 'Fleur2', [-0.35, 3.15, 0.6], [0.22, 0.22, 0.22], '#ff9be0', true),
+      P('corps', 'Fleur3', [0.1, 3.15, -1.0], [0.22, 0.22, 0.22], '#ffe27a', true),
+      P('corps', 'Queue', [0, 2.65, -1.7], [0.45, 0.5, 0.3], '#eef3dc'),
+      P('tete', 'Tete', [0, 0.2, 0.45], [1.0, 0.9, 1.4], '#5f8a46'),
+      P('tete', 'Museau', [0, 0.0, 1.25], [0.6, 0.5, 0.3], '#3a2d20'),
+      ...sym('tete', 'Oeil', [0.51, 0.35, 0.7], [0.06, 0.2, 0.24], '#c6ff7a', true),
+      ...sym('tete', 'Oreille', [0.7, 0.55, 0.1], [0.55, 0.2, 0.3], '#4a6b36', false, [0, 0, -20]),
+      ...sym('tete', 'BoisBase', [0.3, 0.95, 0.15], [0.2, 0.9, 0.2], '#d9c7a3', false, [0, 0, -20]),
+      ...sym('tete', 'BoisBranche', [0.7, 1.35, 0.15], [0.7, 0.18, 0.18], '#d9c7a3', false, [0, 0, 20]),
+      ...sym('tete', 'BoisPointe', [1.0, 1.75, 0.15], [0.18, 0.7, 0.18], '#d9c7a3'),
+      ...sym('tete', 'BoisAvant', [0.45, 1.4, 0.45], [0.16, 0.5, 0.16], '#d9c7a3', false, [30, 0, 0]),
+      ...sym('tete', 'Feuille', [1.0, 2.2, 0.15], [0.35, 0.35, 0.35], '#b6ff5c', true, [0, 45, 0])
+    ]
+  }
+];
+
+// ---------- Utilitaires ----------
+const $ = id => document.getElementById(id);
+const rnd = (a, b) => a + Math.random() * (b - a);
+const easeOut = x => 1 - Math.pow(1 - x, 3);
+const easeIn = x => x * x * x;
+const hexRGB = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const f = n => { const s = (+n.toFixed(2)).toString(); return s === '-0' ? '0' : s; };
+const worldPos = (cr, p) => { const pv = cr.groups[p.g].pivot; return [pv[0] + p.pos[0], pv[1] + p.pos[1], pv[2] + p.pos[2]]; };
+const GROUP_LABEL = { corps: 'Corps', tete: 'Tete', queue: 'Queue', aile: 'AileG', aileD: 'AileD', outil: 'Outil' };
+
+function bounds(cr) {
+  const mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
+  cr.parts.forEach(p => { const w = worldPos(cr, p); for (let i = 0; i < 3; i++) { mn[i] = Math.min(mn[i], w[i] - p.size[i] / 2); mx[i] = Math.max(mx[i], w[i] + p.size[i] / 2); } });
+  return { mn, mx, size: mx.map((v, i) => v - mn[i]), center: mx.map((v, i) => (v + mn[i]) / 2) };
+}
+
+function luau(cr) {
+  const L = [];
+  L.push(`-- ${cr.name} · ${cr.kind} (${cr.element}, ${cr.rarity})`);
+  L.push(`-- Généré par l'Atelier Bestiaire · ${cr.parts.length} pièces`);
+  L.push(`-- À placer dans un Script de ServerScriptService.`, '');
+  L.push(`local POSITION = Vector3.new(0, 0, 0) -- où faire apparaître le pet`, '');
+  L.push('local PARTS = {');
+  cr.parts.forEach(p => {
+    const w = worldPos(cr, p);
+    let cf = `CFrame.new(${w.map(f).join(', ')})`;
+    if (p.rot.some(v => v)) cf += ` * CFrame.Angles(${p.rot.map(v => v ? `math.rad(${v})` : '0').join(', ')})`;
+    const [r, g, b] = hexRGB(p.c);
+    L.push(`\t{"${GROUP_LABEL[p.g]}_${p.n}", Vector3.new(${p.size.map(f).join(', ')}), ${cf}, Color3.fromRGB(${r}, ${g}, ${b}), ${p.glow}},`);
+  });
+  L.push('}', '');
+  L.push(`local model = Instance.new("Model")`);
+  L.push(`model.Name = "${cr.name}"`, '');
+  L.push('local root');
+  L.push('for i, d in ipairs(PARTS) do');
+  L.push('\tlocal p = Instance.new("Part")');
+  L.push('\tp.Name = d[1]');
+  L.push('\tp.Size = d[2]');
+  L.push('\tp.CFrame = CFrame.new(POSITION) * d[3]');
+  L.push('\tp.Color = d[4]');
+  L.push('\tp.Material = d[5] and Enum.Material.Neon or Enum.Material.SmoothPlastic');
+  L.push('\tp.TopSurface = Enum.SurfaceType.Smooth');
+  L.push('\tp.BottomSurface = Enum.SurfaceType.Smooth');
+  L.push('\tp.CanCollide = false');
+  L.push('\tp.Anchored = (i == 1)');
+  L.push('\tp.Parent = model');
+  L.push('\tif i == 1 then');
+  L.push('\t\troot = p');
+  L.push('\t\tmodel.PrimaryPart = p');
+  L.push('\telse');
+  L.push('\t\tlocal weld = Instance.new("WeldConstraint")');
+  L.push('\t\tweld.Part0 = root');
+  L.push('\t\tweld.Part1 = p');
+  L.push('\t\tweld.Parent = p');
+  L.push('\tend');
+  L.push('end', '');
+  L.push('model.Parent = workspace');
+  return L.join('\n');
+}
+
+// ---------- Scène ----------
+const stage = $('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.setClearColor(0x0c111c, 1);
+stage.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x0c111c, 18, 40);
+const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 200);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.enablePan = false;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 1.4;
+
+const hemi = new THREE.HemisphereLight(0xbcd0ff, 0x1a1410, 0.6);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff1dc, 0.7);
+sun.position.set(6, 10, 7);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 30 });
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.02;
+sun.shadow.radius = 3;
+scene.add(sun);
+const rim = new THREE.DirectionalLight(0x8fb4ff, 0);
+rim.position.set(4, 4, -8);
+scene.add(rim);
+const glowLight = new THREE.PointLight(0xff7a1a, 1.2, 14);
+scene.add(glowLight);
+const flashLight = new THREE.PointLight(0xff8a2a, 0, 16);
+scene.add(flashLight);
+
+// Lueur (bloom) sur tout ce qui est néon
+let composer = null;
+try {
+  if (THREE.EffectComposer && THREE.RenderPass && THREE.UnrealBloomPass) {
+    composer = new THREE.EffectComposer(renderer);
+    composer.addPass(new THREE.RenderPass(scene, camera));
+    composer.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(256, 256), 0.9, 0.5, 0.92));
+  }
+} catch (e) { composer = null; }
+
+// Socle
+const disc = new THREE.Mesh(new THREE.CircleGeometry(6, 64), new THREE.MeshStandardMaterial({ color: 0x151d30, roughness: 1 }));
+disc.rotation.x = -Math.PI / 2;
+scene.add(disc);
+const rings = new THREE.PolarGridHelper(6, 12, 4, 64, 0x2c3a5c, 0x222d48);
+rings.position.y = 0.01;
+scene.add(rings);
+
+const holder = new THREE.Group();
+scene.add(holder);
+const extras = new THREE.Group();
+scene.add(extras);
+let animGroups = {};
+const state = { anim: true, fx: true };
+
+const edgesOf = geo => new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.28 }));
+
+// ---------- Particules ----------
+const SOFT = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.35, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+})();
+const PAL = {
+  fire: [[0, 1, .95, .7], [.2, 1, .62, .18], [.55, .75, .14, .02], [1, 0, 0, 0]],
+  blue: [[0, .85, .97, 1], [.2, .35, .75, 1], [.55, .05, .2, .7], [1, 0, 0, 0]],
+  spark: [[0, 1, .9, .55], [.5, 1, .5, .12], [1, 0, 0, 0]],
+  sparkBlue: [[0, .9, .97, 1], [.5, .3, .7, 1], [1, 0, 0, 0]]
+};
+function palColor(stops, r, out, o) {
+  for (let i = 1; i < stops.length; i++) {
+    if (r <= stops[i][0]) {
+      const a = stops[i - 1], b = stops[i], k = (r - a[0]) / (b[0] - a[0]);
+      out[o] = a[1] + (b[1] - a[1]) * k; out[o + 1] = a[2] + (b[2] - a[2]) * k; out[o + 2] = a[3] + (b[3] - a[3]) * k;
+      return;
+    }
+  }
+  out[o] = out[o + 1] = out[o + 2] = 0;
+}
+class Particles {
+  constructor(max, size, gravity, drag, pals, opts = {}) {
+    Object.assign(this, { max, gravity, drag, pals, next: 0 });
+    this.pos = new Float32Array(max * 3); this.col = new Float32Array(max * 3); this.vel = new Float32Array(max * 3);
+    this.life = new Float32Array(max); this.maxLife = new Float32Array(max); this.kind = new Uint8Array(max);
+    for (let i = 0; i < max; i++) this.pos[i * 3 + 1] = -999;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(this.col, 3));
+    this.points = new THREE.Points(g, new THREE.PointsMaterial({ size, map: opts.map || SOFT, vertexColors: true, transparent: true, opacity: opts.opacity ?? 1, blending: opts.blending ?? THREE.AdditiveBlending, depthWrite: false }));
+    this.points.frustumCulled = false;
+  }
+  spawn(x, y, z, vx, vy, vz, life, kind) {
+    const i = this.next, o = i * 3; this.next = (i + 1) % this.max;
+    this.pos[o] = x; this.pos[o + 1] = y; this.pos[o + 2] = z;
+    this.vel[o] = vx; this.vel[o + 1] = vy; this.vel[o + 2] = vz;
+    this.life[i] = this.maxLife[i] = life; this.kind[i] = kind;
+  }
+  update(dt) {
+    const k = Math.exp(-this.drag * dt), Pp = this.pos, V = this.vel, C = this.col;
+    for (let i = 0; i < this.max; i++) {
+      if (this.life[i] <= 0) continue;
+      const o = i * 3;
+      this.life[i] -= dt;
+      if (this.life[i] <= 0) { Pp[o + 1] = -999; C[o] = C[o + 1] = C[o + 2] = 0; continue; }
+      V[o + 1] += this.gravity * dt; V[o] *= k; V[o + 1] *= k; V[o + 2] *= k;
+      Pp[o] += V[o] * dt; Pp[o + 1] += V[o + 1] * dt; Pp[o + 2] += V[o + 2] * dt;
+      if (Pp[o + 1] < 0.03 && V[o + 1] < 0) { Pp[o + 1] = 0.03; V[o + 1] *= -0.3; }
+      palColor(this.pals[this.kind[i]], 1 - this.life[i] / this.maxLife[i], C, o);
+    }
+    this.points.geometry.attributes.position.needsUpdate = true;
+    this.points.geometry.attributes.color.needsUpdate = true;
+  }
+}
+const flames = new Particles(1400, 0.55, 3, 1.4, [PAL.fire, PAL.blue]);
+const sparks = new Particles(700, 0.13, -15, 0.5, [PAL.spark, PAL.sparkBlue]);
+scene.add(flames.points, sparks.points);
+
+function burstFlames(p, n, vMin, vMax, spread, kind, l0 = 0.4, l1 = 0.9) {
+  for (let i = 0; i < n; i++) flames.spawn(p.x + rnd(-.15, .15), p.y + rnd(-.1, .1), p.z + rnd(-.15, .15), rnd(-spread, spread), rnd(vMin, vMax), rnd(-spread, spread), rnd(l0, l1), kind);
+}
+function burstSparks(p, n, speed, kind) {
+  const v = new THREE.Vector3();
+  for (let i = 0; i < n; i++) {
+    v.set(rnd(-1, 1), rnd(0.2, 1.3), rnd(-1, 1)).normalize().multiplyScalar(rnd(speed * 0.4, speed));
+    sparks.spawn(p.x, p.y, p.z, v.x, v.y, v.z, rnd(0.4, 1.0), kind);
+  }
+}
+
+// ---------- Effets temporaires ----------
+const transients = [], timers = [];
+const addTransient = (dur, upd, done) => transients.push({ t: 0, dur, upd, done });
+const later = (sec, fn) => timers.push({ t: sec, fn });
+function stepTransients(dt) {
+  for (let i = timers.length - 1; i >= 0; i--) { timers[i].t -= dt; if (timers[i].t <= 0) { const fn = timers[i].fn; timers.splice(i, 1); fn(); } }
+  for (let i = transients.length - 1; i >= 0; i--) {
+    const tr = transients[i]; tr.t += dt; const r = Math.min(tr.t / tr.dur, 1);
+    tr.upd(dt, r);
+    if (r >= 1) { transients.splice(i, 1); tr.done && tr.done(); }
+  }
+}
+const glowMat = (hex, mult = 1.8, extra = {}) => new THREE.MeshBasicMaterial(Object.assign({ color: new THREE.Color(hex).multiplyScalar(mult), transparent: true, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false }, extra));
+
+function ring(x, y, z, radius, dur, hex, width = 0.12) {
+  const m = new THREE.Mesh(new THREE.RingGeometry(1 - width, 1, 64), glowMat(hex));
+  m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); extras.add(m);
+  addTransient(dur, (dt, r) => { m.scale.setScalar(0.2 + easeOut(r) * radius); m.material.opacity = 1 - r; }, () => extras.remove(m));
+}
+function scorch(x, z, size) {
+  const dark = new THREE.Mesh(new THREE.CircleGeometry(size, 32), new THREE.MeshBasicMaterial({ color: 0x050302, transparent: true, opacity: 0.7, depthWrite: false }));
+  dark.rotation.x = -Math.PI / 2; dark.position.set(x, 0.02, z);
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(size * 0.6, 32), glowMat(0xff5a10, 1.6));
+  glow.rotation.x = -Math.PI / 2; glow.position.set(x, 0.025, z);
+  extras.add(dark, glow);
+  addTransient(4, (dt, r) => { dark.material.opacity = 0.7 * (1 - r * r); glow.material.opacity = Math.max(0, 0.9 - r * 2.2); glow.scale.setScalar(1 - r * 0.5); }, () => extras.remove(dark, glow));
+}
+function pillar(x, z) {
+  const outer = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.5, 1, 24, 1, true), glowMat(0xff6a1a));
+  const inner = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.6, 1, 24, 1, true), glowMat(0xd8f0ff, 2.2));
+  [outer, inner].forEach(m => { m.position.set(x, 0, z); extras.add(m); });
+  addTransient(0.9, (dt, r) => {
+    const h = 0.1 + easeOut(r) * 11;
+    [outer, inner].forEach(m => { m.scale.y = h; m.position.y = h / 2; m.material.opacity = 1 - r; });
+    outer.scale.x = outer.scale.z = 1 + r * 0.8;
+  }, () => extras.remove(outer, inner));
+}
+
+// ---------- Pioche : état de la démo ----------
+const T = { aura: null, auraOn: true, active: false, group: null, tip: null, back: null, head: null, neon: [], heat: 0, swing: -1, struck: false, auto: true, autoT: 0.8, ore: null, shake: 0, trailAlpha: 0, flameAcc: 0, dripAcc: 0 };
+const HOT = new THREE.Color(1, 0.93, 0.75), ICE = new THREE.Color(0.55, 0.85, 1);
+const _tip = new THREE.Vector3(), _back = new THREE.Vector3(), _head = new THREE.Vector3();
+
+// Traînée de feu (ruban)
+const TRAIL_N = 16;
+const trail = (() => {
+  const pos = new Float32Array(TRAIL_N * 6), col = new Float32Array(TRAIL_N * 6), idx = [];
+  for (let i = 0; i < TRAIL_N - 1; i++) { const a = 2 * i; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.setIndex(idx);
+  const mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, depthWrite: false }));
+  mesh.frustumCulled = false; mesh.visible = false;
+  return { mesh, pos, col, hist: [] };
+})();
+scene.add(trail.mesh);
+function updateTrail(a, b, blue) {
+  trail.hist.unshift([a.x, a.y, a.z, b.x, b.y, b.z]);
+  if (trail.hist.length > TRAIL_N) trail.hist.pop();
+  for (let i = 0; i < TRAIL_N; i++) {
+    const h = trail.hist[Math.min(i, trail.hist.length - 1)], o = i * 6;
+    for (let j = 0; j < 6; j++) trail.pos[o + j] = h[j];
+    const k = (1 - i / (TRAIL_N - 1)) * T.trailAlpha;
+    const c = blue ? [0.5, 0.85, 1.4] : [1.5, 0.65, 0.15];
+    trail.col[o] = c[0] * k; trail.col[o + 1] = c[1] * k; trail.col[o + 2] = c[2] * k;
+    trail.col[o + 3] = c[0] * k * 0.35; trail.col[o + 4] = c[1] * k * 0.35; trail.col[o + 5] = c[2] * k * 0.35;
+  }
+  trail.mesh.geometry.attributes.position.needsUpdate = true;
+  trail.mesh.geometry.attributes.color.needsUpdate = true;
+  trail.mesh.visible = T.trailAlpha > 0.01;
+}
+
+// Bloc de minerai à frapper
+function buildOre() {
+  const g = new THREE.Group(); g.position.set(0, 0.6, -2.6);
+  const stone = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), new THREE.MeshStandardMaterial({ color: 0x4a4440, roughness: 0.95, flatShading: true }));
+  stone.add(edgesOf(stone.geometry)); g.add(stone);
+  const gemMat = new THREE.MeshStandardMaterial({ color: 0xd9a441, emissive: 0xffc04a, emissiveIntensity: 0.5, roughness: 0.4 });
+  [[0.61, 0.2, 0.1, 0.06, 0.3, 0.3], [-0.61, -0.2, -0.2, 0.06, 0.25, 0.35], [0.1, 0.61, -0.2, 0.35, 0.06, 0.3], [-0.2, 0.1, 0.61, 0.3, 0.3, 0.06], [0.3, -0.3, -0.61, 0.25, 0.3, 0.06], [0.25, -0.25, 0.61, 0.2, 0.2, 0.06]]
+    .forEach(s => { const m = new THREE.Mesh(new THREE.BoxGeometry(s[3], s[4], s[5]), gemMat); m.position.set(s[0], s[1], s[2]); g.add(m); });
+  const crackMat = new THREE.MeshStandardMaterial({ color: 0x140804, emissive: 0xff5a10, emissiveIntensity: 0 });
+  [[0, 0.3, 0.605, 0.8, 0.05, 0.02], [0.2, -0.1, 0.605, 0.05, 0.6, 0.02], [0.605, 0, -0.2, 0.02, 0.05, 0.8], [0.605, 0.1, 0.2, 0.02, 0.5, 0.05], [0, 0.605, 0.1, 0.7, 0.02, 0.05], [-0.1, 0.605, -0.2, 0.05, 0.02, 0.6]]
+    .forEach(s => { const m = new THREE.Mesh(new THREE.BoxGeometry(s[3], s[4], s[5]), crackMat); m.position.set(s[0], s[1], s[2]); g.add(m); });
+  extras.add(g);
+  return { g, hp: 3, crackMat, down: 0, punch: 0, pop: 1 };
+}
+function shatter(center) {
+  T.ore.g.visible = false; T.ore.down = 1.6;
+  for (let i = 0; i < 16; i++) {
+    const s = rnd(0.15, 0.4), hot = i % 3 !== 0;
+    const mat = new THREE.MeshStandardMaterial({ color: hot ? 0x3a2a20 : 0x4a4440, emissive: hot ? 0xff6a1a : 0xffc04a, emissiveIntensity: hot ? 3 : 1, flatShading: true });
+    const m = new THREE.Mesh(new THREE.BoxGeometry(s, s, s), mat);
+    m.position.set(center.x + rnd(-.45, .45), center.y + rnd(-.45, .45), center.z + rnd(-.45, .45));
+    extras.add(m);
+    const v = new THREE.Vector3(rnd(-3.5, 3.5), rnd(4, 9), rnd(-3.5, 3.5)), spin = new THREE.Vector3(rnd(-8, 8), rnd(-8, 8), rnd(-8, 8)), e0 = mat.emissiveIntensity;
+    addTransient(1.9, (dt, r) => {
+      v.y -= 18 * dt; m.position.addScaledVector(v, dt);
+      if (m.position.y < s / 2) { m.position.y = s / 2; v.y *= -0.35; v.x *= 0.7; v.z *= 0.7; spin.multiplyScalar(0.7); }
+      m.rotation.x += spin.x * dt; m.rotation.y += spin.y * dt; m.rotation.z += spin.z * dt;
+      mat.emissiveIntensity = e0 * Math.max(0, 1 - r * 1.4);
+      if (hot && r < 0.5 && state.fx && Math.random() < 0.35) flames.spawn(m.position.x, m.position.y, m.position.z, 0, 0.6, 0, 0.3, 0);
+      m.scale.setScalar(r > 0.8 ? Math.max(0.001, 1 - (r - 0.8) / 0.2) : 1);
+    }, () => { extras.remove(m); m.geometry.dispose(); mat.dispose(); });
+  }
+}
+function hitOre(dmg) {
+  const o = T.ore; if (!o || !o.g.visible) return;
+  o.hp -= dmg; o.punch = 1;
+  o.crackMat.emissiveIntensity = Math.min(3.6, (3 - Math.max(o.hp, 0)) * 1.3);
+  if (o.hp <= 0) shatter(o.g.position.clone());
+}
+
+function strike() {
+  T.tip.getWorldPosition(_tip);
+  const p = _tip.clone(); p.y = Math.max(p.y, 0.05);
+  const erupt = T.heat >= 100, kind = erupt ? 1 : 0;
+  burstFlames(p, erupt ? 130 : 50, 1.5, erupt ? 7 : 4, erupt ? 3 : 1.8, kind);
+  burstSparks(p, erupt ? 150 : 60, erupt ? 14 : 9, kind);
+  ring(p.x, 0.04, p.z, erupt ? 6.5 : 2.4, erupt ? 0.7 : 0.4, erupt ? 0x9fd8ff : 0xff8a2a);
+  scorch(p.x, p.z, erupt ? 2.6 : 1.0);
+  flashLight.position.set(p.x, p.y + 0.6, p.z);
+  flashLight.color.set(erupt ? 0x8fd0ff : 0xff8a2a);
+  flashLight.intensity = erupt ? 16 : 6;
+  T.shake = Math.max(T.shake, erupt ? 0.5 : 0.16);
+  if (erupt) {
+    later(0.08, () => ring(p.x, 0.05, p.z, 9, 0.9, 0xfff0c0, 0.06));
+    later(0.18, () => ring(p.x, 0.06, p.z, 11, 1.1, 0xff5a10, 0.05));
+    pillar(p.x, p.z);
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * Math.PI * 2, gp = new THREE.Vector3(p.x + Math.cos(a) * 3.4, 0.05, p.z + Math.sin(a) * 3.4);
+      later(0.12 + i * 0.04, () => { burstFlames(gp, 30, 5, 10, 0.5, 1, 0.4, 0.8); burstSparks(gp, 14, 8, 1); scorch(gp.x, gp.z, 0.8); T.shake = Math.max(T.shake, 0.18); });
+    }
+    T.heat = 0;
+    hitOre(3);
+  } else {
+    T.heat = Math.min(100, T.heat + 20);
+    hitOre(1);
+  }
+}
+function swing() { if (T.active && T.swing < 0) { T.swing = 0; T.struck = false; } }
+
+// Aura : anneaux de runes, braises en orbite, halo, sceau hexagonal au sol
+const AURA_BASE = new THREE.Color(0xff8a2a);
+function buildAura(g) {
+  const matR = glowMat(0xff8a2a, 2), matE = glowMat(0xffb347, 2.2), matG = glowMat(0xff6a1a, 1.6), matD = glowMat(0xff5a10, 0.9);
+  const mkRing = (n, r, s) => {
+    const rg = new THREE.Group();
+    for (let i = 0; i < n; i++) {
+      const a = i / n * Math.PI * 2;
+      const m = new THREE.Mesh(new THREE.BoxGeometry(s, s * 0.5, s * 1.7), matR);
+      m.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); m.rotation.y = -a; rg.add(m);
+    }
+    return rg;
+  };
+  const pivotA = new THREE.Group(); pivotA.position.set(0, 2.05, -0.3); pivotA.rotation.set(1.15, 0, 0.2);
+  const ringA = mkRing(12, 1.15, 0.12); pivotA.add(ringA); g.add(pivotA);
+  const pivotB = new THREE.Group(); pivotB.position.set(0, 2.05, -0.3); pivotB.rotation.set(0.4, 0, 1.0);
+  const ringB = mkRing(9, 1.45, 0.1); pivotB.add(ringB); g.add(pivotB);
+  const embers = [];
+  for (let i = 0; i < 6; i++) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.16), matE); g.add(e); embers.push(e); }
+  const spriteMat = new THREE.SpriteMaterial({ map: SOFT, color: 0xff7a1a, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.3 });
+  const sprite = new THREE.Sprite(spriteMat); sprite.position.set(0, 2.05, -0.4); sprite.scale.set(3.4, 3.4, 1); g.add(sprite);
+  const hex = new THREE.Mesh(new THREE.RingGeometry(1.75, 1.9, 6), matG);
+  const inner = new THREE.Mesh(new THREE.RingGeometry(1.15, 1.2, 48), matG);
+  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.75, 48), matD);
+  [hex, inner, disc].forEach((m, i) => { m.rotation.x = -Math.PI / 2; m.position.set(0, 0.035 + i * 0.002, -0.3); extras.add(m); });
+  return { pivotA, ringA, pivotB, ringB, embers, sprite, spriteMat, hex, inner, disc, matR, matE, matG, matD };
+}
+const _c = new THREE.Color();
+function updateAura(dt, t, h, over, pulse) {
+  const A = T.aura; if (!A) return;
+  const vis = T.auraOn;
+  [A.pivotA, A.pivotB, A.sprite, A.hex, A.inner, A.disc, ...A.embers].forEach(o => o.visible = vis);
+  if (!vis) return;
+  const k = 0.45 + 0.55 * h;
+  _c.copy(AURA_BASE).lerp(over ? ICE : HOT, over ? 0.9 : h * 0.55);
+  A.matR.color.copy(_c).multiplyScalar(1.3 * k); A.matR.opacity = 0.55 + 0.45 * k;
+  A.matE.color.copy(_c).multiplyScalar(1.7 * k);
+  A.matG.color.copy(_c).multiplyScalar(1.6 * k); A.matG.opacity = 0.5 + 0.4 * k + pulse * 0.1;
+  A.matD.color.copy(_c).multiplyScalar(0.9); A.matD.opacity = (0.1 + 0.18 * h) * (0.8 + 0.2 * Math.sin(t * 4));
+  A.spriteMat.color.copy(_c); A.spriteMat.opacity = 0.16 + 0.38 * h + pulse * 0.2;
+  A.sprite.scale.setScalar(3.2 + 0.8 * h + Math.sin(t * 3) * 0.15);
+  A.ringA.rotation.y += dt * (1.1 + 2.2 * h);
+  A.ringB.rotation.y -= dt * (0.8 + 1.8 * h);
+  A.embers.forEach((e, i) => {
+    const a = t * (1.5 + h) + i * Math.PI / 3, r = 1.5 + 0.15 * Math.sin(t * 2 + i);
+    e.position.set(Math.cos(a) * r, 2.05 + Math.sin(t * 3 + i) * 0.5, -0.3 + Math.sin(a) * r);
+    e.rotation.set(t * 3 + i, t * 2, 0);
+    if (state.fx && Math.random() < dt * 6) {
+      e.getWorldPosition(_head);
+      flames.spawn(_head.x, _head.y, _head.z, 0, 0.3, 0, 0.35, over ? 1 : 0);
+    }
+  });
+  A.hex.rotation.z += dt * 0.5;
+  A.inner.scale.setScalar(1 + 0.05 * Math.sin(t * 4));
+}
+
+const SW_WIND = 0.16, SW_SLAM = 0.09, SW_REC = 0.25;
+function toolUpdate(dt, t) {
+  if (!T.active) return;
+  if (T.auto && T.swing < 0) { T.autoT -= dt; if (T.autoT <= 0) { T.autoT = 1.05; swing(); } }
+
+  let a = state.anim ? Math.sin(t * 1.4) * 0.06 : 0;
+  if (T.swing >= 0) {
+    T.swing += dt; const s = T.swing;
+    if (s < SW_WIND) a = easeOut(s / SW_WIND) * 0.75;
+    else if (s < SW_WIND + SW_SLAM) a = 0.75 - easeIn((s - SW_WIND) / SW_SLAM) * 2.05;
+    else if (s < SW_WIND + SW_SLAM + SW_REC) {
+      if (!T.struck) { T.struck = true; strike(); }
+      a = -1.3 * (1 - easeOut((s - SW_WIND - SW_SLAM) / SW_REC));
+    } else T.swing = -1;
+    T.trailAlpha = 1;
+  } else T.trailAlpha *= Math.exp(-dt * 10);
+  T.group.rotation.x = a;
+  T.group.updateMatrixWorld(true);
+
+  if (T.heat < 100) T.heat = Math.max(0, T.heat - 6 * dt);
+  const h = T.heat / 100, over = T.heat >= 100, pulse = over ? 0.5 + 0.5 * Math.sin(t * 12) : 0;
+  T.neon.forEach(n => {
+    n.mat.emissive.copy(n.base).lerp(over ? ICE : HOT, over ? 0.85 : h * 0.7);
+    n.mat.color.copy(n.mat.emissive);
+    n.mat.emissiveIntensity = 2.4 + 2.2 * h + pulse * 1.4;
+  });
+  glowLight.color.set(over ? 0x8fd0ff : 0xff8a2a);
+  glowLight.intensity = 1.2 + 1.6 * h;
+
+  T.tip.getWorldPosition(_tip); T.back.getWorldPosition(_back); T.head.getWorldPosition(_head);
+  glowLight.position.set(_head.x, _head.y + 0.8, _head.z + 1);
+  if (state.fx) {
+    T.flameAcc += dt * (22 + 80 * h);
+    while (T.flameAcc >= 1) { T.flameAcc -= 1; flames.spawn(_tip.x + rnd(-.1, .1), _tip.y + rnd(-.05, .1), _tip.z + rnd(-.1, .1), rnd(-.3, .3), rnd(0.6, 1.6), rnd(-.3, .3), rnd(0.35, 0.7), over ? 1 : 0); }
+    T.dripAcc += dt * (3 + 6 * h);
+    while (T.dripAcc >= 1) { T.dripAcc -= 1; sparks.spawn(_tip.x, _tip.y - 0.1, _tip.z, rnd(-.2, .2), rnd(-0.5, 0.3), rnd(-.2, .2), rnd(0.5, 0.9), over ? 1 : 0); }
+    if (h > 0.6 && Math.random() < dt * 40) flames.spawn(_head.x + rnd(-.4, .4), _head.y + rnd(-.3, .3), _head.z + rnd(-1.2, 1), 0, rnd(0.4, 1), 0, rnd(0.3, 0.5), over ? 1 : 0);
+  }
+  updateTrail(_tip, _back, over);
+  updateAura(dt, t, h, over, pulse);
+
+  const o = T.ore;
+  if (o) {
+    if (!o.g.visible) { o.down -= dt; if (o.down <= 0) { o.g.visible = true; o.hp = 3; o.crackMat.emissiveIntensity = 0; o.pop = 0; } }
+    o.pop = Math.min(1, o.pop + dt * 3);
+    o.punch *= Math.exp(-dt * 10);
+    const pop = o.pop < 1 ? easeOut(o.pop) : 1;
+    o.g.scale.setScalar(Math.max(0.001, pop * (1 - 0.08 * o.punch)));
+    if (o.crackMat.emissiveIntensity > 0) o.crackMat.emissiveIntensity *= 1 + Math.sin(t * 9) * 0.01;
+  }
+
+  $('hudFill').style.width = T.heat.toFixed(1) + '%';
+  const label = over ? 'Surchauffe · prochain coup = Éruption' : `Chaleur ${Math.round(T.heat)} %`;
+  if ($('hudLabel').textContent !== label) $('hudLabel').textContent = label;
+  $('hud').classList.toggle('over', over);
+}
+
+// ---------- Minerais ----------
+const ORE_TYPES = {
+  charbon: { name: 'Charbon', rarity: 'Commun', rcol: '#b8bcc6', shader: 0, env: 1.2, scale: [1.25, 0.9, 1.05], glow: 0xff5a20, glowOp: 0.04, fx: 'smoke', light: 0xff6a2a, lightI: 0.5 },
+  bronze: { name: 'Bronze', rarity: 'Peu commun', rcol: '#ff9a3c', shader: 1, env: 1.3, scale: [1.1, 0.95, 1.0], glow: 0xff9a50, glowOp: 0.05, fx: 'glint', light: 0xffb070, lightI: 0.8 },
+  fer: { name: 'Fer', rarity: 'Rare', rcol: '#4f8dff', shader: 2, env: 1.5, scale: [1.1, 1.0, 1.05], glow: 0x9fc8ff, glowOp: 0.06, fx: 'stars', light: 0xc8dcff, lightI: 1 },
+  gold: { name: 'Gold', rarity: 'Légendaire', rcol: '#b35cff', shader: 3, env: 1.5, scale: [1.05, 1.05, 1.0], glow: 0xffc23a, glowOp: 0.12, fx: 'gold', light: 0xffd27a, lightI: 1.4 }
+};
+const STAR = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const core = g.createRadialGradient(32, 32, 0, 32, 32, 12);
+  core.addColorStop(0, 'rgba(255,255,255,1)'); core.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = core; g.fillRect(0, 0, 64, 64);
+  g.globalCompositeOperation = 'lighter';
+  [[64, 3], [3, 64]].forEach(([w, h]) => {
+    const l = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    l.addColorStop(0, 'rgba(255,255,255,1)'); l.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = l; g.fillRect(32 - w / 2, 32 - h / 2, w, h);
+  });
+  return new THREE.CanvasTexture(c);
+})();
+Object.assign(PAL, {
+  starBlue: [[0, 0, 0, 0], [.25, .85, .95, 1], [.45, .25, .4, .6], [.65, .85, .95, 1], [1, 0, 0, 0]],
+  starGold: [[0, 0, 0, 0], [.25, 1, .92, .55], [.45, .45, .32, .08], [.65, 1, .85, .4], [1, 0, 0, 0]],
+  ember: [[0, 1, .8, .4], [.4, 1, .45, .1], [1, 0, 0, 0]],
+  goldDust: [[0, 1, .95, .6], [.5, 1, .75, .15], [1, 0, 0, 0]],
+  blueDust: [[0, .8, .9, 1], [.5, .3, .5, .9], [1, 0, 0, 0]],
+  smoke: [[0, .06, .06, .07], [.3, .2, .2, .22], [1, .05, .07, .11]]
+});
+const stars = new Particles(420, 0.55, 0, 3, [PAL.starBlue, PAL.starGold], { map: STAR });
+const motes = new Particles(700, 0.1, 0.8, 0.8, [PAL.ember, PAL.goldDust, PAL.blueDust]);
+const smoke = new Particles(180, 1.3, 0.25, 0.6, [PAL.smoke], { blending: THREE.NormalBlending, opacity: 0.55 });
+scene.add(stars.points, motes.points, smoke.points);
+
+// Reflets : petite pièce lumineuse rendue en carte d'environnement
+let ORE_ENV;
+function oreEnv() {
+  if (ORE_ENV !== undefined) return ORE_ENV;
+  try {
+    const es = new THREE.Scene();
+    es.add(new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshBasicMaterial({ color: 0x141a28, side: THREE.BackSide })));
+    const panel = (w, h, col, mult, pos) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(col).multiplyScalar(mult), side: THREE.DoubleSide }));
+      m.position.set(...pos); m.lookAt(0, 0, 0); es.add(m);
+    };
+    panel(8, 4, 0xffffff, 4, [0, 9, 0]);
+    panel(5, 6, 0xffd9a0, 3, [9, 2, 4]);
+    panel(5, 6, 0x9fc8ff, 3, [-9, 3, -3]);
+    panel(10, 2, 0xffffff, 1.5, [0, 1, 9]);
+    ORE_ENV = new THREE.PMREMGenerator(renderer).fromScene(es, 0.03).texture;
+  } catch (e) { ORE_ENV = null; }
+  return ORE_ENV;
+}
+
+// ---------- Bruit 3D (Perlin) pour sculpter la roche ----------
+const NOISE = (() => {
+  const p = new Uint8Array(512), perm = [...Array(256).keys()];
+  let s = 1337; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let i = 255; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [perm[i], perm[j]] = [perm[j], perm[i]]; }
+  for (let i = 0; i < 512; i++) p[i] = perm[i & 255];
+  const fade = t => t * t * t * (t * (t * 6 - 15) + 10), lerp = (a, b, t) => a + (b - a) * t;
+  const grad = (h, x, y, z) => { const u = h < 8 ? x : y, v = h < 4 ? y : (h === 12 || h === 14 ? x : z); return ((h & 1) ? -u : u) + ((h & 2) ? -v : v); };
+  return (x, y, z) => {
+    const X = Math.floor(x) & 255, Y = Math.floor(y) & 255, Z = Math.floor(z) & 255;
+    x -= Math.floor(x); y -= Math.floor(y); z -= Math.floor(z);
+    const u = fade(x), v = fade(y), w = fade(z);
+    const A = p[X] + Y, AA = p[A] + Z, AB = p[A + 1] + Z, B = p[X + 1] + Y, BA = p[B] + Z, BB = p[B + 1] + Z;
+    return lerp(
+      lerp(lerp(grad(p[AA] & 15, x, y, z), grad(p[BA] & 15, x - 1, y, z), u), lerp(grad(p[AB] & 15, x, y - 1, z), grad(p[BB] & 15, x - 1, y - 1, z), u), v),
+      lerp(lerp(grad(p[AA + 1] & 15, x, y, z - 1), grad(p[BA + 1] & 15, x - 1, y, z - 1), u), lerp(grad(p[AB + 1] & 15, x, y - 1, z - 1), grad(p[BB + 1] & 15, x - 1, y - 1, z - 1), u), v), w);
+  };
+})();
+const fbm3 = (x, y, z, o = 4) => { let a = 0.5, f = 1, s = 0; for (let i = 0; i < o; i++) { s += a * NOISE(x * f + i * 7.1, y * f, z * f); a *= 0.5; f *= 2.03; } return s; };
+
+// Rocher réaliste : sphère très fine, bosselée au bruit, puis taillée par des plans de fracture
+function rockGeo(seed, detail = 1) {
+  let g = new THREE.IcosahedronGeometry(1, detail === 0 ? 4 : detail === 1 ? 20 : 34);
+  g.deleteAttribute('normal'); g.deleteAttribute('uv');
+  if (THREE.BufferGeometryUtils) g = THREE.BufferGeometryUtils.mergeVertices(g);
+  let s = seed % 2147483646 + 1;
+  const rand = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const o = [rand() * 60, rand() * 60, rand() * 60];
+  const cuts = [];
+  for (let i = 0, n = 4 + Math.floor(rand() * 3); i < n; i++) {
+    cuts.push([new THREE.Vector3(rand() * 2 - 1, rand() * 1.5 - 0.4, rand() * 2 - 1).normalize(), 0.6 + rand() * 0.25]);
+  }
+  const pos = g.attributes.position, v = new THREE.Vector3(), cols = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    let r = 1 + 0.26 * fbm3(v.x * 1.3 + o[0], v.y * 1.3 + o[1], v.z * 1.3 + o[2], 4)
+              + 0.06 * fbm3(v.x * 4.5 + o[1], v.y * 4.5 + o[2], v.z * 4.5 + o[0], 3)
+              + 0.03 * (1 - Math.abs(NOISE(v.x * 10 + o[2], v.y * 10, v.z * 10 + o[0])));
+    v.multiplyScalar(r);
+    for (const [n, c] of cuts) { const d = v.dot(n); if (d > c) v.addScaledVector(n, -(d - c) * 0.9); }
+    if (v.y < -0.5) v.y = -0.5 + (v.y + 0.5) * 0.2;
+    pos.setXYZ(i, v.x, v.y, v.z);
+    // Occlusion ambiante : les creux sont plus sombres
+    const ao = THREE.MathUtils.clamp(0.45 + (r - 0.8) * 1.6, 0.35, 1);
+    cols[i * 3] = cols[i * 3 + 1] = cols[i * 3 + 2] = ao;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
+// Shader minéral : la matière (roche, veines de métal, bandes, rouille...) est calculée au pixel
+const ORE_TIME = { value: 0 };
+const ORE_GLSL = `
+uniform float uType; uniform float uTime; uniform float uSeed;
+varying vec3 vOP;
+float h3(vec3 p){ p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float vn(vec3 x){ vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(mix(h3(i), h3(i + vec3(1,0,0)), f.x), mix(h3(i + vec3(0,1,0)), h3(i + vec3(1,1,0)), f.x), f.y),
+             mix(mix(h3(i + vec3(0,0,1)), h3(i + vec3(1,0,1)), f.x), mix(h3(i + vec3(0,1,1)), h3(i + vec3(1,1,1)), f.x), f.y), f.z); }
+float fb(vec3 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 5; i++) { s += a * vn(p); p = p * 2.03 + vec3(1.7, 9.2, 3.1); a *= 0.5; } return s / 0.97; }
+vec3 oAlb; float oMet; float oRough; vec3 oEm; float oBump;
+void oreSurface(vec3 p){
+  p += uSeed;
+  float n1 = fb(p * 2.2), n2 = fb(p * 7.0 + 3.0), g = vn(p * 38.0), grain = vn(p * 95.0);
+  oEm = vec3(0.0);
+  if (uType < 0.5) {
+    // CHARBON : couches mates et couches vitreuses, paillettes de pyrite, braises dans les fissures
+    float band = sin(p.y * 24.0 + n1 * 7.0 + p.x * 3.0) * 0.5 + 0.5;
+    float vit = smoothstep(0.42, 0.62, band);
+    oAlb = mix(vec3(0.075, 0.075, 0.08), vec3(0.028, 0.028, 0.032), vit) * (0.75 + 0.5 * grain);
+    oRough = mix(0.82, 0.14, vit); oMet = 0.0;
+    float pyr = smoothstep(0.69, 0.73, fb(p * 11.0 + 7.0));
+    oAlb = mix(oAlb, vec3(0.8, 0.64, 0.3), pyr); oMet = mix(oMet, 1.0, pyr); oRough = mix(oRough, 0.26, pyr);
+    float crack = 1.0 - smoothstep(0.0, 0.022, abs(n1 - 0.5));
+    float pulse = 0.55 + 0.45 * sin(uTime * 1.6 + p.x * 5.0 + p.z * 3.0);
+    oEm = vec3(1.0, 0.25, 0.04) * crack * pulse * 1.8;
+    oAlb = mix(oAlb, vec3(0.02), crack);
+    oBump = 0.035;
+  } else if (uType < 1.5) {
+    // BRONZE : roche brune, cuivre natif en veines et pépites, taches de malachite verte
+    oAlb = mix(vec3(0.26, 0.21, 0.17), vec3(0.4, 0.34, 0.28), n2) * (0.7 + 0.55 * grain);
+    oMet = 0.0; oRough = 0.84;
+    float mal = smoothstep(0.58, 0.62, fb(p * 3.0 + 11.0));
+    float mb = sin(length(p * vec3(1.0, 1.3, 1.0)) * 60.0 + n2 * 8.0) * 0.5 + 0.5;
+    oAlb = mix(oAlb, mix(vec3(0.02, 0.26, 0.13), vec3(0.1, 0.52, 0.3), mb), mal); oRough = mix(oRough, 0.42, mal);
+    float rid = 1.0 - abs(n1 * 2.0 - 1.0);
+    float cu = max(smoothstep(0.86, 0.9, rid), smoothstep(0.64, 0.67, fb(p * 6.0 + 2.0)));
+    vec3 copper = mix(vec3(0.7, 0.33, 0.15), vec3(0.98, 0.6, 0.36), g);
+    oAlb = mix(oAlb, copper, cu); oMet = mix(oMet, 1.0, cu); oRough = mix(oRough, 0.28 + 0.18 * grain, cu);
+    oBump = mix(0.045, 0.012, cu);
+  } else if (uType < 2.5) {
+    // FER : formation de fer rubané (hématite argentée + jaspe rouge), rouille, éclats de magnétite
+    float b = sin(dot(p, normalize(vec3(0.25, 1.0, 0.15))) * 15.0 + n1 * 5.0) * 0.5 + 0.5;
+    float hem = smoothstep(0.38, 0.62, b);
+    vec3 jasper = mix(vec3(0.34, 0.07, 0.05), vec3(0.52, 0.15, 0.09), n2);
+    vec3 hemat = mix(vec3(0.27, 0.28, 0.31), vec3(0.46, 0.47, 0.51), g);
+    oAlb = mix(jasper, hemat, hem) * (0.82 + 0.35 * grain); oMet = mix(0.0, 0.88, hem); oRough = mix(0.62, 0.3, hem);
+    float rust = smoothstep(0.6, 0.66, fb(p * 3.5 + 21.0));
+    oAlb = mix(oAlb, vec3(0.46, 0.24, 0.08) * (0.65 + 0.6 * grain), rust); oMet = mix(oMet, 0.0, rust); oRough = mix(oRough, 0.95, rust);
+    float spk = step(0.8, vn(p * 55.0)) * hem;
+    oRough = mix(oRough, 0.1, spk); oMet = mix(oMet, 1.0, spk); oAlb = mix(oAlb, vec3(0.62, 0.64, 0.68), spk);
+    oBump = mix(0.035, 0.02, hem);
+  } else if (uType < 3.5) {
+    // GOLD : quartz laiteux taché d'oxyde, veines et pépites d'or natif
+    vec3 q = mix(vec3(0.78, 0.76, 0.72), vec3(0.94, 0.93, 0.91), n2);
+    float stain = smoothstep(0.56, 0.7, fb(p * 2.6 + 31.0));
+    oAlb = mix(q, vec3(0.6, 0.4, 0.22), stain * 0.75) * (0.88 + 0.16 * grain); oMet = 0.0; oRough = 0.36;
+    float rid = 1.0 - abs(fb(p * 1.6 + 9.0) * 2.0 - 1.0);
+    float au = max(smoothstep(0.84, 0.89, rid), smoothstep(0.67, 0.7, fb(p * 7.0 + 4.0)));
+    au = max(au, step(0.9, vn(p * 30.0)) * 0.9);
+    vec3 gold = mix(vec3(1.0, 0.68, 0.24), vec3(1.0, 0.85, 0.48), g);
+    oAlb = mix(oAlb, gold, au); oMet = mix(oMet, 1.0, au); oRough = mix(oRough, 0.18 + 0.12 * grain, au);
+    oBump = mix(0.03, 0.012, au);
+  } else {
+    // SOL de la mine : terre sombre et gravier
+    float peb = smoothstep(0.62, 0.7, vn(p * 9.0));
+    oAlb = mix(vec3(0.085, 0.075, 0.068), vec3(0.16, 0.145, 0.13), n2) * (0.7 + 0.6 * grain);
+    oAlb = mix(oAlb, vec3(0.2, 0.19, 0.18) * (0.8 + 0.4 * g), peb);
+    oMet = 0.0; oRough = 0.95; oBump = 0.05 + 0.05 * peb;
+  }
+}
+vec3 orePerturb(vec3 sp, vec3 sn, vec2 dH){
+  vec3 sx = dFdx(sp), sy = dFdy(sp), r1 = cross(sy, sn), r2 = cross(sn, sx);
+  float det = dot(sx, r1);
+  return normalize(abs(det) * sn - sign(det) * (dH.x * r1 + dH.y * r2));
+}`;
+function oreMaterial(type, seed, extra = {}) {
+  const m = new THREE.MeshStandardMaterial(Object.assign({ color: 0xffffff, vertexColors: true, roughness: 0.6, metalness: 0, envMap: oreEnv(), envMapIntensity: 1.2 }, extra));
+  m.extensions = { derivatives: true };
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uType = { value: type }; sh.uniforms.uSeed = { value: (seed % 97) * 0.37 }; sh.uniforms.uTime = ORE_TIME;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vOP;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvOP = position;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\n' + ORE_GLSL)
+      .replace('#include <color_fragment>', '#include <color_fragment>\noreSurface(vOP);\ndiffuseColor.rgb *= oAlb;')
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = oRough;')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = oMet;')
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n{ float hh = (fb(vOP * 14.0 + uSeed) * 0.7 + vn(vOP * 48.0 + uSeed) * 0.3) * oBump; normal = orePerturb(-vViewPosition, normal, vec2(dFdx(hh), dFdy(hh))); }')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += oEm;');
+  };
+  m.customProgramCacheKey = () => 'ore-v2';
+  return m;
+}
+
+// Cristaux et minéraux réels qui poussent sur chaque bloc
+Object.assign(ORE_TYPES.charbon, { cry: 'pyrite', clusters: 2 });
+Object.assign(ORE_TYPES.bronze, { cry: 'azurite', clusters: 2 });
+Object.assign(ORE_TYPES.fer, { cry: 'hematite', clusters: 2 });
+Object.assign(ORE_TYPES.gold, { cry: 'quartz', clusters: 3 });
+function crystalMesh(mat, h, r) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.92, r, h, 6), mat); body.position.y = h / 2; g.add(body);
+  const tip = new THREE.Mesh(new THREE.CylinderGeometry(0, r * 0.92, r * 1.6, 6), mat); tip.position.y = h + r * 0.8; g.add(tip);
+  return g;
+}
+function mineralMat(kind, env) {
+  switch (kind) {
+    case 'pyrite': return new THREE.MeshStandardMaterial({ color: 0xc9a54a, metalness: 1, roughness: 0.24, envMap: env, envMapIntensity: 1.6 });
+    case 'azurite': return new THREE.MeshPhysicalMaterial({ color: 0x1a3aa8, metalness: 0, roughness: 0.12, clearcoat: 1, clearcoatRoughness: 0.05, envMap: env, envMapIntensity: 2.2, flatShading: true });
+    case 'hematite': return new THREE.MeshStandardMaterial({ color: 0x3c3e44, metalness: 0.92, roughness: 0.2, envMap: env, envMapIntensity: 1.8, flatShading: true });
+    default: return new THREE.MeshPhysicalMaterial({ color: 0xf4f6fa, metalness: 0, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.02, transparent: true, opacity: 0.55, envMap: env, envMapIntensity: 3, flatShading: true, depthWrite: false });
+  }
+}
+const UP = new THREE.Vector3(0, 1, 0);
+function buildOreDetails(d, seed, rock, bob, mat, env, x, scale) {
+  const X = {};
+  // Petits rochers soudés au bloc principal
+  [[0.8, -0.36, 0.34, 0.48], [-0.74, -0.4, -0.3, 0.42], [0.12, -0.58, -0.74, 0.34]].forEach(([sx, sy, sz, ss], i) => {
+    const m = new THREE.Mesh(rockGeo(seed + 50 + i * 3, 1), mat);
+    m.position.set(sx, sy, sz); m.scale.setScalar(ss); m.rotation.set(i, i * 2, i * 3);
+    m.castShadow = m.receiveShadow = true; rock.add(m);
+  });
+  // Minéraux en surface
+  const cm = mineralMat(d.cry, env);
+  for (let c = 0; c < d.clusters; c++) {
+    const dir = new THREE.Vector3(Math.cos(c * 2.4 + seed), rnd(0.2, 0.85), Math.sin(c * 2.4 + seed)).normalize();
+    const base = dir.clone().multiplyScalar(0.72);
+    const n = d.cry === 'hematite' ? 6 : d.cry === 'pyrite' ? 4 : 5;
+    for (let j = 0; j < n; j++) {
+      let m;
+      if (d.cry === 'pyrite') {
+        const s = rnd(0.1, 0.2); m = new THREE.Mesh(new THREE.BoxGeometry(s, s, s), cm);
+        m.rotation.set(rnd(0, 6), rnd(0, 6), rnd(0, 6));
+        m.position.copy(base).add(new THREE.Vector3(rnd(-.18, .18), rnd(-.12, .12), rnd(-.18, .18)));
+      } else if (d.cry === 'hematite') {
+        // « Rose de fer » : lamelles hexagonales en rosette
+        const r = rnd(0.13, 0.2); m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, r * 0.14, 6), cm);
+        m.position.copy(base).add(new THREE.Vector3(rnd(-.06, .06), rnd(-.06, .06), rnd(-.06, .06)));
+        m.quaternion.setFromUnitVectors(UP, dir.clone().add(new THREE.Vector3(Math.cos(j * 1.05) * 0.9, 0, Math.sin(j * 1.05) * 0.9)).normalize());
+      } else {
+        const quartz = d.cry === 'quartz';
+        m = crystalMesh(cm, rnd(0.25, quartz ? 0.75 : 0.4), rnd(0.05, quartz ? 0.11 : 0.07));
+        m.position.copy(base).add(new THREE.Vector3(rnd(-.12, .12), rnd(-.1, .1), rnd(-.12, .12)));
+        m.quaternion.setFromUnitVectors(UP, dir.clone().add(new THREE.Vector3(rnd(-.45, .45), rnd(-.2, .2), rnd(-.45, .45))).normalize());
+      }
+      m.traverse(k => { if (k.isMesh) k.castShadow = true; });
+      rock.add(m);
+    }
+  }
+  // Éboulis au pied du bloc
+  for (let i = 0; i < 9; i++) {
+    const a = rnd(0, 6.28), r = rnd(0.95, 1.8);
+    const m = new THREE.Mesh(rockGeo(seed + 200 + i, 0), mat);
+    m.scale.setScalar(rnd(0.07, 0.2) * scale);
+    m.position.set(x + Math.cos(a) * r * scale, 0.04 * scale, Math.sin(a) * r * scale);
+    m.rotation.set(rnd(0, 6), rnd(0, 6), rnd(0, 6));
+    m.castShadow = m.receiveShadow = true;
+    holder.add(m);
+  }
+  return X;
+}
+function stepOreDetails() {}
+
+const oreObjs = [];
+function makeOre(key, seed, x, scale) {
+  const d = ORE_TYPES[key], env = oreEnv();
+  const root = new THREE.Group(); root.position.set(x, 0.52 * scale, 0); root.scale.setScalar(scale); holder.add(root);
+  const bob = new THREE.Group(); root.add(bob);
+  const mat = oreMaterial(d.shader, seed, { envMapIntensity: d.env });
+  const rock = new THREE.Mesh(rockGeo(seed, 2), mat); rock.scale.set(...d.scale);
+  rock.castShadow = rock.receiveShadow = true; bob.add(rock);
+  const X = buildOreDetails(d, seed, rock, bob, mat, env, x, scale);
+  const haloMat = new THREE.SpriteMaterial({ map: SOFT, color: d.glow, transparent: true, opacity: d.glowOp, blending: THREE.AdditiveBlending, depthWrite: false });
+  const halo = new THREE.Sprite(haloMat); halo.scale.setScalar(4.2); halo.position.y = 0.2; bob.add(halo);
+  const light = new THREE.PointLight(d.light, d.lightI, 6); light.position.set(0, 0.9, 1.5); bob.add(light);
+  const label = document.createElement('div');
+  label.className = 'ore-label'; label.style.setProperty('--rc', d.rcol);
+  label.innerHTML = `<b>${d.name}</b><span>${d.rarity}</span>`;
+  stage.appendChild(label);
+  oreObjs.push({ X, d, root, bob, rock, haloMat, shards: [], swirls: [], light, label, seed, scale, acc: { a: 0, b: 0 } });
+}
+// Sol de la mine sous la vitrine
+function oreGround() {
+  const g = new THREE.PlaneGeometry(34, 34, 140, 140), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i);
+    p.setZ(i, 0.05 * fbm3(x * 0.6, y * 0.6, 3.3, 3) + 0.02 * NOISE(x * 3, y * 3, 9.1));
+  }
+  g.computeVertexNormals();
+  const cols = new Float32Array(p.count * 3).fill(1); g.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+  const m = new THREE.Mesh(g, oreMaterial(4, 5, { envMapIntensity: 0.4 }));
+  m.rotation.x = -Math.PI / 2; m.receiveShadow = true;
+  return m;
+}
+function buildOres(cr) {
+  const n = cr.ores.length, scale = n > 1 ? 0.95 : 1.3, gap = 3.4;
+  holder.add(oreGround());
+  cr.ores.forEach((k, i) => makeOre(k, 11 + i * 97 + k.length * 31, (i - (n - 1) / 2) * gap, scale));
+}
+const _op = new THREE.Vector3(), _sh = new THREE.Vector3();
+function stepOres(dt, t) {
+  ORE_TIME.value = t;
+  if (!oreObjs.length) return;
+  const w = stage.clientWidth, h = stage.clientHeight;
+  oreObjs.forEach(o => {
+    const d = o.d, sc = o.scale;
+    o.haloMat.opacity = d.glowOp * (0.85 + 0.15 * Math.sin(t * 2.2 + o.seed));
+    o.light.intensity = d.lightI * (0.9 + 0.1 * Math.sin(t * 3 + o.seed));
+
+    // Effets discrets : reflets qui scintillent sur le métal, fumée du charbon, poussière
+    if (state.fx) {
+      o.rock.getWorldPosition(_op);
+      const shell = (r0, r1) => _sh.set(rnd(-1, 1), rnd(-0.2, 1), rnd(-1, 1)).normalize().multiplyScalar(rnd(r0, r1) * sc).add(_op);
+      const emit = (rate, key, fn) => { o.acc[key] += dt * rate; while (o.acc[key] >= 1) { o.acc[key] -= 1; fn(); } };
+      if (d.fx === 'smoke') emit(3, 'a', () => { const p = shell(0.4, 0.8); smoke.spawn(p.x, p.y + 0.2 * sc, p.z, rnd(-.1, .1), rnd(0.2, 0.4), rnd(-.1, .1), rnd(2.5, 3.5), 0); });
+      if (d.fx === 'glint') emit(2.5, 'a', () => { const p = shell(0.9, 1.05); stars.spawn(p.x, p.y, p.z, 0, 0, 0, rnd(0.25, 0.45), 1); });
+      if (d.fx === 'stars') emit(4, 'a', () => { const p = shell(0.9, 1.05); stars.spawn(p.x, p.y, p.z, 0, 0, 0, rnd(0.25, 0.45), 0); });
+      if (d.fx === 'gold') {
+        emit(6, 'a', () => { const p = shell(0.9, 1.08); stars.spawn(p.x, p.y, p.z, 0, 0, 0, rnd(0.25, 0.5), 1); });
+        emit(3, 'b', () => { const p = shell(0.9, 1.6); motes.spawn(p.x, p.y, p.z, rnd(-.1, .1), rnd(0.1, 0.3), rnd(-.1, .1), rnd(1.5, 2.5), 1); });
+      }
+    }
+
+    _op.set(o.root.position.x, 0.02, o.root.position.z + 1.1 * sc).project(camera);
+    o.label.style.display = _op.z < 1 ? '' : 'none';
+    o.label.style.left = ((_op.x + 1) / 2 * w) + 'px';
+    o.label.style.top = ((1 - _op.y) / 2 * h) + 'px';
+  });
+}
+
+// ---------- Construction ----------
+function buildCreature(cr) {
+  holder.clear(); extras.clear();
+  transients.length = 0; timers.length = 0;
+  oreObjs.forEach(o => o.label.remove()); oreObjs.length = 0;
+  animGroups = {}; T.neon = [];
+  Object.entries(cr.groups).forEach(([k, g]) => {
+    const grp = new THREE.Group();
+    grp.position.set(...g.pivot);
+    grp.userData.anim = g.anim;
+    holder.add(grp);
+    animGroups[k] = grp;
+  });
+  cr.parts.forEach(p => {
+    const geo = new THREE.BoxGeometry(...p.size);
+    const col = new THREE.Color(p.c);
+    const mat = p.glow
+      ? new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 2.4, roughness: 0.4 })
+      : new THREE.MeshStandardMaterial({ color: col, roughness: 0.85, flatShading: true });
+    const m = new THREE.Mesh(geo, mat);
+    m.position.set(...p.pos);
+    m.rotation.set(...p.rot.map(THREE.MathUtils.degToRad));
+    if (!p.glow) m.add(edgesOf(geo));
+    else if (cr.tool) T.neon.push({ mat, base: col.clone() });
+    animGroups[p.g].add(m);
+  });
+  if (cr.ores) buildOres(cr);
+
+  T.active = !!cr.tool;
+  if (cr.tool) {
+    const g = animGroups.outil;
+    T.group = g;
+    T.tip = new THREE.Object3D(); T.tip.position.set(0, 1.72, -2.35); g.add(T.tip);
+    T.back = new THREE.Object3D(); T.back.position.set(0, 2.35, -0.5); g.add(T.back);
+    T.head = new THREE.Object3D(); T.head.position.set(0, 2.05, 0); g.add(T.head);
+    T.ore = buildOre();
+    T.aura = buildAura(g);
+    Object.assign(T, { heat: 0, swing: -1, autoT: 0.8, flameAcc: 0, dripAcc: 0, trailAlpha: 0 });
+    trail.hist.length = 0;
+  } else {
+    T.ore = null; T.aura = null; trail.mesh.visible = false;
+  }
+  $('hud').hidden = !cr.tool; $('strikeBtn').hidden = !cr.tool; $('tAuto').hidden = !cr.tool; $('tAura').hidden = !cr.tool;
+
+  const b = bounds(cr);
+  if (cr.view) {
+    controls.target.set(...cr.view.target);
+    camera.position.set(...cr.view.pos);
+  } else {
+    const maxDim = Math.max(...b.size);
+    controls.target.set(b.center[0], b.center[1], b.center[2]);
+    camera.position.set(b.center[0] + maxDim * 1.35, b.center[1] + maxDim * 0.75, b.center[2] + maxDim * 1.55);
+  }
+  controls.update();
+  glowLight.color.set(cr.accent);
+  glowLight.intensity = 1.2;
+  glowLight.position.set(0, b.mx[1] + 1, 2.5);
+  if (cr.ores) { glowLight.intensity = 0; glowLight.position.set(0, 3, 3); }
+  // Éclairage réaliste pour les minerais : soleil rasant avec ombres douces, contre-jour froid, rendu filmique
+  const real = !!cr.ores;
+  disc.visible = rings.visible = !real;
+  sun.castShadow = real;
+  sun.intensity = real ? 2.4 : 0.7;
+  sun.position.set(...(real ? [-5, 8, 6] : [6, 10, 7]));
+  rim.intensity = real ? 1.1 : 0;
+  hemi.intensity = real ? 0.35 : 0.6;
+  renderer.toneMapping = real ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+  renderer.toneMappingExposure = real ? 1.25 : 1;
+  // La rangée des 4 minerais reste de face, comme une vitrine
+  controls.autoRotate = $('tRotate').getAttribute('aria-pressed') === 'true' && !(cr.ores && cr.ores.length > 1);
+  rings.material.color = new THREE.Color(cr.accent).multiplyScalar(0.35);
+  buildFx(cr);
+}
+
+// Particules d'ambiance des pets
+let fx = null;
+function buildFx(cr) {
+  if (fx) { scene.remove(fx.points); fx.points.geometry.dispose(); fx = null; }
+  if (!cr.fx) return;
+  const N = 140, pos = new Float32Array(N * 3), vel = [];
+  for (let i = 0; i < N; i++) {
+    pos[i * 3] = rnd(-4.5, 4.5); pos[i * 3 + 1] = rnd(0, 7); pos[i * 3 + 2] = rnd(-4.5, 4.5);
+    const up = cr.fx === 'embers' ? rnd(0.6, 1.4) : cr.fx === 'snow' ? -rnd(0.3, 0.7) : rnd(0.15, 0.4);
+    vel.push([rnd(-.15, .15), up, rnd(-.15, .15)]);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const colors = { embers: 0xffa04a, snow: 0xd8f3ff, spores: 0xc6ff7a };
+  const mat = new THREE.PointsMaterial({ color: colors[cr.fx], size: cr.fx === 'snow' ? 0.2 : 0.16, map: SOFT, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false });
+  const points = new THREE.Points(geo, mat);
+  points.visible = state.fx;
+  scene.add(points);
+  fx = { points, vel };
+}
+function stepFx(dt, t) {
+  if (!fx || !fx.points.visible) return;
+  const a = fx.points.geometry.attributes.position;
+  for (let i = 0; i < fx.vel.length; i++) {
+    const v = fx.vel[i];
+    let x = a.getX(i) + (v[0] + Math.sin(t + i) * 0.1) * dt, y = a.getY(i) + v[1] * dt, z = a.getZ(i) + v[2] * dt;
+    if (y > 7) y = 0; if (y < 0) y = 7;
+    if (Math.abs(x) > 5) x = -x * 0.9; if (Math.abs(z) > 5) z = -z * 0.9;
+    a.setXYZ(i, x, y, z);
+  }
+  a.needsUpdate = true;
+}
+
+function animate(t) {
+  holder.position.y = state.anim && !T.active && !oreObjs.length ? Math.sin(t * 1.5) * 0.12 + 0.12 : 0;
+  Object.values(animGroups).forEach(g => {
+    const k = state.anim ? 1 : 0;
+    switch (g.userData.anim) {
+      case 'nod': g.rotation.x = Math.sin(t * 1.6) * 0.09 * k; break;
+      case 'tilt': g.rotation.z = Math.sin(t * 0.9) * 0.12 * k; break;
+      case 'sway': g.rotation.y = Math.sin(t * 2.0) * 0.35 * k; break;
+      case 'flapL': g.rotation.z = (Math.sin(t * 4) * 0.5 + 0.5) * 0.8 * k; break;
+      case 'flapR': g.rotation.z = -(Math.sin(t * 4) * 0.5 + 0.5) * 0.8 * k; break;
+    }
+  });
+}
+
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;
+  renderer.setSize(w, h, false);
+  if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stage);
+resize();
+
+const clock = new THREE.Clock();
+(function loop() {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  animate(t);
+  toolUpdate(dt, t);
+  stepFx(dt, t);
+  stepOres(dt, t);
+  flames.update(dt);
+  sparks.update(dt);
+  stars.update(dt);
+  motes.update(dt);
+  smoke.update(dt);
+  stepTransients(dt);
+  flashLight.intensity *= Math.exp(-dt * 9);
+  controls.update();
+  const sh = T.shake; let ox = 0, oy = 0, oz = 0;
+  if (sh > 0.002) { ox = rnd(-sh, sh); oy = rnd(-sh, sh); oz = rnd(-sh, sh); camera.position.x += ox; camera.position.y += oy; camera.position.z += oz; }
+  composer ? composer.render() : renderer.render(scene, camera);
+  camera.position.x -= ox; camera.position.y -= oy; camera.position.z -= oz;
+  T.shake *= Math.exp(-dt * 7);
+  requestAnimationFrame(loop);
+})();
+
+// ---------- Interface ----------
+const picker = $('picker');
+CREATURES.forEach(cr => {
+  const b = document.createElement('button');
+  b.className = 'pick';
+  b.id = 'pick-' + cr.id;
+  b.style.setProperty('--c', cr.accent);
+  b.innerHTML = `<b>${cr.name}</b><small>${cr.element} · ${cr.kind}</small>`;
+  b.addEventListener('click', () => select(cr.id));
+  picker.appendChild(b);
+});
+
+let current = null, tabIndex = 0;
+function renderCode() {
+  const cr = current;
+  if (cr.scripts) {
+    const s = cr.scripts[tabIndex];
+    $('code').textContent = $(s.id).textContent.trim();
+    $('where').textContent = s.where;
+    $('tabs').querySelectorAll('.tab').forEach((b, i) => b.setAttribute('aria-selected', i === tabIndex));
+  } else {
+    $('code').textContent = luau(cr);
+    $('where').textContent = 'ServerScriptService › Script';
+  }
+}
+function select(id) {
+  const cr = CREATURES.find(c => c.id === id) || CREATURES[0];
+  current = cr; tabIndex = 0;
+  document.documentElement.style.setProperty('--accent', cr.accent);
+  document.querySelectorAll('.pick').forEach(b => b.setAttribute('aria-pressed', b.id === 'pick-' + cr.id));
+  $('titleName').textContent = cr.name;
+  $('cName').textContent = cr.name;
+  $('cElement').textContent = cr.element;
+  $('cRarity').textContent = cr.rarity;
+  $('cKind').textContent = cr.kind;
+  $('cDesc').textContent = cr.desc;
+  $('feats').hidden = !cr.feats;
+  $('feats').innerHTML = (cr.feats || []).map(x => `<li>${x}</li>`).join('');
+  let rows = cr.stats;
+  if (!rows) {
+    const s = bounds(cr).size;
+    rows = [['Pièces', cr.parts.length], ['Néon', cr.parts.filter(p => p.glow).length], ['Taille (studs)', `${s[0].toFixed(1)}×${s[1].toFixed(1)}×${s[2].toFixed(1)}`]];
+  }
+  $('stats').innerHTML = rows.map(([k, v]) => `<div class="stat"><span>${k}</span><b>${v}</b></div>`).join('');
+  $('cRarity').style.color = cr.rcol || '';
+  $('cRarity').style.borderColor = cr.rcol || '';
+
+  $('tabs').hidden = !cr.scripts;
+  $('tabs').innerHTML = (cr.scripts || []).map((sc, i) => `<button class="tab" role="tab" data-i="${i}">${sc.label}</button>`).join('');
+  $('tabs').querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => { tabIndex = +b.dataset.i; renderCode(); }));
+  renderCode();
+
+  $('steps').innerHTML = cr.steps ? cr.steps : cr.scripts
+    ? `<li>Onglet <b>Serveur</b> : colle-le dans un <b>Script</b> de <b>ServerScriptService</b>.</li>
+       <li>Onglet <b>Client</b> : colle-le dans un <b>LocalScript</b> de <b>StarterPlayer › StarterPlayerScripts</b>.</li>
+       <li>Ajoute le tag <b>Minerai</b> à tes blocs minables (attribut <b>PV</b> en option), puis lance le jeu.</li>
+       <li>Mets <b>PVP = true</b> dans CONFIG si la pioche doit aussi brûler les joueurs.</li>`
+    : `<li>Dans Roblox Studio, ouvre <b>ServerScriptService</b> et ajoute un <b>Script</b>.</li>
+       <li>Colle le code, puis lance le jeu : le pet apparaît au centre de la map.</li>
+       <li>Les pièces sont nommées par groupe (Tete, Queue, Aile…) pour les animer plus tard.</li>`;
+  buildCreature(cr);
+}
+
+function toggle(btnId, fn) {
+  const b = $(btnId);
+  b.addEventListener('click', () => { const on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', on); fn(on); });
+}
+toggle('tAuto', on => { T.auto = on; T.autoT = 0.4; });
+toggle('tAura', on => { T.auraOn = on; });
+toggle('tRotate', on => controls.autoRotate = on);
+toggle('tAnim', on => state.anim = on);
+toggle('tFx', on => { state.fx = on; if (fx) fx.points.visible = on; });
+
+$('strikeBtn').addEventListener('click', swing);
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' && T.active && !(e.target instanceof HTMLButtonElement) && !(e.target instanceof HTMLPreElement)) { e.preventDefault(); swing(); }
+});
+
+$('copyBtn').addEventListener('click', () => {
+  const btn = $('copyBtn'), text = $('code').textContent;
+  const done = msg => { btn.textContent = msg; setTimeout(() => btn.textContent = 'Copier', 1600); };
+  const fallback = () => { const r = document.createRange(); r.selectNodeContents($('code')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); done('Sélectionné, fais Ctrl+C'); };
+  try { navigator.clipboard.writeText(text).then(() => done('Copié'), fallback); } catch (e) { fallback(); }
+});
+
+if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  controls.autoRotate = false; $('tRotate').setAttribute('aria-pressed', 'false');
+  T.auto = false; $('tAuto').setAttribute('aria-pressed', 'false');
+}
+select('minerais');
+</script>

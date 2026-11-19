@@ -1,0 +1,16 @@
+# Fins de ligne normalisées pour le texte
+* text=auto
+
+# Fichiers binaires : jamais de fusion ni de diff texte
+*.rbxl binary
+*.rbxm binary
+*.fbx binary
+*.blend binary
+*.glb binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.mp3 binary
+*.ogg binary
+*.wav binary

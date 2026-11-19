@@ -1,0 +1,26 @@
+# Verrous Roblox Studio (propres à chaque PC)
+*.rbxl.lock
+*.rbxlx.lock
+
+# Pack de skill tiers (chacun l'installe de son côté)
+lihfolk-stud-voxel/
+
+# Python
+__pycache__/
+*.pyc
+
+# Blender : sauvegardes automatiques
+*.blend1
+*.blend2
+
+# Raccourcis Windows et fichiers système
+*.lnk
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Rojo
+sourcemap.json
+
+# Réglages locaux Claude Code (perso)
+.claude/settings.local.json
