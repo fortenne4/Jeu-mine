@@ -26,7 +26,7 @@ local fnAction = ReplicatedStorage:WaitForChild("SacAction") :: RemoteFunction
 
 local joueur = Players.LocalPlayer
 
-type Objet = {id: string, type: string, nom: string, couleur: string, stat: string, valeur: number, composition: {{any}}}
+type Objet = {id: string, type: string, modele: string?, rang: number?, nom: string, couleur: string, stat: string, valeur: number, composition: {{any}}}
 type Etat = {minerais: {[string]: number}, objets: {Objet}, equipement: {[string]: string}}
 
 local T = UI.T
@@ -82,8 +82,13 @@ local function rareteMinerai(id: string): (string, Color3, number)
 	return rarete(v and v.rarete)
 end
 
--- Rareté d'un objet forgé = celle de son minerai le plus rare
+-- Rareté d'un objet forgé = celle de son rang (échelle de la forge), sinon de son minerai le plus rare
 local function rareteObjet(o: Objet): (string, Color3, number)
+	local echelle = Forge.ECHELLES[o.type]
+	local palier = echelle and o.rang and echelle[o.rang]
+	if palier then
+		return rarete(palier.rarete)
+	end
 	local meilleur, n = nil, 0
 	for _, e in o.composition do
 		local v = MineraisModeles.VISUEL[e[1]]
@@ -96,12 +101,15 @@ local function rareteObjet(o: Objet): (string, Color3, number)
 end
 
 local function statMax(typeId: string): number
-	local t = Forge.TYPES[typeId]
+	local t, echelle = Forge.TYPES[typeId], Forge.ECHELLES[typeId]
+	if echelle then
+		return math.floor(echelle[#echelle].base * Forge.FACTEUR_MAX)
+	end
 	return if t then math.max(1, math.floor(FORCE_MAX * 1.6 * t.mult * math.sqrt(t.max / t.min) + 0.5)) else 1
 end
 
 -- Vrai modèle 3D d'un objet forgé : épée / pièce d'armure teintée à la couleur de l'alliage (lingot en dernier recours)
-local function iconeObjet(vp: ViewportFrame, typeId: string, couleur: Color3, options: {[string]: any}?)
+local function iconeObjet(vp: ViewportFrame, typeId: string, couleur: Color3, options: {[string]: any}?, modele: string?)
 	local o: any = table.clone(options or {})
 	o.teinte = if o.silhouette then nil else arrondir(couleur)
 	o.marge = o.marge or 0.85
@@ -111,7 +119,7 @@ local function iconeObjet(vp: ViewportFrame, typeId: string, couleur: Color3, op
 	elseif ARMURES[typeId] then
 		o.hauteur = o.hauteur or 0.2
 		o.angle = o.angle or 0.45
-		Icones.definir(vp, "armure", typeId, o)
+		Icones.definir(vp, "armure", modele or typeId, o)
 	else
 		o.hauteur = o.hauteur or 0.45
 		Icones.definir(vp, "lingot", arrondir(couleur):ToHex(), o)
@@ -589,7 +597,7 @@ local function rafraichirGrille()
 				local _, couleurR, niveau = rareteObjet(o)
 				local teinte = couleurHex(o.couleur)
 				c = nouvelleCase(cle, o.nom, couleurR, niveau, function(vp)
-					iconeObjet(vp, o.type, teinte, {vitesse = 0})
+					iconeObjet(vp, o.type, teinte, {vitesse = 0}, o.modele)
 				end, false)
 			end
 			c.bouton.LayoutOrder = 1000 - i
@@ -632,7 +640,7 @@ local function rafraichirEquipement()
 		else
 			local o = objetParId(etat.equipement[e.id])
 			if o then
-				iconeObjet(s.vp, o.type, couleurHex(o.couleur), {vitesse = 0})
+				iconeObjet(s.vp, o.type, couleurHex(o.couleur), {vitesse = 0}, o.modele)
 				_nomR, couleurR, niveau = rareteObjet(o)
 				plein = true
 			else
@@ -744,10 +752,12 @@ local function rafraichirDetail()
 			return
 		end
 		local t = Forge.TYPES[o.type]
-		iconeObjet(vpDetail, o.type, couleurHex(o.couleur), {vitesse = 0.7})
+		iconeObjet(vpDetail, o.type, couleurHex(o.couleur), {vitesse = 0.7}, o.modele)
 		nomRarete, couleurR, niveau = rareteObjet(o)
 		nomDetail.Text = o.nom
-		infoDetail.Text = string.format("%s · %s%s", if t then t.nom else o.type, nomRarete,
+		local echelle = Forge.ECHELLES[o.type]
+		infoDetail.Text = string.format("%s · %s%s%s", if t then t.nom else o.type, nomRarete,
+			if o.rang and echelle then string.format(" · Rang %d/%d", o.rang, #echelle) else "",
 			if estEquipe(o) then " · ✔ Équipé" else "")
 		statDetail.Text = string.format("%s %d", o.stat, o.valeur)
 		definirBarre(o.valeur / statMax(o.type), couleurR)
@@ -897,7 +907,7 @@ local function equiperOuRetirer()
 			local _, couleurR = rareteObjet(o)
 			local teinte = couleurHex(o.couleur)
 			local function dessiner(vp: ViewportFrame)
-				iconeObjet(vp, o.type, teinte, {vitesse = 0})
+				iconeObjet(vp, o.type, teinte, {vitesse = 0}, o.modele)
 			end
 			if action == "equiper" and s then
 				if depart then
@@ -976,6 +986,9 @@ local function recloner()
 		elseif d:IsA("BasePart") then
 			d.Anchored = true
 			d.CanCollide = false
+			d.LocalTransparencyModifier = 0 -- 1re personne : la caméra masque tête et casque du vrai perso, pas de la vitrine
+		elseif d:IsA("Decal") then
+			d.LocalTransparencyModifier = 0
 		end
 	end
 	local h = m:FindFirstChildOfClass("Humanoid")

@@ -14,6 +14,8 @@ export type Resultat = {
 	valeur: number,
 	total: number,
 	prix: number,
+	modele: string,
+	rang: number?,
 	alliage: string?,
 	composition: {{any}},
 }
@@ -40,6 +42,73 @@ Forge.TYPES = {
 	Plastron = {id = "Plastron", nom = "Plastron", icone = "🛡️", stat = "Défense", mult = 1.6, min = 4, max = 30, frais = 30},
 	Jambieres = {id = "Jambieres", nom = "Jambières", icone = "👖", stat = "Défense", mult = 1.3, min = 3, max = 20, frais = 25},
 } :: {[string]: TypeObjet}
+
+-- Échelles de pièces nommées (1 ou 2 minerais, proportions libres) : remplacent les alliages pour ce type.
+-- valeur = base × min(bonus quantité × bonus proportion, FACTEUR_MAX), toujours < base du rang suivant
+export type Palier = {rang: number, minerais: {string}, modele: string, nom: string, base: number, cout: number, rarete: string}
+Forge.BONUS_QTE = 0.3 -- +30 % au maximum de minerais
+Forge.BONUS_PROPORTION = 0.1 -- ±10 % selon la part du minerai le plus fort (duo)
+Forge.FACTEUR_MAX = 1.35 -- floor(base × 1.35) < base suivante (vérifié + écrêté)
+Forge.ECHELLES = {
+	Casque = {
+		{rang = 1, minerais = {"Charbon"}, modele = "CasqueCharbon", nom = "Casque de charbon", base = 8, cout = 20, rarete = "Commun"},
+		{rang = 2, minerais = {"Bronze"}, modele = "CasqueBronze", nom = "Casque de bronze", base = 11, cout = 35, rarete = "Commun"},
+		{rang = 3, minerais = {"Charbon", "Bronze"}, modele = "CasqueCharbonBronze", nom = "Casque de charbon et bronze", base = 15, cout = 55, rarete = "Peu commun"},
+		{rang = 4, minerais = {"Fer"}, modele = "CasqueFer", nom = "Casque de fer", base = 21, cout = 80, rarete = "Peu commun"},
+		{rang = 5, minerais = {"Charbon", "Fer"}, modele = "CasqueCharbonFer", nom = "Casque de charbon et fer", base = 29, cout = 110, rarete = "Rare"},
+		{rang = 6, minerais = {"Bronze", "Fer"}, modele = "CasqueBronzeFer", nom = "Casque de bronze et fer", base = 40, cout = 150, rarete = "Rare"},
+		{rang = 7, minerais = {"Gold"}, modele = "CasqueOr", nom = "Casque d'or", base = 55, cout = 200, rarete = "Légendaire"},
+		{rang = 8, minerais = {"Charbon", "Gold"}, modele = "CasqueCharbonOr", nom = "Casque de charbon et or", base = 75, cout = 260, rarete = "Légendaire"},
+		{rang = 9, minerais = {"Bronze", "Gold"}, modele = "CasqueBronzeOr", nom = "Casque de bronze et or", base = 102, cout = 330, rarete = "Mythique"},
+		{rang = 10, minerais = {"Fer", "Gold"}, modele = "CasqueFerOr", nom = "Casque de fer et or", base = 138, cout = 420, rarete = "Divin"},
+	},
+} :: {[string]: {Palier}}
+
+local function cleMinerais(ids: {string}): string
+	local t = table.clone(ids)
+	table.sort(t)
+	return table.concat(t, "+")
+end
+
+local parCle: {[string]: {[string]: Palier}} = {}
+local parModele: {[string]: Palier} = {}
+for typeId, echelle in Forge.ECHELLES do
+	parCle[typeId] = {}
+	for _, p in echelle do
+		parCle[typeId][cleMinerais(p.minerais)] = p
+		parModele[p.modele] = p
+	end
+end
+
+-- Palier d'une pièce : par modèle, sinon par ses minerais (vieilles sauvegardes)
+function Forge.palier(typeId: string, modele: string?, composition: {{any}}?): Palier?
+	local p = if modele then parModele[modele] else nil
+	if p and p.modele:sub(1, #typeId) == typeId then
+		return p
+	end
+	local ids = {}
+	for _, e in composition or {} do
+		table.insert(ids, tostring(e[1]))
+	end
+	return parCle[typeId] and parCle[typeId][cleMinerais(ids)]
+end
+
+-- NomAffiche du modèle ArmuresVoxels s'il existe déjà, sinon le nom de la table
+local armures: any = nil
+local function nomAffiche(p: Palier): string
+	if armures == nil then
+		local m = script.Parent:FindFirstChild("ArmuresVoxels")
+		local ok, res = pcall(require, m :: any)
+		armures = if ok and type(res) == "table" then res else false
+	end
+	if armures and armures.existe(p.modele) then
+		local ok, d = pcall(armures.donnees, p.modele)
+		if ok and type(d) == "table" and type(d.Nom) == "string" and d.Nom ~= "" then
+			return d.Nom
+		end
+	end
+	return p.nom
+end
 
 -- Alliages nommés : chaque minerai listé doit être présent dans sa fourchette de proportion [min, max],
 -- et aucun autre minerai ne doit être ajouté.
@@ -148,6 +217,34 @@ function Forge.calculer(typeId: any, composition: any): (Resultat?, string?)
 		b += m.couleur.B * p
 	end
 	local couleur = Color3.new(r, g, b)
+	local echelle = Forge.ECHELLES[t.id]
+	if echelle then
+		local p = Forge.palier(t.id, nil, liste)
+		if not p then
+			return nil, "Un " .. string.lower(t.nom) .. " se forge avec 1 ou 2 minerais"
+		end
+		local q = 1 + Forge.BONUS_QTE * (math.sqrt(total / t.min) - 1) / (math.sqrt(t.max / t.min) - 1)
+		local m = 1
+		if #liste == 2 then
+			local a, c = liste[1], liste[2]
+			local fort = if Forge.MINERAIS[a[1]].rang > Forge.MINERAIS[c[1]].rang then a else c
+			m = 1 + Forge.BONUS_PROPORTION * (2 * fort[2] / total - 1)
+		end
+		local suivant = echelle[p.rang + 1]
+		local valeur = math.floor(p.base * math.min(q * m, Forge.FACTEUR_MAX))
+		return {
+			type = t.id,
+			nom = nomAffiche(p),
+			modele = p.modele,
+			rang = p.rang,
+			couleur = couleur,
+			stat = t.stat,
+			valeur = if suivant then math.min(valeur, suivant.base - 1) else valeur,
+			total = total,
+			prix = p.cout + total * Forge.FRAIS_PAR_MINERAI,
+			composition = liste,
+		}, nil
+	end
 	local alliage = trouverAlliage(liste, total)
 	local bonus, mat = 1, enumerer(liste)
 	if alliage then
@@ -157,6 +254,7 @@ function Forge.calculer(typeId: any, composition: any): (Resultat?, string?)
 	return {
 		type = t.id,
 		nom = t.nom .. " en " .. mat,
+		modele = t.id,
 		couleur = couleur,
 		stat = t.stat,
 		valeur = math.max(1, math.floor(force * bonus * t.mult * math.sqrt(total / t.min) + 0.5)),

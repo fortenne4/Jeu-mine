@@ -25,6 +25,24 @@ COUL = {
     'cuir':    ('Fabric', (96, 60, 34), 0, None),
     'lanière': ('Fabric', (58, 36, 21), 0, None),
     'cristal': ('Neon', (110, 225, 255), 0, None),
+    # casques par matériau (couleurs propres, pas de teinte)
+    'charbon':  ('Slate', (40, 38, 41), 0, None),
+    'charbonC': ('Slate', (66, 62, 63), 0, None),
+    'charbonF': ('Slate', (22, 21, 24), 0, None),
+    'braise':   ('Neon', (255, 112, 32), 0, None),
+    'braiseF':  ('SmoothPlastic', (150, 52, 20), 0, None),
+    'corde':    ('Fabric', (92, 74, 50), 0, None),
+    'bronze':   ('Metal', (204, 138, 68), 0.12, None),
+    'bronzeC':  ('Metal', (222, 168, 92), 0.08, None),
+    'bronzeF':  ('Metal', (128, 80, 38), 0, None),
+    'crin':     ('Fabric', (152, 36, 32), 0, None),
+    'crinF':    ('Fabric', (102, 22, 22), 0, None),
+    'fer':      ('Metal', (150, 156, 163), 0.1, None),
+    'ferC':     ('Metal', (178, 184, 192), 0.08, None),
+    'ferF':     ('Metal', (88, 92, 100), 0, None),
+    'maille':   ('Metal', (66, 70, 77), 0, None),
+    'laiton':   ('Metal', (200, 160, 78), 0.1, None),
+    'lampe':    ('Neon', (255, 220, 140), 0, None),
 }
 CRISTAL = (110, 225, 255)
 
@@ -81,8 +99,9 @@ def export_lua(ID, nom_affiche, script, pieces, lueur=None, groupes=None):
         L.append('\t\t{"%s", "%s", %s, %s, %g%s},' % (nom, k, f3(s), f3(p), ry, '' if g is None else ', "%s"' % g))
     L.append('\t},')
     if lueur:
-        L.append('\tLueur = {Couleur = Color3.fromRGB(%d, %d, %d), Portee = %g, Luminosite = %g},'
-                 % (*lueur['couleur'], lueur['portee'], lueur['luminosite']))
+        L.append('\tLueur = {Couleur = Color3.fromRGB(%d, %d, %d), Portee = %g, Luminosite = %g%s},'
+                 % (*lueur['couleur'], lueur['portee'], lueur['luminosite'],
+                    ', Piece = "%s"' % lueur['piece'] if lueur.get('piece') else ''))
     L.append('}')
     os.makedirs(DOSSIER_LUA, exist_ok=True)
     dest = os.path.join(DOSSIER_LUA, ID + '.lua')

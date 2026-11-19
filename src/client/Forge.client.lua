@@ -21,7 +21,7 @@ local fnAction = ReplicatedStorage:WaitForChild("ForgeAction") :: RemoteFunction
 
 local joueur = Players.LocalPlayer
 
-type Objet = {id: string, type: string, nom: string, couleur: string, stat: string, valeur: number, composition: {{any}}}
+type Objet = {id: string, type: string, modele: string?, rang: number?, nom: string, couleur: string, stat: string, valeur: number, composition: {{any}}}
 type Etat = {minerais: {[string]: number}, objets: {Objet}}
 type Slot = {id: string?, q: number}
 
@@ -44,11 +44,11 @@ local function arrondir(c: Color3): Color3
 end
 
 -- Vrai modèle 3D d'un objet forgé : l'épée de fer recolorée à la teinte de l'alliage, sinon un lingot
-local function definirObjet(vp: ViewportFrame, typeId: string, couleur: Color3, vitesse: number)
+local function definirObjet(vp: ViewportFrame, typeId: string, couleur: Color3, vitesse: number, modele: string?)
 	if typeId == "Epee" and ArmesVoxels.existe(EPEE_3D) then
 		Icones.definir(vp, "epee", EPEE_3D, {teinte = arrondir(couleur), vitesse = vitesse, hauteur = 0.1, marge = 0.85})
 	elseif typeId == "Casque" or typeId == "Plastron" or typeId == "Jambieres" then
-		Icones.definir(vp, "armure", typeId, {teinte = arrondir(couleur), vitesse = vitesse, hauteur = 0.2, marge = 0.85, angle = 0.45})
+		Icones.definir(vp, "armure", modele or typeId, {teinte = arrondir(couleur), vitesse = vitesse, hauteur = 0.2, marge = 0.85, angle = 0.45})
 	else
 		Icones.definir(vp, "lingot", arrondir(couleur):ToHex(), {vitesse = vitesse, hauteur = 0.45, marge = 0.85})
 	end
@@ -389,7 +389,7 @@ local function rafraichirApercu()
 	statEnCours.icone = if t.stat == "Dégâts" then "⚔" else "🛡"
 	statEnCours.vide = res == nil
 	if res then
-		definirObjet(vpResultat, typeChoisi, res.couleur, 0.9)
+		definirObjet(vpResultat, typeChoisi, res.couleur, 0.9, res.modele)
 		vpResultat.Visible = true
 		degradeScene.Color = ColorSequence.new(res.couleur:Lerp(Color3.new(1, 1, 1), 0.1):Lerp(T.Fond3D, 0.35), T.Fond3D)
 		rayons.BackgroundColor3 = res.couleur:Lerp(Color3.new(1, 1, 1), 0.5)
@@ -399,7 +399,9 @@ local function rafraichirApercu()
 		for _, e in res.composition do
 			table.insert(parts, string.format("%d%% %s", math.floor(e[2] / res.total * 100 + 0.5), Forge.MINERAIS[e[1]].mat))
 		end
-		compoRes.Text = table.concat(parts, " · ")
+		local echelle = Forge.ECHELLES[typeChoisi]
+		compoRes.Text = (if res.rang and echelle then string.format("Rang %d/%d · ", res.rang, #echelle) else "")
+			.. table.concat(parts, " · ")
 		coutActuel.total = res.total
 		majPrix(res.prix)
 		coutRes.TextColor3 = if pieces() >= res.prix then T.Parchemin else T.Rouge
@@ -455,7 +457,7 @@ local function rafraichirInventaire()
 		if n - i < 8 then -- 3D pour les 8 plus récents seulement
 			local vp = Icones.creer(case)
 			vp.ZIndex = 6
-			definirObjet(vp, o.type, c, 0)
+			definirObjet(vp, o.type, c, 0, o.modele)
 		else
 			texte({Text = if t then (t.nom:match(utf8.charpattern) or "?") else "?", Font = Enum.Font.Fantasy, Size = UDim2.fromScale(1, 1), ZIndex = 6, Parent = case}, 30)
 		end

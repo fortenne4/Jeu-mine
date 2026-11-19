@@ -2,7 +2,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
 local joueur = Players.LocalPlayer
-local N, R_MIN, OPACITE, FONDU = 34, 0.48, 0.65, 0.2
+local N, R_MIN, OPACITE, FONDU = 75, 0.42, 0.8, 0.2
 local rand, sin, cos, pi, clamp = math.random, math.sin, math.cos, math.pi, math.clamp
 
 local gui = Instance.new("ScreenGui")

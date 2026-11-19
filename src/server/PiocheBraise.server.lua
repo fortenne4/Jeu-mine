@@ -5,7 +5,8 @@
 -- Ce qu'il fait :
 --  • donne au joueur la pioche choisie dans la boutique de Liesel (attribut « Pioche » du joueur) :
 --    modèle 3D de l'Atelier (PiochesModeles) et l'aura réglée dans l'Atelier (AuraPioche) ;
---  • la frappe : petit mouvement, traînée, onde de choc et étincelles aux couleurs de la pioche ;
+--  • la frappe : relais CoupPioche (geste du corps animé par PiocheAnimation.client), onde de choc et
+--    étincelles aux couleurs de la pioche ;
 --  • minerais (tag "Minerai", attribut "PV") : ils se fissurent à chaque coup puis éclatent.
 --    Le BindableEvent ServerStorage.MineraiCasse prévient Minerais.server.lua (récompenses).
 
@@ -51,6 +52,11 @@ local TEX_FUMEE = "rbxasset://textures/particles/smoke_main.dds"
 local fxEvent = Instance.new("RemoteEvent")
 fxEvent.Name = "PiocheFX"
 fxEvent.Parent = ReplicatedStorage
+
+-- Coup accepté : chaque client anime le corps du mineur (PiocheAnimation.client)
+local coupEvent = Instance.new("RemoteEvent")
+coupEvent.Name = "CoupPioche"
+coupEvent.Parent = ReplicatedStorage
 
 -- Pour ton propre code (récompenses, inventaire…) : MineraiCasse.Event:Connect(function(joueur, bloc) ... end)
 local mineraiCasse = Instance.new("BindableEvent")
@@ -306,6 +312,7 @@ local function creerPioche(def: Pioches.Pioche): Tool
 	t1.CFrame = CFrame.new(posTalon)
 	t1.Parent = handle
 	local trainee = Instance.new("Trail")
+	trainee.Name = "TraineePioche"
 	trainee.Attachment0 = t0
 	trainee.Attachment1 = t1
 	trainee.Lifetime = 0.2
@@ -333,15 +340,10 @@ local function creerPioche(def: Pioches.Pioche): Tool
 		dernierCoup = os.clock()
 		occupe = true
 
-		-- Mouvement de frappe (pas besoin d'animation importée)
-		trainee.Enabled = true
+		-- Geste animé par les clients (PiocheAnimation) ; traînée allumée par eux pendant la frappe
+		coupEvent:FireAllClients(perso)
 		son(handle, SONS.FRAPPE, 0.6, 0.9 + math.random() * 0.2)
-		task.spawn(function()
-			for _, etape in ipairs({{35, 0.07}, {70, 0.07}, {-40, 0.05}, {-25, 0.08}, {0, 0.08}}) do
-				tool.Grip = GRIP * CFrame.Angles(math.rad(etape[1]), 0, 0)
-				task.wait(etape[2])
-			end
-			trainee.Enabled = false
+		task.delay(0.35, function()
 			occupe = false
 		end)
 

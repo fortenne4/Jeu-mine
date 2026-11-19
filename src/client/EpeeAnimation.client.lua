@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local remote = ReplicatedStorage:WaitForChild("CoupEpee") :: RemoteEvent
 local joueur = Players.LocalPlayer
+local IK = require(script.Parent:WaitForChild("RigIK"))
 
 local RESET = 1
 
@@ -19,17 +20,8 @@ type Coup = {
 	son: string, p: {Vector3}, d: {Vector3}, c: {Vector3}, yaw: {number}, pitch: {number}, n: {Vector3},
 }
 
-local function lisse(u: number): number
-	u = math.clamp(u, 0, 1)
-	return u * u * (3 - 2 * u)
-end
-local function sortie(u: number): number
-	u = 1 - u
-	return 1 - u * u * u
-end
-local function entree(u: number): number
-	return u * u * u
-end
+type Bras = IK.Bras
+local lisse, sortie, entree = IK.lisse, IK.sortie, IK.entree
 local T_COUP, E_COUP, F_COUP = {0, 0.2, 0.47, 0.68, 1}, {sortie, entree, sortie, lisse}, Vector2.new(0.2, 0.72)
 
 local V = Vector3.new
@@ -78,172 +70,6 @@ local COUPS: {[number]: Coup} = {
 		n = {Vector3.zero, DROITE, DROITE, DROITE, DROITE},
 	},
 }
-
--- ================= Articulations (même méthode que PiocheDosAnimation) =================
-
-type Joint = {moteur: Instance, cadre: Instance, c0Origine: CFrame, rotC0Inv: CFrame, c1Rot: CFrame}
-type Bras = {
-	epaule: Joint, coude: Joint, poignet: Joint?, taille: Joint?,
-	torse: BasePart, main: BasePart, l1: number, l2: number,
-	qHautInv: CFrame, qBasInv: CFrame, priseInv: CFrame,
-}
-
-local function lireC0(cadre: Instance): CFrame
-	return if cadre:IsA("Motor6D") then cadre.C0 else (cadre :: Attachment).CFrame
-end
-
-local function ecrireC0(cadre: Instance, cf: CFrame)
-	if cadre:IsA("Motor6D") then
-		cadre.C0 = cf
-	else
-		(cadre :: Attachment).CFrame = cf
-	end
-end
-
-local function lireC1(m: Instance): CFrame
-	if m:IsA("Motor6D") then
-		return m.C1
-	end
-	local att = (m :: AnimationConstraint).Attachment1
-	return if att then att.CFrame else CFrame.identity
-end
-
-local function trouverJoint(perso: Model, nom: string): Joint?
-	local choix: Instance? = nil
-	for _, d in perso:GetDescendants() do
-		if d.Name == nom and (d:IsA("Motor6D") or d:IsA("AnimationConstraint")) then
-			local m = d :: any
-			local ok = m.Enabled and (if d:IsA("Motor6D") then m.Part0 and m.Part1 else m.Attachment0 and m.Attachment1)
-			if ok and (choix == nil or (m.Active and not (choix :: any).Active)) then
-				choix = d
-			end
-		end
-	end
-	local d = choix
-	if d then
-		local m = d :: any
-		local cadre = if d:IsA("Motor6D") then d else m.Attachment0
-		local origine = cadre:GetAttribute("C0Origine")
-		if typeof(origine) ~= "CFrame" then
-			origine = lireC0(cadre)
-			cadre:SetAttribute("C0Origine", origine)
-		end
-		local o = origine :: CFrame
-		return {moteur = d, cadre = cadre, c0Origine = o, rotC0Inv = o.Rotation:Inverse(), c1Rot = lireC1(d).Rotation}
-	end
-	return nil
-end
-
-local function jointValide(j: Joint?): boolean
-	if j == nil or j.moteur.Parent == nil or j.cadre.Parent == nil then
-		return false
-	end
-	local m = j.moteur :: any
-	if j.moteur:IsA("Motor6D") then
-		return m.Part0 ~= nil and m.Part1 ~= nil
-	end
-	return m.Attachment0 == j.cadre and m.Attachment1 ~= nil
-end
-
-local function ecrire(j: Joint, cf: CFrame)
-	ecrireC0(j.cadre, j.c0Origine * cf * (j.moteur :: any).Transform:Inverse())
-end
-
-local function poser(j: Joint?, pose: CFrame, w: number)
-	if j and jointValide(j) then
-		ecrire(j, (j.moteur :: any).Transform:Lerp(pose, w))
-	end
-end
-
-local function relacher(j: Joint?)
-	if j and jointValide(j) then
-		ecrireC0(j.cadre, j.c0Origine)
-	end
-end
-
-local function rotationDepuisBas(v: Vector3): CFrame
-	local d = v.Unit
-	local axe = V(0, -1, 0):Cross(d)
-	if axe.Magnitude < 1e-5 then
-		return CFrame.identity
-	end
-	return CFrame.fromAxisAngle(axe.Unit, math.acos(math.clamp(-d.Y, -1, 1)))
-end
-
-local function priseMain(main: BasePart): CFrame
-	local att = main:FindFirstChild("RightGripAttachment")
-	return if att and att:IsA("Attachment") then att.CFrame else CFrame.identity
-end
-
-local function preparerBras(perso: Model): Bras?
-	local epaule = trouverJoint(perso, "RightShoulder")
-	local coude = trouverJoint(perso, "RightElbow")
-	local poignet = trouverJoint(perso, "RightWrist")
-	local main = perso:FindFirstChild("RightHand")
-	local torse = perso:FindFirstChild("UpperTorso")
-	if not (epaule and coude and main and main:IsA("BasePart") and torse and torse:IsA("BasePart")) then
-		return nil
-	end
-	local prise = priseMain(main)
-	local u = coude.c0Origine.Position - lireC1(epaule.moteur).Position
-	local mainAvantBras = if poignet then poignet.c0Origine * lireC1(poignet.moteur):Inverse() * prise else CFrame.new(0, -1, 0)
-	local v = mainAvantBras.Position - lireC1(coude.moteur).Position
-	return {
-		epaule = epaule, coude = coude, poignet = poignet, taille = trouverJoint(perso, "Waist"),
-		torse = torse, main = main, l1 = u.Magnitude, l2 = v.Magnitude,
-		qHautInv = rotationDepuisBas(u):Inverse(), qBasInv = rotationDepuisBas(v):Inverse(),
-		priseInv = prise.Rotation:Inverse(),
-	}
-end
-
-local function brasValide(b: Bras?): boolean
-	return b ~= nil and jointValide(b.epaule) and jointValide(b.coude)
-		and (b.poignet == nil or jointValide(b.poignet)) and b.torse.Parent ~= nil and b.main.Parent ~= nil
-end
-
--- Main sur `cible`, coude vers `pole`, lame (+Y du Handle) selon `dir`, plat (Z du Handle) normal à `n` :
--- le tranchant (X) reste dans le plan de balayage
-local function poserBras(b: Bras, cible: Vector3, pole: Vector3, dir: Vector3, n: Vector3, grip: CFrame, w: number)
-	local S = b.epaule.c0Origine.Position
-	local l1, l2 = b.l1, b.l2
-	local d = cible - S
-	local mag = d.Magnitude
-	local dist = math.clamp(mag, math.abs(l1 - l2) + 0.02, (l1 + l2) * 0.999)
-	local axe = if mag > 1e-4 then d / mag else V(0, -1, 0)
-	local a = (l1 * l1 - l2 * l2 + dist * dist) / (2 * dist)
-	local h = math.sqrt(math.max(0, l1 * l1 - a * a))
-	local perp = pole - axe * pole:Dot(axe)
-	if perp.Magnitude < 1e-3 then
-		perp = V(0, 0, 1) - axe * axe.Z
-	end
-	perp = perp.Unit
-	local E = S + axe * a + perp * h
-	local H = S + axe * dist
-
-	local yH = (S - E).Unit
-	local f = (H - E).Unit
-	local zf = f - yH * f:Dot(yH)
-	local zH = if zf.Magnitude > 1e-3 then -zf.Unit else -perp
-	local xH = yH:Cross(zH)
-	local rotHaut = CFrame.fromMatrix(Vector3.zero, xH, yH, zH) * b.qHautInv
-	local yB = (E - H).Unit
-	local rotBas = CFrame.fromMatrix(Vector3.zero, xH, yB, xH:Cross(yB)) * b.qBasInv
-
-	local ep, co = b.epaule, b.coude
-	poser(ep, ep.rotC0Inv * rotHaut * ep.c1Rot, w)
-	poser(co, co.rotC0Inv * rotHaut:Inverse() * rotBas * co.c1Rot, w)
-
-	local po = b.poignet
-	if po then
-		local z = n - dir * n:Dot(dir)
-		if z.Magnitude < 1e-3 then
-			z = dir:Cross(V(1, 0, 0))
-		end
-		z = z.Unit
-		local rotMain = CFrame.fromMatrix(Vector3.zero, dir:Cross(z), dir, z) * grip * b.priseInv
-		poser(po, po.rotC0Inv * rotBas:Inverse() * rotMain * po.c1Rot, w)
-	end
-end
 
 -- ================= État des personnages =================
 
@@ -299,18 +125,12 @@ local function finir(e: Etat)
 	e.coup = nil
 	e.poids, e.yaw, e.pitch = 0, 0, 0
 	e.perso:SetAttribute("EpeeGeste", nil)
-	local b = e.bras
-	if b then
-		relacher(b.epaule)
-		relacher(b.coude)
-		relacher(b.poignet)
-		relacher(b.taille)
-	end
+	IK.relacherBras(e.bras)
 end
 
 local function demarrer(e: Etat, i: number)
-	if not brasValide(e.bras) then
-		e.bras = preparerBras(e.perso)
+	if not IK.brasValide(e.bras) then
+		e.bras = IK.preparerBras(e.perso, "Right")
 	end
 	local outil = e.perso:FindFirstChildOfClass("Tool")
 	local c = COUPS[i]
@@ -325,12 +145,9 @@ local function demarrer(e: Etat, i: number)
 	local b = e.bras
 	if b then
 		if e.poids == 0 then
-			relacher(b.epaule)
-			relacher(b.coude)
-			relacher(b.poignet)
-			relacher(b.taille)
+			IK.relacherBras(b)
 		end
-		local prise = b.main.CFrame * priseMain(b.main)
+		local prise = b.main.CFrame * IK.priseMain(b.main, b.att)
 		e.p0 = b.torse.CFrame:PointToObjectSpace(prise.Position)
 		local handle = prise * e.grip:Inverse()
 		e.d0 = b.torse.CFrame:VectorToObjectSpace(handle.UpVector)
@@ -448,7 +265,7 @@ local function avancer(e: Etat, dt: number)
 	local b = e.bras
 	e.t += dt
 	local u = e.t / c.duree
-	if u >= 1 or not b or not brasValide(b) then
+	if u >= 1 or not b or not IK.brasValide(b) then
 		finir(e)
 		return
 	end
@@ -496,16 +313,13 @@ local function avancer(e: Etat, dt: number)
 		na = -na
 	end
 
-	poserBras(b, S + p * L, pole, d.Unit, na:Lerp(nb, v), e.grip, w)
+	IK.poserBras(b, S + p * L, pole, d.Unit, na:Lerp(nb, v), e.grip, w)
 
 	local ya = if k == 1 then e.yaw0 else c.yaw[k]
 	local pa = if k == 1 then e.pitch0 else c.pitch[k]
 	e.yaw = ya + (c.yaw[k + 1] - ya) * v
 	e.pitch = pa + (c.pitch[k + 1] - pa) * v
-	local ta = b.taille
-	if ta and jointValide(ta) then
-		ecrire(ta, (ta.moteur :: any).Transform * (ta.rotC0Inv * CFrame.Angles(e.pitch * w, e.yaw * w, 0) * ta.c0Origine.Rotation))
-	end
+	IK.poserTaille(b, e.pitch * w, e.yaw * w)
 end
 
 local derniere = os.clock()

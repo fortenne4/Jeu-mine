@@ -104,7 +104,7 @@ action.OnServerInvoke = function(joueur: Player, demande: any): Reponse
 	for _, e in res.composition do
 		Donnees.ajouterMinerai(joueur, e[1], -e[2])
 	end
-	local objet: Donnees.Objet = {id = tostring(p.prochainId), type = res.type, nom = res.nom, couleur = res.couleur:ToHex(),
+	local objet: Donnees.Objet = {id = tostring(p.prochainId), type = res.type, modele = res.modele, rang = res.rang, nom = res.nom, couleur = res.couleur:ToHex(),
 		stat = res.stat, valeur = res.valeur, composition = res.composition}
 	p.prochainId += 1
 	table.insert(p.objets, objet)

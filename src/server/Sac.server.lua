@@ -1,7 +1,7 @@
 --!strict
 -- Sac du mineur · SCRIPT SERVEUR
 -- Envoie l'état du sac (minerais, objets forgés, équipement) au client à chaque changement,
--- et valide l'équipement des objets forgés (données seulement : rien n'est encore porté sur le perso).
+-- et valide l'équipement des objets forgés (rendu porté sur le perso : EquipementVisuel).
 --
 -- Remotes (ReplicatedStorage) :
 --   SacEtat   (RemoteEvent, serveur → client) : etat, envoyé au chargement et après chaque changement
@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Forge = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("Forge"))
 local Donnees = require(script.Parent:WaitForChild("Donnees"))
+local EquipementVisuel = require(script.Parent:WaitForChild("EquipementVisuel"))
 
 local CADENCE = 0.15
 
@@ -70,6 +71,7 @@ action.OnServerInvoke = function(joueur: Player, demande: any): Reponse
 		return {ok = false, message = "Requête invalide", etat = etat(p)}
 	end
 	p.inconnus.equipement[slot] = nil
+	EquipementVisuel.appliquer(joueur)
 	return {ok = true, message = (if demande.action == "equiper" then "Équipé : " else "Retiré : ") .. t.nom, etat = etat(p)}
 end
 

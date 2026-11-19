@@ -18,7 +18,7 @@ local joueur = Players.LocalPlayer
 local playerGui = joueur:WaitForChild("PlayerGui")
 
 -- ================= Réglages =================
-local MULT_COURSE = 1.6
+local MULT_COURSE = 1.85
 local FOV_BONUS = 8
 local VITESSE_REELLE = 2 -- studs/s horizontaux minimum pour compter comme « bouge vraiment »
 local RETARD_DELAI = 0.45 -- la barre claire attend avant de rattraper
@@ -57,10 +57,10 @@ for i = 0, 10 do
 	table.insert(grain, ColorSequenceKeypoint.new(i / 10, Color3.fromRGB(v, v * 0.97, v * 0.94)))
 end
 -- Plaque large et haute : la hauteur (≈ largeur / 4) reste bien au-dessus du bouton Sac (centré à 55 % de l'écran)
-local plaque = creer("Frame", {Name = "Plaque", Position = POS_PLAQUE, Size = UDim2.fromScale(0.36, 0), BackgroundColor3 = T.Bois,
+local plaque = creer("Frame", {Name = "Plaque", Position = POS_PLAQUE, Size = UDim2.fromScale(0.5, 0), BackgroundColor3 = T.Bois,
 	Parent = gui}, {coin(0.2), trait(Color3.fromRGB(18, 10, 6), 3),
-	creer("UIAspectRatioConstraint", {AspectRatio = 4, DominantAxis = Enum.DominantAxis.Width}),
-	creer("UISizeConstraint", {MinSize = Vector2.new(320, 80), MaxSize = Vector2.new(780, 195)}),
+	creer("UIAspectRatioConstraint", {AspectRatio = 5.5, DominantAxis = Enum.DominantAxis.Width}),
+	creer("UISizeConstraint", {MinSize = Vector2.new(440, 80), MaxSize = Vector2.new(1070, 195)}),
 	creer("UIGradient", {Rotation = 90, Color = ColorSequence.new(grain)})})
 -- liseré intérieur clair (bois patiné)
 creer("Frame", {Position = UDim2.fromScale(0.012, 0.07), Size = UDim2.fromScale(0.976, 0.86), BackgroundTransparency = 1, Parent = plaque},
@@ -242,7 +242,7 @@ local function ajusterTaille()
 	end
 	local vp = cam.ViewportSize
 	-- petits écrans : la plaque prend plus de place relative pour rester lisible
-	plaque.Size = UDim2.fromScale(if vp.X < 900 then 0.46 else 0.36, 0)
+	plaque.Size = UDim2.fromScale(if vp.X < 900 then 0.62 else 0.5, 0)
 	-- bouton Courir à gauche du bouton Saut tactile de Roblox (mêmes formules que TouchJump)
 	local saut = if math.min(vp.X, vp.Y) <= 500 then 70 else 120
 	local taille = math.floor(saut * 0.78)

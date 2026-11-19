@@ -364,7 +364,7 @@ end
 
 local function relacherBras(e: EtatPerso)
 	local b = e.bras
-	if b and not e.perso:GetAttribute("EpeeGeste") then
+	if b and not (e.perso:GetAttribute("EpeeGeste") or e.perso:GetAttribute("PiocheGeste")) then
 		relacher(b.epaule)
 		relacher(b.coude)
 		relacher(b.poignet)
@@ -601,8 +601,8 @@ local function avancer(e: EtatPerso, dt: number)
 	end
 
 	local avance = lisse(u)
-	if e.perso:GetAttribute("EpeeGeste") then
-		return -- l'épée (EpeeAnimation) a la priorité sur le bras
+	if e.perso:GetAttribute("EpeeGeste") or e.perso:GetAttribute("PiocheGeste") then
+		return -- l'épée (EpeeAnimation) ou le coup de pioche (PiocheAnimation) a la priorité sur le bras
 	elseif b.coude then
 		local cible = spline(e.points, avance)
 		local pole = spline(e.coudes, avance)

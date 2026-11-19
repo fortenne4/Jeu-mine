@@ -36,8 +36,9 @@ local CONFIG = {
 local VERSION = 3
 local MAX_OBJETS = 200
 
--- Objet forgé chez Brom (Forge.server.lua) ; couleur en hexadécimal, composition {{idMinerai, quantite}}
-export type Objet = {id: string, type: string, nom: string, couleur: string, stat: string, valeur: number, composition: {{any}}}
+-- Objet forgé chez Brom (Forge.server.lua) ; couleur en hexadécimal, composition {{idMinerai, quantite}},
+-- modele = id ArmuresVoxels / ArmesVoxels (défaut : type), rang = palier de Forge.ECHELLES (nil hors échelle)
+export type Objet = {id: string, type: string, modele: string, rang: number?, nom: string, couleur: string, stat: string, valeur: number, composition: {{any}}}
 
 export type Profil = {
 	version: number,
@@ -102,7 +103,12 @@ local function lireObjet(o: any): Objet?
 			table.insert(compo, {e[1], q})
 		end
 	end
-	return {id = o.id, type = o.type, nom = o.nom, couleur = o.couleur, stat = o.stat,
+	local modele = if type(o.modele) == "string" and #o.modele > 0 and #o.modele <= 40 then o.modele else o.type
+	local palier = Forge.palier(o.type, modele, compo) -- rang (et modèle) déduits : jamais lus tels quels
+	if palier then
+		modele = palier.modele
+	end
+	return {id = o.id, type = o.type, modele = modele, rang = palier and palier.rang, nom = o.nom, couleur = o.couleur, stat = o.stat,
 		valeur = entier(o.valeur, 1e6) :: number, composition = compo}
 end
 

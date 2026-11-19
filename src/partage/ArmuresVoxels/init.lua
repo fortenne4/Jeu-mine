@@ -1,6 +1,20 @@
 --!strict
 --[[ Armures 3D voxel (Casque, Plastron, Jambieres) en Parts Roblox (ReplicatedStorage › Partage › ArmuresVoxels).
 	Données générées par blender/armes/casque.py, plastron.py, jambieres.py (aperçu commun : armure.py).
+	Casques par matériau (même contrat que Casque, couleurs propres, teinte ignorée) :
+		CasqueCharbon, CasqueBronze, CasqueFer : casques LISSES (Format = "Lisse"), générés par
+		blender/armes/casques_lisses.py (aperçu previews/armes/Casques2.png). Primitives Ball / Cylinder / Block /
+		SpecialMesh Sphere + CSG runtime (GeometryService:UnionAsync / SubtractAsync) : coque creuse qui enveloppe
+		toute la tête R15 (dessus, côtés, arrière), seul le visage reste ouvert. Construit une fois (yield court au
+		1er appel), mis en cache puis :Clone(). Si le CSG échoue : pièces "Secours" (ellipsoïdes) à la place.
+		10 casques lisses, attribut "Rang" (échelle 1..10) : 1 CasqueCharbon, 2 CasqueBronze, 3 CasqueCharbonBronze,
+		4 CasqueFer, 5 CasqueCharbonFer, 6 CasqueBronzeFer, 7 CasqueOr, 8 CasqueCharbonOr, 9 CasqueBronzeOr, 10 CasqueFerOr.
+		Lumieres (PointLight / SpotLight) et Particules (ParticleEmitter discret) déclarées dans chaque module.
+		Lueur.Piece (optionnel, format voxel) = nom de la pièce qui porte la PointLight (défaut "Cristal").
+
+	construire(id, teinte?, tailleTete?) : tailleTete = taille visuelle de la tête (Vector3) ; le modèle est mis à
+		l'échelle (Model:ScaleTo) par rapport à la tête R15 de référence 1.2 stud. Omis = taille 1.2.
+		ArmuresVoxels.prechauffer() construit les gabarits lisses en tâche de fond.
 
 	Contrat du modèle construit (à l'origine : Racine.CFrame = CFrame.identity) :
 		Model "<id>" (PrimaryPart = "Racine", attribut NomAffiche)
@@ -30,6 +44,7 @@ local MATERIAUX: { [string]: Enum.Material } = {
 	Fabric = Enum.Material.Fabric,
 	Neon = Enum.Material.Neon,
 	SmoothPlastic = Enum.Material.SmoothPlastic,
+	Slate = Enum.Material.Slate,
 }
 
 type Donnees = {
@@ -38,7 +53,7 @@ type Donnees = {
 	Couleurs: { [string]: { any } },
 	Groupes: { [string]: Vector3 }?,
 	Pieces: { { any } },
-	Lueur: { Couleur: Color3, Portee: number, Luminosite: number }?,
+	Lueur: { Couleur: Color3, Portee: number, Luminosite: number, Piece: string? }?,
 }
 
 function ArmuresVoxels.existe(id: string): boolean
@@ -107,9 +122,360 @@ local function souder(a: BasePart, b: BasePart)
 	w.Parent = b
 end
 
+-------------------------------------------------------------------- casques lisses (CSG)
+local GeometryService = game:GetService("GeometryService")
+
+local TETE_REF = 1.2 -- taille de tête pour laquelle les modèles sont dessinés
+
+local FORMES: { [string]: Enum.PartType } = {
+	Bloc = Enum.PartType.Block,
+	Boule = Enum.PartType.Ball,
+	Cylindre = Enum.PartType.Cylinder,
+	Ellipsoide = Enum.PartType.Block,
+}
+
+local OPTIONS_CSG = {
+	CollisionFidelity = Enum.CollisionFidelity.Box,
+	RenderFidelity = Enum.RenderFidelity.Precise,
+	SplitApart = false,
+}
+
+local function materiau(nom: string): Enum.Material
+	local ok, m = pcall(function()
+		return (Enum.Material :: any)[nom]
+	end)
+	return if ok and typeof(m) == "EnumItem" then m else Enum.Material.SmoothPlastic
+end
+
+local function primitive(spec: any, nom: string?): Part
+	local p = Instance.new("Part")
+	p.Name = nom or "Piece"
+	p.Shape = FORMES[spec.Forme] or Enum.PartType.Block
+	p.Size = spec.Taille
+	p.CFrame = spec.CF
+	p.Anchored = false
+	p.CanCollide, p.CanQuery, p.CanTouch = false, false, false
+	p.Massless = true
+	p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
+	if spec.Forme == "Ellipsoide" then
+		local m = Instance.new("SpecialMesh")
+		m.MeshType = Enum.MeshType.Sphere
+		m.Parent = p
+	end
+	return p
+end
+
+local function habiller(p: BasePart, c: { any })
+	p.Material = materiau(c[1])
+	p.Color = Color3.fromRGB(c[2], c[3], c[4])
+	p.Reflectance = c[5] or 0
+	p.CastShadow = c[1] ~= "Neon"
+	if p:IsA("PartOperation") then
+		p.UsePartColor = true
+	end
+end
+
+-- Base ∪ Plus − Moins (parent = nil, ou conteneur temporaire non répliqué si GeometryService l'exige).
+local function essaiCSG(spec: any, parent: Instance?): (boolean, any)
+	local temporaires: { Instance } = {}
+	local function prim(s: any): Part
+		local q = primitive(s)
+		if parent then
+			q.Transparency = 1
+			q.Parent = parent
+		end
+		table.insert(temporaires, q)
+		return q
+	end
+	local ok, res = pcall(function(): BasePart
+		local cur: BasePart = prim(spec.Base)
+		if spec.Plus and #spec.Plus > 0 then
+			local autres = {}
+			for _, s in spec.Plus do
+				table.insert(autres, prim(s))
+			end
+			local r = GeometryService:UnionAsync(cur, autres, OPTIONS_CSG)
+			cur = r[1] :: BasePart
+			table.insert(temporaires, cur)
+		end
+		if spec.Moins and #spec.Moins > 0 then
+			local autres = {}
+			for _, s in spec.Moins do
+				table.insert(autres, prim(s))
+			end
+			local r = GeometryService:SubtractAsync(cur, autres, OPTIONS_CSG)
+			cur = r[1] :: BasePart
+			table.insert(temporaires, cur)
+		end
+		assert(typeof(cur) == "Instance" and cur:IsA("BasePart"), "résultat CSG vide")
+		return cur
+	end)
+	for _, t in temporaires do
+		if t ~= res then
+			t:Destroy()
+		end
+	end
+	if ok then
+		res.Parent = nil
+		res.Transparency = 0
+	end
+	return ok, res
+end
+
+-- nil si GeometryService refuse (le Secours prend le relais).
+local function operationCSG(spec: any): BasePart?
+	local ok, res = essaiCSG(spec, nil)
+	if not ok then
+		local cam = workspace.CurrentCamera -- non répliqué : sert de conteneur temporaire
+		if cam then
+			ok, res = essaiCSG(spec, cam)
+		end
+	end
+	if ok then
+		return res
+	end
+	warn("[ArmuresVoxels] CSG impossible, pièces de secours :", res)
+	return nil
+end
+
+-- Construit le gabarit lisse (à l'origine). Renvoie aussi true si tout le CSG a réussi.
+local function construireLisse(id: string, d: any): (Model, boolean)
+	local modele = Instance.new("Model")
+	modele.Name = id
+	modele:SetAttribute("NomAffiche", d.Nom)
+	if d.Rang then
+		modele:SetAttribute("Rang", d.Rang)
+	end
+	local racine = ancre("Racine", Vector3.zero)
+	racine.Parent = modele
+	modele.PrimaryPart = racine
+
+	local complet = true
+	local function poser(p: BasePart, nom: string, cle: string)
+		p.Name = nom
+		p.Anchored = false
+		p.CanCollide, p.CanQuery, p.CanTouch = false, false, false
+		p.Massless = true
+		habiller(p, d.Couleurs[cle])
+		p.Parent = modele
+		souder(racine, p)
+	end
+	for _, pc in d.Pieces do
+		if pc.Forme == "CSG" then
+			local r = operationCSG(pc)
+			if r then
+				poser(r, pc.Nom, pc.Cle)
+			else
+				complet = false
+				for _, s in pc.Secours or {} do
+					poser(primitive(s), s.Nom, s.Cle)
+				end
+			end
+		else
+			poser(primitive(pc), pc.Nom, pc.Cle)
+		end
+	end
+	for _, l in d.Lumieres or {} do
+		local p = modele:FindFirstChild(l.Piece)
+		if p then
+			local lum: Light
+			if l.Type == "Spot" then
+				local s = Instance.new("SpotLight")
+				s.Angle = l.Angle or 60
+				s.Face = (Enum.NormalId :: any)[l.Face or "Front"]
+				lum = s
+			else
+				lum = Instance.new("PointLight")
+			end
+			lum.Color, lum.Brightness, lum.Shadows = l.Couleur, l.Luminosite, false
+			;(lum :: any).Range = l.Portee
+			lum.Parent = p
+		end
+	end
+	-- scintillement / braises discrets (casques haut de gamme)
+	for _, q in d.Particules or {} do
+		local p = modele:FindFirstChild(q.Piece)
+		if p then
+			local e = Instance.new("ParticleEmitter")
+			e.Color = ColorSequence.new(q.Couleur)
+			e.LightEmission = 1
+			e.LightInfluence = 0
+			e.Rate = q.Taux
+			e.Lifetime = NumberRange.new(q.Vie * 0.6, q.Vie)
+			e.Speed = NumberRange.new(q.Vitesse * 0.5, q.Vitesse)
+			e.SpreadAngle = Vector2.new(180, 180)
+			e.Acceleration = Vector3.new(0, 0.6, 0)
+			e.Size = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0),
+				NumberSequenceKeypoint.new(0.3, q.Taille),
+				NumberSequenceKeypoint.new(1, 0),
+			})
+			e.Transparency = NumberSequence.new(0.15, 1)
+			e.Parent = p
+		end
+	end
+	return modele, complet
+end
+
+local gabarits: { [string]: Model } = {}
+local enCours: { [string]: boolean } = {}
+
+local function gabaritLisse(id: string, d: any): Model
+	while enCours[id] do
+		task.wait()
+	end
+	local g = gabarits[id]
+	if g then
+		return g
+	end
+	enCours[id] = true
+	local ok, m, complet = pcall(construireLisse, id, d)
+	enCours[id] = nil
+	if not ok then
+		error(m, 0)
+	end
+	if complet then
+		gabarits[id] = m -- un échec CSG (passager ?) sera retenté au prochain appel
+	end
+	return m
+end
+
+-- Construit les gabarits lisses en tâche de fond (évite l'attente au premier équipement).
+function ArmuresVoxels.prechauffer()
+	for _, id in ArmuresVoxels.liste() do
+		local ok, d = pcall(ArmuresVoxels.donnees, id)
+		if ok and (d :: any).Format == "Lisse" then
+			task.spawn(pcall, gabaritLisse, id, d)
+		end
+	end
+end
+
+local function echelle(modele: Model, tailleTete: Vector3?)
+	if not tailleTete then
+		return
+	end
+	local f = math.clamp(math.max(tailleTete.X, tailleTete.Y, tailleTete.Z) / TETE_REF, 0.6, 3)
+	if math.abs(f - 1) > 0.02 then
+		modele:ScaleTo(f)
+	end
+end
+
+-------------------------------------------------------------------- casques mesh (fidèles à la référence)
+-- Si ReplicatedStorage.CasquesMesh.<id> (Model de MeshParts importé depuis assets/casques/<id>.fbx) existe,
+-- il remplace la version "Lisse". Apparence par sous-mesh : Partage.CasquesMeshMateriaux (généré par
+-- blender/armes/casques_fideles.py). Voir assets/casques/IMPORT.md.
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local tableMesh: any = nil
+local function materiauxMesh(): any
+	if tableMesh == nil then
+		tableMesh = false
+		local m = script.Parent:FindFirstChild("CasquesMeshMateriaux")
+		if m and m:IsA("ModuleScript") then
+			local ok, res = pcall(require, m)
+			if ok and type(res) == "table" then
+				tableMesh = res
+			end
+		end
+	end
+	return tableMesh or nil
+end
+
+local function construireMesh(id: string, d: any): Model?
+	local dossier = ReplicatedStorage:FindFirstChild("CasquesMesh")
+	local source = dossier and dossier:FindFirstChild(id)
+	if not (source and source:IsA("Model")) then
+		return nil
+	end
+	local info = (materiauxMesh() or {})[id]
+	local m = source:Clone()
+	m.Name = id
+	m:SetAttribute("NomAffiche", d.Nom)
+	if d.Rang then
+		m:SetAttribute("Rang", d.Rang)
+	end
+	m:SetAttribute("Mesh", true)
+
+	local racine: BasePart? = nil
+	local visibles: { BasePart } = {}
+	for _, p in m:GetDescendants() do
+		if p:IsA("BasePart") then
+			p.Anchored = false
+			p.CanCollide, p.CanQuery, p.CanTouch = false, false, false
+			p.Massless = true
+			if p.Name == "Racine" and not racine then
+				racine = p
+			else
+				table.insert(visibles, p)
+			end
+		elseif p:IsA("JointInstance") or p:IsA("WeldConstraint") then
+			p:Destroy()
+		end
+	end
+	if #visibles == 0 then
+		m:Destroy()
+		return nil
+	end
+	-- échelle d'import (unités FBX) : on ramène la hauteur à celle attendue
+	if info and info.Taille then
+		local _, taille = m:GetBoundingBox()
+		local ratio = info.Taille.Y / math.max(taille.Y, 1e-3)
+		if math.abs(ratio - 1) > 0.03 then
+			m:ScaleTo(m:GetScale() * ratio)
+		end
+	end
+	if not racine then -- pas de marqueur : centre de la tête = centre de la boîte - Centre attendu
+		local cf = m:GetBoundingBox()
+		local centre = if info and info.Centre then info.Centre else Vector3.zero
+		racine = ancre("Racine", cf.Position - centre)
+		racine.Parent = m
+	end
+	local r = racine :: BasePart
+	r.Transparency = 1
+	r.CastShadow = false
+	r.CFrame = CFrame.new(r.Position) -- axes alignés (l'import garde devant = -Z)
+	m.PrimaryPart = r
+	m:PivotTo(CFrame.identity)
+	local lumieres: { [string]: boolean } = {}
+	for _, p in visibles do
+		local e = info and info.Parties and info.Parties[p.Name]
+		if e then
+			p.Material = e.Material
+			p.Color = e.Color
+			p.Transparency = e.Transparency or 0
+			p.CastShadow = e.Material ~= Enum.Material.Neon
+			if p:IsA("MeshPart") then
+				p.TextureID = ""
+			end
+			if e.Lumiere and not lumieres[p.Name] then
+				lumieres[p.Name] = true
+				local l = Instance.new("PointLight")
+				l.Color, l.Range, l.Brightness, l.Shadows = e.Lumiere.Couleur, e.Lumiere.Portee, e.Lumiere.Luminosite, false
+				l.Parent = p
+			end
+		end
+		souder(r, p)
+	end
+	return m
+end
+
 -- Construit la pièce à l'origine (Racine.CFrame = CFrame.identity) ; déplacer avec Model:PivotTo.
-function ArmuresVoxels.construire(id: string, teinte: Color3?): Model
+-- tailleTete (casques) : taille visuelle de la tête porteuse, pour mettre le casque à l'échelle.
+function ArmuresVoxels.construire(id: string, teinte: Color3?, tailleTete: Vector3?): Model
 	local d = ArmuresVoxels.donnees(id)
+	local ok, mesh = pcall(construireMesh, id, d)
+	if ok and mesh then
+		echelle(mesh, tailleTete)
+		return mesh
+	elseif not ok then
+		warn("[ArmuresVoxels] casque mesh illisible, version lisse :", id, mesh)
+	end
+	if (d :: any).Format == "Lisse" then
+		local g = gabaritLisse(id, d)
+		local m = if gabarits[id] == g then g:Clone() else g
+		echelle(m, tailleTete)
+		return m
+	end
 	local modele = Instance.new("Model")
 	modele.Name = id
 	modele:SetAttribute("NomAffiche", d.Nom)
@@ -150,7 +516,7 @@ function ArmuresVoxels.construire(id: string, teinte: Color3?): Model
 			p:SetAttribute("TeinteFacteur", facteur)
 		end
 		p.Color = if facteur and teinte then teinteDe(teinte, facteur) else Color3.fromRGB(c[2], c[3], c[4])
-		if nom == "Cristal" and d.Lueur and not lumiereFaite then
+		if d.Lueur and not lumiereFaite and nom == (d.Lueur.Piece or "Cristal") then
 			lumiereFaite = true
 			local l = Instance.new("PointLight")
 			l.Color, l.Range, l.Brightness, l.Shadows = d.Lueur.Couleur, d.Lueur.Portee, d.Lueur.Luminosite, false
@@ -164,6 +530,7 @@ function ArmuresVoxels.construire(id: string, teinte: Color3?): Model
 			souder(racine, p)
 		end
 	end
+	echelle(modele, tailleTete)
 	return modele
 end
 

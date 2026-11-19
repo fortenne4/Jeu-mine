@@ -1,0 +1,97 @@
+-- Généré par blender/armes/casques_lisses.py (CasqueBronze : 13 parts en jeu, Racine comprise). Ne pas modifier à la main.
+-- Casque lisse construit par ArmuresVoxels (CSG GeometryService, cache + Clone ; Secours si le CSG échoue).
+-- Repère = Racine = centre de la tête R15 (1.2 stud) : devant = -Z, haut = +Y, droite = +X, unités = studs.
+return {
+	Nom = "Casque de bronze",
+	Format = "Lisse",
+	Rang = 2, -- échelle de puissance des casques (1 = plus faible, 10 = plus prestigieux)
+	-- clé -> {matériau, r, g, b, reflectance}
+	Couleurs = {
+		["bronze"] = {"Metal", 214, 148, 74, 0.12},
+		["bronzeF"] = {"Metal", 156, 96, 46, 0.06},
+		["crin"] = {"Fabric", 172, 30, 34, 0},
+		["patine"] = {"SmoothPlastic", 86, 158, 132, 0},
+	},
+	Pieces = {
+		{Nom = "Coque", Cle = "bronze", Forme = "CSG",
+			Base = {Forme = "Boule", Taille = Vector3.new(1.64, 1.64, 1.64), CF = CFrame.new(0, 0.08, 0)},
+			Plus = {
+				{Forme = "Cylindre", Taille = Vector3.new(0.78, 1.6384, 1.6384), CF = CFrame.new(0, -0.31, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1)},
+				{Forme = "Boule", Taille = Vector3.new(0.09, 0.09, 0.09), CF = CFrame.new(0.5, -0.22, -0.6499)},
+				{Forme = "Boule", Taille = Vector3.new(0.09, 0.09, 0.09), CF = CFrame.new(0.43, -0.5, -0.6982)},
+				{Forme = "Boule", Taille = Vector3.new(0.09, 0.09, 0.09), CF = CFrame.new(-0.5, -0.22, -0.6499)},
+				{Forme = "Boule", Taille = Vector3.new(0.09, 0.09, 0.09), CF = CFrame.new(-0.43, -0.5, -0.6982)},
+			},
+			Moins = {
+				{Forme = "Boule", Taille = Vector3.new(1.4, 1.4, 1.4), CF = CFrame.new(0, 0.08, 0)},
+				{Forme = "Cylindre", Taille = Vector3.new(2.58, 1.4, 1.4), CF = CFrame.new(0, -1.21, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1)},
+				{Forme = "Bloc", Taille = Vector3.new(0.72, 0.29, 1.05), CF = CFrame.new(0, 0.125, -0.775)},
+				{Forme = "Cylindre", Taille = Vector3.new(1.05, 0.29, 0.29), CF = CFrame.new(0.36, 0.125, -0.775, 0, 0, 1, 0, 1, 0, -1, 0, 0)},
+				{Forme = "Cylindre", Taille = Vector3.new(1.05, 0.29, 0.29), CF = CFrame.new(-0.36, 0.125, -0.775, 0, 0, 1, 0, 1, 0, -1, 0, 0)},
+				{Forme = "Bloc", Taille = Vector3.new(0.46, 1.5, 1.05), CF = CFrame.new(0, -0.75, -0.775)},
+			},
+			Secours = {
+				{Nom = "Coque", Cle = "bronze", Forme = "Ellipsoide", Taille = Vector3.new(1.68, 1.3, 1.74), CF = CFrame.new(0, 0.52, 0.15)},
+				{Nom = "Coque", Cle = "bronze", Forme = "Ellipsoide", Taille = Vector3.new(1.64, 1.5, 1.2), CF = CFrame.new(0, 0.05, 0.38)},
+				{Nom = "Coque", Cle = "bronze", Forme = "Ellipsoide", Taille = Vector3.new(0.32, 1.1, 1.25), CF = CFrame.new(0.66, -0.08, -0.12)},
+				{Nom = "Coque", Cle = "bronze", Forme = "Ellipsoide", Taille = Vector3.new(0.32, 1.1, 1.25), CF = CFrame.new(-0.66, -0.08, -0.12)},
+			},
+		},
+		{Nom = "Bandeau", Cle = "bronzeF", Forme = "CSG",
+			Base = {Forme = "Cylindre", Taille = Vector3.new(0.13, 1.69, 1.69), CF = CFrame.new(0, 0.345, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1)},
+			Moins = {
+				{Forme = "Cylindre", Taille = Vector3.new(0.5, 1.48, 1.48), CF = CFrame.new(0, 0.345, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0.3253, 0.345, -0.7853)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0.601, 0.345, -0.601)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0.7853, 0.345, -0.3253)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0.85, 0.345, 0)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0.7853, 0.345, 0.3253)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0.601, 0.345, 0.601)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0.3253, 0.345, 0.7853)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0, 0.345, 0.85)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(-0.3253, 0.345, 0.7853)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(-0.601, 0.345, 0.601)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(-0.7853, 0.345, 0.3253)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(-0.85, 0.345, 0)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(-0.7853, 0.345, -0.3253)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(-0.601, 0.345, -0.601)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(-0.3253, 0.345, -0.7853)},
+			},
+		},
+		{Nom = "Bord", Cle = "bronzeF", Forme = "CSG",
+			Base = {Forme = "Cylindre", Taille = Vector3.new(0.08, 1.72, 1.72), CF = CFrame.new(0, -0.66, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1)},
+			Moins = {
+				{Forme = "Cylindre", Taille = Vector3.new(0.5, 1.48, 1.48), CF = CFrame.new(0, -0.7, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1)},
+				{Forme = "Bloc", Taille = Vector3.new(0.46, 1.5, 1.05), CF = CFrame.new(0, -0.75, -0.775)},
+			},
+		},
+		{Nom = "Crin", Cle = "crin", Forme = "CSG",
+			Base = {Forme = "Cylindre", Taille = Vector3.new(0.2, 2.24, 2.24), CF = CFrame.new(0, 0.1, 0.08)},
+			Moins = {
+				{Forme = "Cylindre", Taille = Vector3.new(0.4, 1.6, 1.6), CF = CFrame.new(0, 0.1, 0.08)},
+				{Forme = "Bloc", Taille = Vector3.new(6, 6, 6), CF = CFrame.new(0, -1.8284, -2.2181, 1, 0, 0, 0, -0.6428, 0.766, 0, -0.766, -0.6428)},
+				{Forme = "Bloc", Taille = Vector3.new(6, 6, 6), CF = CFrame.new(0, -2.1981, -1.8484, 1, 0, 0, 0, -0.766, 0.6428, 0, -0.6428, -0.766)},
+			},
+			Secours = {
+				{Nom = "Crin", Cle = "crin", Forme = "Ellipsoide", Taille = Vector3.new(0.2, 0.6, 1.5), CF = CFrame.new(0, 0.85, 0.25)},
+			},
+		},
+		{Nom = "Support", Cle = "bronzeF", Forme = "CSG",
+			Base = {Forme = "Cylindre", Taille = Vector3.new(0.27, 1.82, 1.82), CF = CFrame.new(0, 0.1, 0.08)},
+			Moins = {
+				{Forme = "Cylindre", Taille = Vector3.new(0.5, 1.58, 1.58), CF = CFrame.new(0, 0.1, 0.08)},
+				{Forme = "Bloc", Taille = Vector3.new(6, 6, 6), CF = CFrame.new(0, -1.8284, -2.2181, 1, 0, 0, 0, -0.6428, 0.766, 0, -0.766, -0.6428)},
+				{Forme = "Bloc", Taille = Vector3.new(6, 6, 6), CF = CFrame.new(0, -2.1981, -1.8484, 1, 0, 0, 0, -0.766, 0.6428, 0, -0.6428, -0.766)},
+			},
+		},
+		{Nom = "Nasal", Cle = "bronze", Forme = "Bloc", Taille = Vector3.new(0.1, 0.31, 0.09), CF = CFrame.new(0, 0.13, -0.77)},
+		{Nom = "Patine", Cle = "patine", Forme = "Ellipsoide", Taille = Vector3.new(0.26, 0.05, 0.18), CF = CFrame.new(0.6647, 0.3842, 0.3535, -0.4541, 0.8187, -0.3516, -0.0418, 0.3746, 0.9262, 0.89, 0.4353, -0.1359)},
+		{Nom = "Patine", Cle = "patine", Forme = "Ellipsoide", Taille = Vector3.new(0.22, 0.05, 0.3), CF = CFrame.new(-0.7997, -0.2665, 0.141, -0.1685, -0.9848, 0.042, 0.2417, 0, 0.9704, -0.9556, 0.1736, 0.238)},
+		{Nom = "Patine", Cle = "patine", Forme = "Ellipsoide", Taille = Vector3.new(0.2, 0.05, 0.16), CF = CFrame.new(0.2035, 0.6834, 0.5038, -0.9594, 0.2507, 0.1297, 0.2765, 0.7431, 0.6093, 0.0564, 0.6204, -0.7823)},
+		{Nom = "Patine", Cle = "patine", Forme = "Ellipsoide", Taille = Vector3.new(0.17, 0.05, 0.13), CF = CFrame.new(-0.2347, 0.797, -0.3004, 0.7007, -0.289, 0.6523, -0.0682, 0.8829, 0.4645, -0.7102, -0.3699, 0.599)},
+		{Nom = "Patine", Cle = "patine", Forme = "Ellipsoide", Taille = Vector3.new(0.18, 0.05, 0.24), CF = CFrame.new(0.717, -0.4687, -0.3812, 0.4475, 0.8829, 0.142, -0.3026, 0, 0.9531, 0.8416, -0.4695, 0.2671)},
+		{Nom = "Patine", Cle = "patine", Forme = "Ellipsoide", Taille = Vector3.new(0.15, 0.05, 0.12), CF = CFrame.new(-0.3998, 0.221, 0.6925, -0.7831, -0.4924, 0.3798, 0.3392, 0.1736, 0.9246, -0.5212, 0.8529, 0.031)},
+	},
+	Lumieres = {
+	},
+}

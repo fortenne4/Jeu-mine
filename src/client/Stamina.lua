@@ -10,7 +10,7 @@ local RunService = game:GetService("RunService")
 
 local Stamina = {
 	MAX = 100,
-	DRAIN_COURSE = 20, -- par seconde de course réelle
+	DRAIN_COURSE = 12, -- par seconde de course réelle
 	REGEN = 15, -- par seconde
 	DELAI_REGEN = 0.8, -- secondes sans effort avant de récupérer
 	SEUIL_REPRISE = 25, -- épuisé → de nouveau utilisable à partir de cette valeur

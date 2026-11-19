@@ -1,0 +1,80 @@
+-- Généré par blender/armes/casques_lisses.py (CasqueOr : 17 parts en jeu, Racine comprise). Ne pas modifier à la main.
+-- Casque lisse construit par ArmuresVoxels (CSG GeometryService, cache + Clone ; Secours si le CSG échoue).
+-- Repère = Racine = centre de la tête R15 (1.2 stud) : devant = -Z, haut = +Y, droite = +X, unités = studs.
+return {
+	Nom = "Casque d'or solaire",
+	Format = "Lisse",
+	Rang = 7, -- échelle de puissance des casques (1 = plus faible, 10 = plus prestigieux)
+	-- clé -> {matériau, r, g, b, reflectance}
+	Couleurs = {
+		["or"] = {"Metal", 240, 188, 72, 0.2},
+		["orF"] = {"Metal", 186, 130, 44, 0.1},
+		["orC"] = {"Metal", 252, 218, 124, 0.2},
+		["rubis"] = {"Neon", 255, 40, 80, 0},
+		["saphir"] = {"Neon", 60, 130, 255, 0},
+	},
+	Pieces = {
+		{Nom = "Coque", Cle = "or", Forme = "CSG",
+			Base = {Forme = "Boule", Taille = Vector3.new(1.64, 1.64, 1.64), CF = CFrame.new(0, 0.08, 0)},
+			Plus = {
+				{Forme = "Cylindre", Taille = Vector3.new(0.76, 1.6384, 1.6384), CF = CFrame.new(0, -0.3, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1)},
+			},
+			Moins = {
+				{Forme = "Boule", Taille = Vector3.new(1.4, 1.4, 1.4), CF = CFrame.new(0, 0.08, 0)},
+				{Forme = "Cylindre", Taille = Vector3.new(2.58, 1.4, 1.4), CF = CFrame.new(0, -1.21, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1)},
+				{Forme = "Cylindre", Taille = Vector3.new(1.1, 0.82, 0.82), CF = CFrame.new(0, -0.05, -0.75, 0, 0, 1, 0, 1, 0, -1, 0, 0)},
+				{Forme = "Bloc", Taille = Vector3.new(0.82, 1.45, 1.1), CF = CFrame.new(0, -0.775, -0.75)},
+			},
+			Secours = {
+				{Nom = "Coque", Cle = "or", Forme = "Ellipsoide", Taille = Vector3.new(1.68, 1.3, 1.74), CF = CFrame.new(0, 0.52, 0.15)},
+				{Nom = "Coque", Cle = "or", Forme = "Ellipsoide", Taille = Vector3.new(1.64, 1.5, 1.2), CF = CFrame.new(0, 0.07, 0.38)},
+				{Nom = "Coque", Cle = "or", Forme = "Ellipsoide", Taille = Vector3.new(0.32, 1.1, 1.25), CF = CFrame.new(0.66, -0.06, -0.12)},
+				{Nom = "Coque", Cle = "or", Forme = "Ellipsoide", Taille = Vector3.new(0.32, 1.1, 1.25), CF = CFrame.new(-0.66, -0.06, -0.12)},
+			},
+		},
+		{Nom = "Bandeau", Cle = "orF", Forme = "CSG",
+			Base = {Forme = "Cylindre", Taille = Vector3.new(0.12, 1.7, 1.7), CF = CFrame.new(0, 0.33, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1)},
+			Moins = {
+				{Forme = "Cylindre", Taille = Vector3.new(0.52, 1.48, 1.48), CF = CFrame.new(0, 0.33, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0.3272, 0.33, -0.7899)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0.6046, 0.33, -0.6046)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0.7899, 0.33, -0.3272)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0.855, 0.33, 0)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0.7899, 0.33, 0.3272)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0.6046, 0.33, 0.6046)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0.3272, 0.33, 0.7899)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(0, 0.33, 0.855)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(-0.3272, 0.33, 0.7899)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(-0.6046, 0.33, 0.6046)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(-0.7899, 0.33, 0.3272)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(-0.855, 0.33, 0)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(-0.7899, 0.33, -0.3272)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(-0.6046, 0.33, -0.6046)},
+				{Forme = "Boule", Taille = Vector3.new(0.06, 0.06, 0.06), CF = CFrame.new(-0.3272, 0.33, -0.7899)},
+			},
+		},
+		{Nom = "Bord", Cle = "orF", Forme = "CSG",
+			Base = {Forme = "Cylindre", Taille = Vector3.new(0.08, 1.7, 1.7), CF = CFrame.new(0, -0.64, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1)},
+			Moins = {
+				{Forme = "Cylindre", Taille = Vector3.new(0.48, 1.44, 1.44), CF = CFrame.new(0, -0.64, 0, 0, -1, 0, 1, 0, 0, 0, 0, 1)},
+				{Forme = "Bloc", Taille = Vector3.new(0.82, 1.45, 1.1), CF = CFrame.new(0, -0.775, -0.75)},
+			},
+		},
+		{Nom = "Rayon", Cle = "orC", Forme = "Ellipsoide", Taille = Vector3.new(0.11, 0.42, 0.0495), CF = CFrame.new(-0.7673, 0.5233, -0.443, -0.5, -0.2489, -0.8295, 0, 0.9578, -0.2873, 0.866, -0.1437, -0.4789)},
+		{Nom = "Rayon", Cle = "orC", Forme = "Ellipsoide", Taille = Vector3.new(0.12, 0.52, 0.054), CF = CFrame.new(-0.5787, 0.5711, -0.6897, -0.766, -0.1847, -0.6157, 0, 0.9578, -0.2873, 0.6428, -0.2201, -0.7337)},
+		{Nom = "Rayon", Cle = "orC", Forme = "Ellipsoide", Taille = Vector3.new(0.13, 0.62, 0.0585), CF = CFrame.new(-0.3128, 0.619, -0.8595, -0.9397, -0.0983, -0.3276, 0, 0.9578, -0.2873, 0.342, -0.27, -0.9001)},
+		{Nom = "Rayon", Cle = "orC", Forme = "Ellipsoide", Taille = Vector3.new(0.15, 0.76, 0.0675), CF = CFrame.new(0, 0.6861, -0.9348, -1, 0, 0, 0, 0.9578, -0.2873, 0, -0.2873, -0.9578)},
+		{Nom = "Rayon", Cle = "orC", Forme = "Ellipsoide", Taille = Vector3.new(0.13, 0.62, 0.0585), CF = CFrame.new(0.3128, 0.619, -0.8595, -0.9397, 0.0983, 0.3276, 0, 0.9578, -0.2873, -0.342, -0.27, -0.9001)},
+		{Nom = "Rayon", Cle = "orC", Forme = "Ellipsoide", Taille = Vector3.new(0.12, 0.52, 0.054), CF = CFrame.new(0.5787, 0.5711, -0.6897, -0.766, 0.1847, 0.6157, 0, 0.9578, -0.2873, -0.6428, -0.2201, -0.7337)},
+		{Nom = "Rayon", Cle = "orC", Forme = "Ellipsoide", Taille = Vector3.new(0.11, 0.42, 0.0495), CF = CFrame.new(0.7673, 0.5233, -0.443, -0.5, 0.2489, 0.8295, 0, 0.9578, -0.2873, -0.866, -0.1437, -0.4789)},
+		{Nom = "Serti", Cle = "orC", Forme = "Cylindre", Taille = Vector3.new(0.07, 0.24, 0.24), CF = CFrame.new(0, 0.33, -0.855, 0, 0, 1, 0, 1, 0, -1, 0, 0)},
+		{Nom = "Gemme", Cle = "rubis", Forme = "Boule", Taille = Vector3.new(0.16, 0.16, 0.16), CF = CFrame.new(0, 0.33, -0.8948)},
+		{Nom = "Serti", Cle = "orC", Forme = "Cylindre", Taille = Vector3.new(0.07, 0.165, 0.165), CF = CFrame.new(0.4904, 0.33, -0.7004, 0.5736, 0, 0.8192, 0, 1, 0, -0.8192, 0, 0.5736)},
+		{Nom = "Gemme", Cle = "saphir", Forme = "Boule", Taille = Vector3.new(0.11, 0.11, 0.11), CF = CFrame.new(0.5052, 0.33, -0.7215)},
+		{Nom = "Serti", Cle = "orC", Forme = "Cylindre", Taille = Vector3.new(0.07, 0.165, 0.165), CF = CFrame.new(-0.4904, 0.33, -0.7004, -0.5736, 0, 0.8192, 0, 1, 0, -0.8192, 0, -0.5736)},
+		{Nom = "Gemme", Cle = "saphir", Forme = "Boule", Taille = Vector3.new(0.11, 0.11, 0.11), CF = CFrame.new(-0.5052, 0.33, -0.7215)},
+	},
+	Lumieres = {
+		{Piece = "Gemme", Type = "Point", Couleur = Color3.fromRGB(255, 205, 100), Portee = 8, Luminosite = 1.3},
+	},
+}

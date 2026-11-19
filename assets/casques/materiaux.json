@@ -1,0 +1,745 @@
+{
+ "CasqueCharbon": {
+  "Taille": [
+   2.205,
+   2.322,
+   2.072
+  ],
+  "Centre": [
+   -0.011,
+   0.176,
+   -0.004
+  ],
+  "Triangles": 8286,
+  "Parties": {
+   "Roche": {
+    "Material": "Slate",
+    "Color": [
+     44,
+     41,
+     45
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Fissures": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     96,
+     24
+    ],
+    "Transparency": 0,
+    "Neon": true,
+    "PointLight": {
+     "Couleur": [
+      255,
+      120,
+      40
+     ],
+     "Portee": 6,
+     "Luminosite": 1.2
+    }
+   },
+   "Doublure": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     16,
+     13,
+     12
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Racine": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1,
+    "Neon": false
+   }
+  }
+ },
+ "CasqueBronze": {
+  "Taille": [
+   1.863,
+   2.283,
+   1.963
+  ],
+  "Centre": [
+   0.0,
+   0.163,
+   -0.026
+  ],
+  "Triangles": 9674,
+  "Parties": {
+   "BronzeClair": {
+    "Material": "Metal",
+    "Color": [
+     212,
+     134,
+     72
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Bronze": {
+    "Material": "Metal",
+    "Color": [
+     176,
+     98,
+     52
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Doublure": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     16,
+     13,
+     12
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Racine": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1,
+    "Neon": false
+   }
+  }
+ },
+ "CasqueCharbonBronze": {
+  "Taille": [
+   1.953,
+   2.402,
+   2.179
+  ],
+  "Centre": [
+   -0.023,
+   0.216,
+   -0.002
+  ],
+  "Triangles": 9450,
+  "Parties": {
+   "BronzeClair": {
+    "Material": "Metal",
+    "Color": [
+     212,
+     134,
+     72
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Fissures": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     96,
+     24
+    ],
+    "Transparency": 0,
+    "Neon": true,
+    "PointLight": {
+     "Couleur": [
+      255,
+      120,
+      40
+     ],
+     "Portee": 6,
+     "Luminosite": 1.2
+    }
+   },
+   "Doublure": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     16,
+     13,
+     12
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Roche": {
+    "Material": "Slate",
+    "Color": [
+     44,
+     41,
+     45
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Bronze": {
+    "Material": "Metal",
+    "Color": [
+     176,
+     98,
+     52
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Racine": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1,
+    "Neon": false
+   }
+  }
+ },
+ "CasqueFer": {
+  "Taille": [
+   1.863,
+   1.999,
+   1.963
+  ],
+  "Centre": [
+   0.0,
+   0.021,
+   -0.026
+  ],
+  "Triangles": 9586,
+  "Parties": {
+   "FerClair": {
+    "Material": "Metal",
+    "Color": [
+     160,
+     164,
+     172
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Fer": {
+    "Material": "Metal",
+    "Color": [
+     108,
+     112,
+     120
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Doublure": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     16,
+     13,
+     12
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Racine": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1,
+    "Neon": false
+   }
+  }
+ },
+ "CasqueCharbonFer": {
+  "Taille": [
+   2.278,
+   2.687,
+   2.178
+  ],
+  "Centre": [
+   0.056,
+   0.359,
+   -0.014
+  ],
+  "Triangles": 10699,
+  "Parties": {
+   "Fer": {
+    "Material": "Metal",
+    "Color": [
+     108,
+     112,
+     120
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Fissures": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     96,
+     24
+    ],
+    "Transparency": 0,
+    "Neon": true,
+    "PointLight": {
+     "Couleur": [
+      255,
+      120,
+      40
+     ],
+     "Portee": 6,
+     "Luminosite": 1.2
+    }
+   },
+   "Doublure": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     16,
+     13,
+     12
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Roche": {
+    "Material": "Slate",
+    "Color": [
+     44,
+     41,
+     45
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "FerClair": {
+    "Material": "Metal",
+    "Color": [
+     160,
+     164,
+     172
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Racine": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1,
+    "Neon": false
+   }
+  }
+ },
+ "CasqueBronzeFer": {
+  "Taille": [
+   1.912,
+   2.273,
+   2.022
+  ],
+  "Centre": [
+   0.0,
+   0.158,
+   0.003
+  ],
+  "Triangles": 9012,
+  "Parties": {
+   "BronzeClair": {
+    "Material": "Metal",
+    "Color": [
+     212,
+     134,
+     72
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "FerSombre": {
+    "Material": "Metal",
+    "Color": [
+     58,
+     57,
+     62
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Doublure": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     16,
+     13,
+     12
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Bronze": {
+    "Material": "Metal",
+    "Color": [
+     176,
+     98,
+     52
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Racine": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1,
+    "Neon": false
+   }
+  }
+ },
+ "CasqueOr": {
+  "Taille": [
+   1.952,
+   2.439,
+   2.078
+  ],
+  "Centre": [
+   0.0,
+   0.241,
+   -0.084
+  ],
+  "Triangles": 9788,
+  "Parties": {
+   "Gemme": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     214,
+     80
+    ],
+    "Transparency": 0,
+    "Neon": true,
+    "PointLight": {
+     "Couleur": [
+      255,
+      210,
+      110
+     ],
+     "Portee": 7,
+     "Luminosite": 1.4
+    }
+   },
+   "Or": {
+    "Material": "Metal",
+    "Color": [
+     222,
+     160,
+     40
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Doublure": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     16,
+     13,
+     12
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "OrClair": {
+    "Material": "Metal",
+    "Color": [
+     248,
+     200,
+     84
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Racine": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1,
+    "Neon": false
+   }
+  }
+ },
+ "CasqueCharbonOr": {
+  "Taille": [
+   2.18,
+   2.647,
+   2.163
+  ],
+  "Centre": [
+   0.032,
+   0.339,
+   -0.015
+  ],
+  "Triangles": 10532,
+  "Parties": {
+   "FerClair": {
+    "Material": "Metal",
+    "Color": [
+     160,
+     164,
+     172
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Fissures": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     96,
+     24
+    ],
+    "Transparency": 0,
+    "Neon": true,
+    "PointLight": {
+     "Couleur": [
+      255,
+      120,
+      40
+     ],
+     "Portee": 6,
+     "Luminosite": 1.2
+    }
+   },
+   "Doublure": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     16,
+     13,
+     12
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Roche": {
+    "Material": "Slate",
+    "Color": [
+     44,
+     41,
+     45
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Or": {
+    "Material": "Metal",
+    "Color": [
+     222,
+     160,
+     40
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Racine": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1,
+    "Neon": false
+   }
+  }
+ },
+ "CasqueBronzeOr": {
+  "Taille": [
+   1.952,
+   2.531,
+   2.13
+  ],
+  "Centre": [
+   0.0,
+   0.287,
+   -0.063
+  ],
+  "Triangles": 7756,
+  "Parties": {
+   "Gemme": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     214,
+     80
+    ],
+    "Transparency": 0,
+    "Neon": true,
+    "PointLight": {
+     "Couleur": [
+      255,
+      210,
+      110
+     ],
+     "Portee": 7,
+     "Luminosite": 1.4
+    }
+   },
+   "BronzeRouge": {
+    "Material": "Metal",
+    "Color": [
+     122,
+     58,
+     40
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Doublure": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     16,
+     13,
+     12
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Or": {
+    "Material": "Metal",
+    "Color": [
+     222,
+     160,
+     40
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "OrClair": {
+    "Material": "Metal",
+    "Color": [
+     248,
+     200,
+     84
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Racine": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1,
+    "Neon": false
+   }
+  }
+ },
+ "CasqueFerOr": {
+  "Taille": [
+   2.759,
+   2.581,
+   2.1
+  ],
+  "Centre": [
+   0.0,
+   0.312,
+   -0.095
+  ],
+  "Triangles": 9006,
+  "Parties": {
+   "Gemme": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     214,
+     80
+    ],
+    "Transparency": 0,
+    "Neon": true,
+    "PointLight": {
+     "Couleur": [
+      255,
+      210,
+      110
+     ],
+     "Portee": 7,
+     "Luminosite": 1.4
+    }
+   },
+   "Fer": {
+    "Material": "Metal",
+    "Color": [
+     108,
+     112,
+     120
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Doublure": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     16,
+     13,
+     12
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Or": {
+    "Material": "Metal",
+    "Color": [
+     222,
+     160,
+     40
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "FerClair": {
+    "Material": "Metal",
+    "Color": [
+     160,
+     164,
+     172
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "OrClair": {
+    "Material": "Metal",
+    "Color": [
+     248,
+     200,
+     84
+    ],
+    "Transparency": 0,
+    "Neon": false
+   },
+   "Racine": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1,
+    "Neon": false
+   }
+  }
+ }
+}

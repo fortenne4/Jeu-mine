@@ -6,7 +6,7 @@
 --   local Icones = require(script.Parent:WaitForChild("IconesObjets"))
 --   Icones.minerai("Fer", parent) ; Icones.pioche("Givre", parent, {silhouette = true})
 --   Icones.definir(vp, "epee", "EpeeFer", {teinte = couleur}) -- change l'objet d'une icône existante
---   Icones.armure("Casque", parent, teinte) -- ArmuresVoxels si présent, sinon armure voxel de secours
+--   Icones.armure("CasqueFer", parent, teinte) -- modèle ArmuresVoxels, sinon le générique ("Casque"), sinon secours voxel
 --   Icones.bourse(parent) -- bourse de mineur (bouton HUD du sac)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -254,14 +254,22 @@ local function construire(genre: string, id: string, opts: Options): Model?
 		end
 	elseif genre == "armure" then
 		local teinte = opts.teinte or Color3.fromRGB(152, 158, 170)
-		local mod = modArmures()
-		if mod and (type(mod.existe) ~= "function" or mod.existe(id)) then
-			local ok, res = pcall(mod.construire, id, teinte) -- teinte appliquée par ArmuresVoxels (Teinte / TeinteFacteur)
-			if ok and typeof(res) == "Instance" and res:IsA("Model") then
-				m = res
+		local base = id
+		for _, b in {"Casque", "Plastron", "Jambieres"} do
+			if id:sub(1, #b) == b then
+				base = b
 			end
 		end
-		m = m or armureSecours(id, teinte)
+		local mod = modArmures()
+		for _, cand in {id, base} do -- modèle dédié (CasqueFer…) absent : modèle générique du type
+			if not m and mod and (type(mod.existe) ~= "function" or mod.existe(cand)) then
+				local ok, res = pcall(mod.construire, cand, teinte) -- teinte appliquée par ArmuresVoxels (Teinte / TeinteFacteur)
+				if ok and typeof(res) == "Instance" and res:IsA("Model") then
+					m = res
+				end
+			end
+		end
+		m = m or armureSecours(base, teinte)
 		if m then
 			centrer(m, CFrame.Angles(0, math.pi, 0)) -- face avant vers la caméra
 		end
@@ -398,11 +406,8 @@ function Icones.bourse(parent: Instance?, opts: Options?): ViewportFrame
 	return nouvelle("bourse")("Cuir", parent, opts)
 end
 
--- ArmuresVoxels arrive (Rojo / autre agent) : on jette les silhouettes de secours et on redessine les icônes d'armure
-Partage.ChildAdded:Connect(function(c)
-	if c.Name ~= "ArmuresVoxels" then
-		return
-	end
+-- ArmuresVoxels ou un de ses modèles arrive (Rojo / autre agent) : on jette les gabarits de secours et on redessine les armures
+local function oublierArmures()
 	task.wait() -- laisse Rojo finir de remplir le module
 	armuresMod = nil
 	for cle in gabarits do
@@ -416,7 +421,22 @@ Partage.ChildAdded:Connect(function(c)
 			Icones.definir(vp, "armure", v.id, v.opts)
 		end
 	end
+end
+local function suivreArmures(c: Instance)
+	if c.Name == "ArmuresVoxels" then
+		c.ChildAdded:Connect(oublierArmures)
+	end
+end
+Partage.ChildAdded:Connect(function(c)
+	if c.Name == "ArmuresVoxels" then
+		suivreArmures(c)
+		oublierArmures()
+	end
 end)
+local dejaLa = Partage:FindFirstChild("ArmuresVoxels")
+if dejaLa then
+	suivreArmures(dejaLa)
+end
 
 local function visible(g: Instance): boolean
 	local i: Instance? = g
