@@ -419,7 +419,7 @@ local function construireMesh(id: string, d: any): Model?
 	-- échelle d'import (unités FBX) : on ramène la hauteur à celle attendue
 	if info and info.Taille then
 		local _, taille = m:GetBoundingBox()
-		local ratio = info.Taille.Y / math.max(taille.Y, 1e-3)
+		local ratio = info.Taille.Y / math.max(taille.Y, 1e-3) * 0.9 -- casque un peu plus petit (demande joueur)
 		if math.abs(ratio - 1) > 0.03 then
 			m:ScaleTo(m:GetScale() * ratio)
 		end
