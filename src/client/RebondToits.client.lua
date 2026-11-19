@@ -52,8 +52,10 @@ local function suivre(perso: Model)
 
 		local distance = h.HipHeight + r.Size.Y / 2 + 1.5
 		filtre.CollisionGroup = r.CollisionGroup
-		local sol = workspace:Raycast(r.Position, Vector3.new(0, -distance, 0), filtre)
-		if not sol or not sol.Instance:GetAttribute("ToitRebond") then
+		-- Les pieds peuvent toucher le bord alors que le centre du personnage dépasse du toit.
+		local emprise = Vector3.new(r.Size.X, 0.1, r.Size.Z)
+		local sol = workspace:Blockcast(r.CFrame, emprise, Vector3.new(0, -distance, 0), filtre)
+		if not sol or sol.Normal.Y <= 0 or not sol.Instance:GetAttribute("ToitRebond") then
 			return
 		end
 
