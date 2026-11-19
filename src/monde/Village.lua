@@ -531,6 +531,22 @@ local function cristaux(v, rng)
 	O.decorModele(f)
 end
 
+-- Aussi appelé sur les cartes déjà figées, dont les toiles peuvent avoir été enregistrées sans collision.
+function Village.preparerToits(village)
+	local noms = {Auvent = true, Toit = true, Faitage = true}
+	for _, piece in village:GetDescendants() do
+		if piece:IsA("BasePart") and noms[piece.Name] then
+			if piece.Name == "Auvent" then
+				piece.CanCollide = true
+				piece.CanQuery = true
+			end
+			if piece.CanCollide then
+				piece:SetAttribute("ToitRebond", true)
+			end
+		end
+	end
+end
+
 function Village.construire(carte)
 	local rng = Random.new(1789)
 	local v = Instance.new("Folder")
@@ -551,6 +567,7 @@ function Village.construire(carte)
 	nature(v, rng, obstacles)
 	falaises(v, rng)
 	cristaux(v, rng)
+	Village.preparerToits(v)
 end
 
 return Village

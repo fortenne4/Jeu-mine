@@ -333,8 +333,9 @@ function B.echoppe(parent, cf, largeur, toile)
 	local lb = larg / bandes
 	for i = 1, bandes do
 		local x = -larg / 2 + (i - 0.5) * lb
-		O.decor(O.bloc(m, Vector3.new(lb, 0.2, 8.4), cf * CFrame.new(x, 9.1, 1.9) * CFrame.Angles(math.rad(-14), 0, 0),
-			i % 2 == 0 and toile or C.Toile, M.Tissu, "Auvent"))
+		local bande = O.bloc(m, Vector3.new(lb, 0.2, 8.4), cf * CFrame.new(x, 9.1, 1.9) * CFrame.Angles(math.rad(-14), 0, 0),
+			i % 2 == 0 and toile or C.Toile, M.Tissu, "Auvent")
+		bande.CanTouch = false
 	end
 	return m
 end

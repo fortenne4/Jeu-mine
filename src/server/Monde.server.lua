@@ -6,8 +6,13 @@ local ServerStorage = game:GetService("ServerStorage")
 -- Carte figée : on la garde, sauf si les modèles 3D importés ont changé depuis
 local carte = workspace:FindFirstChild("Carte")
 if carte then
-	local Modeles3D = require(ServerStorage:WaitForChild("Monde"):WaitForChild("Modeles3D"))
+	local monde = ServerStorage:WaitForChild("Monde")
+	local Modeles3D = require(monde:WaitForChild("Modeles3D"))
 	if (carte:GetAttribute("Modeles3D") or 0) == Modeles3D.signature() then
+		local village = carte:FindFirstChild("Village")
+		if village then
+			require(monde:WaitForChild("Village")).preparerToits(village)
+		end
 		workspace:SetAttribute("MondeConstruit", true)
 		return
 	end
