@@ -2,6 +2,7 @@
 -- Convention : chaque fonction reçoit un CFrame posé au sol ; -Z (LookVector) = la façade / l'avant.
 local O = require(script.Parent.Outils)
 local M3 = require(script.Parent.Modeles3D)
+local Lampadaires = require(script.Parent.Lampadaires)
 local M, C = O.M, O.C
 
 local B = {}
@@ -10,30 +11,19 @@ local HE = 10 -- hauteur d'un étage
 -- ================= Lumières =================
 
 local function cage(parent, cf, couleur, portee)
-	O.decor(O.bloc(parent, Vector3.new(1.6, 0.3, 1.6), cf * CFrame.new(0, 0.95, 0), C.Fer, M.Metal, "Toit"))
-	O.decor(O.bloc(parent, Vector3.new(1.3, 0.25, 1.3), cf * CFrame.new(0, -0.95, 0), C.Fer, M.Metal, "Fond"))
-	for _, o in {{-0.55, -0.55}, {0.55, -0.55}, {-0.55, 0.55}, {0.55, 0.55}} do
-		O.decor(O.bloc(parent, Vector3.new(0.15, 1.8, 0.15), cf * CFrame.new(o[1], 0, o[2]), C.Fer, M.Metal, "Montant"))
-	end
-	local flamme = O.decor(O.bloc(parent, Vector3.new(0.9, 1.4, 0.9), cf, couleur or C.Lumiere, M.Neon, "Flamme"))
-	O.lumiere(flamme, couleur or C.Lumiere, 1.5, portee or 22)
-	return flamme
+	return Lampadaires.lanterne(parent, cf, couleur, portee)
 end
 
--- Lanterne sur poteau ; le bras pointe vers -Z
+-- Les modèles utilisent les proportions de l'aperçu validé.
 function B.lanterne(parent, cf, hauteur)
-	local h = hauteur or 11
-	local m = O.modele(parent, "Lanterne")
-	O.bloc(m, Vector3.new(1.6, 0.8, 1.6), cf * CFrame.new(0, 0.4, 0), C.PierreFoncee, M.Pierre, "Socle")
-	O.cylindre(m, h, 0.7, cf * CFrame.new(0, h / 2, 0), C.BoisFonce, M.Bois, "Poteau")
-	O.decor(O.bloc(m, Vector3.new(0.35, 0.35, 3), cf * CFrame.new(0, h - 0.5, -1.3), C.Fer, M.Metal, "Bras"))
-	local c = cf * CFrame.new(0, h - 2.1, -2.6)
-	O.decor(O.bloc(m, Vector3.new(0.15, 0.6, 0.15), c * CFrame.new(0, 1.3, 0), C.Fer, M.Metal, "Crochet"))
-	cage(m, c)
-	return m
+	local origine = cf.Position
+	local filtre = RaycastParams.new()
+	filtre.RespectCanCollide = true
+	local sol = workspace:Raycast(origine + Vector3.yAxis * 8, -Vector3.yAxis * 30, filtre)
+	local position = if sol then Vector3.new(origine.X, sol.Position.Y, origine.Z) else origine
+	return Lampadaires.lampadaire(parent, CFrame.new(position) * cf.Rotation)
 end
 
--- Lanterne suspendue à une chaîne (haut = point d'accroche)
 function B.suspension(parent, haut, longueur, couleur, portee)
 	local m = O.modele(parent, "Suspension")
 	O.decor(O.bloc(m, Vector3.new(0.15, longueur, 0.15), CFrame.new(haut - Vector3.new(0, longueur / 2, 0)), C.Fer, M.Metal, "Chaine"))
@@ -41,13 +31,9 @@ function B.suspension(parent, haut, longueur, couleur, portee)
 	return m
 end
 
--- Applique murale (cf collé au mur, -Z vers l'extérieur)
 function B.applique(parent, cf)
 	O.decor(O.bloc(parent, Vector3.new(0.3, 0.3, 1.2), cf * CFrame.new(0, 0.9, -0.6), C.Fer, M.Metal, "Support"))
-	O.decor(O.bloc(parent, Vector3.new(1, 0.25, 1), cf * CFrame.new(0, 0.85, -1.2), C.Fer, M.Metal, "Chapeau"))
-	local flamme = O.decor(O.bloc(parent, Vector3.new(0.7, 1, 0.7), cf * CFrame.new(0, 0.2, -1.2), C.Lumiere, M.Neon, "Flamme"))
-	O.lumiere(flamme, C.Lumiere, 1.2, 16)
-	return flamme
+	return cage(parent, cf * CFrame.new(0, 0.2, -1.2), C.Lumiere, 16)
 end
 
 -- Brasero de pierre avec un vrai feu

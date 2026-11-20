@@ -345,7 +345,7 @@ end
 local function lanternes(v)
 	local m = O.modele(v, "Eclairage")
 	for z = -42, -96, -14 do
-		for _, x in {-9, 9} do
+		for _, x in {-9.5, 9.5} do
 			B.lanterne(m, vers(Vector3.new(x, 0, z), Vector3.new(0, 0, z)))
 		end
 	end

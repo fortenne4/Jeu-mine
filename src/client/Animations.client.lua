@@ -12,6 +12,16 @@ local PNJ_ROTATION_MAX = 1.1 -- radians (~63°)
 
 local actifs = {}
 local pnjs = {}
+local lanternes = {}
+
+local function ajouterLanterne(lumiere)
+	if lumiere:IsA("PointLight") then
+		lanternes[lumiere] = math.random() * 10
+	end
+end
+CollectionService:GetInstanceAddedSignal("LueurLanterne"):Connect(ajouterLanterne)
+CollectionService:GetInstanceRemovedSignal("LueurLanterne"):Connect(function(lumiere) lanternes[lumiere] = nil end)
+for _, lumiere in CollectionService:GetTagged("LueurLanterne") do ajouterLanterne(lumiere) end
 
 local function ajouter(instance)
 	if instance:IsA("Model") then
@@ -71,6 +81,9 @@ end
 
 RunService.RenderStepped:Connect(function(dt)
 	local t = os.clock()
+	for lumiere, phase in lanternes do
+		lumiere.Brightness = 2.2 + 0.32 * math.noise((t + phase) * 1.8) + 0.12 * math.noise((t + phase) * 4)
+	end
 
 	for modele, info in actifs do
 		if CollectionService:HasTag(modele, "Rotatif") then
