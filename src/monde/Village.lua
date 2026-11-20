@@ -53,29 +53,59 @@ end
 
 local function monument(v, rng)
 	local m = O.modele(v, "Monument")
-	local y = 0.4
-	for i = 0, 7 do
-		local r = CFrame.Angles(0, i * math.pi / 4, 0)
-		O.bloc(m, Vector3.new(6.1, 2.4, 1.4), r * CFrame.new(0, y + 1.2, -7.3), C.Pierre, M.Pierre, "Bassin")
-		O.bloc(m, Vector3.new(6.6, 0.4, 1.9), r * CFrame.new(0, y + 2.6, -7.3), C.PierreClaire, M.Calcaire, "Margelle")
-	end
-	local eau = O.decor(O.cylindre(m, 1.6, 14.4, CFrame.new(0, y + 0.8, 0), C.Eau, M.Verre, "Eau"))
+	m:SetAttribute("VersionFontaine", 2)
+	local y = 2 -- surface du terrain sur la place
+	-- Fontaine circulaire : diamètre 1,5 fois supérieur à l'ancien bassin.
+	local pierre = Color3.fromRGB(80, 82, 78)
+	local mousse = Color3.fromRGB(64, 80, 52)
+	O.cylindre(m, 0.6, 21.6, CFrame.new(0, y + 0.3, 0), pierre, M.Ardoise, "FondBassin")
+	local eau = O.decor(O.cylindre(m, 0.25, 19.3, CFrame.new(0, y + 1.05, 0), C.Eau, M.Verre, "Eau"))
 	eau.Transparency = 0.3
 	eau.Reflectance = 0.2
-	O.cylindre(m, 3, 5, CFrame.new(0, y + 1.5, 0), C.PierreFoncee, M.Pierre, "Pied")
-	O.cylindre(m, 4, 3.4, CFrame.new(0, y + 5, 0), C.Pierre, M.Pierre, "Colonne")
-	O.cylindre(m, 0.6, 4.6, CFrame.new(0, y + 7.3, 0), C.PierreClaire, M.Calcaire, "Plateau")
-	for i = 0, 5 do
-		O.decor(O.bloc(m, Vector3.new(0.5, 0.3, 0.5), CFrame.Angles(0, i * math.pi / 3, 0) * CFrame.new(0, y + 7.75, -1.9), C.Cristal, M.Neon, "Rune"))
+	for i = 0, 31 do
+		local angle = i * math.pi * 2 / 32
+		local cf = CFrame.new(10.2 * math.cos(angle), y + 1.15, 10.2 * math.sin(angle)) * CFrame.Angles(0, -angle, 0)
+		O.bloc(m, Vector3.new(1.2, 1.5, 2.05), cf, pierre, M.Pierre, "Margelle")
+		if i % 3 == 0 then
+			O.decor(O.bloc(m, Vector3.new(0.65, 0.12, 1.1), cf + Vector3.new(0, 0.8, 0), mousse, Enum.Material.LeafyGrass, "Mousse"))
+		end
+	end
+	-- Piédestal central et deux vasques étagées en pierre sombre.
+	for _, piece in {
+		{1, 5.4, 1.5, "Socle"}, {0.45, 4.8, 2.2, "Socle"},
+		{2.2, 2.8, 3.45, "Colonne"}, {0.45, 3.8, 4.6, "Colonne"},
+		{0.5, 5.2, 4.9, "GrandeVasque"}, {0.45, 7.2, 5.25, "GrandeVasque"},
+		{0.4, 9.2, 5.6, "GrandeVasque"}, {0.35, 10.2, 5.9, "GrandeVasque"},
+		{0.45, 3.6, 6.4, "ColonneHaute"}, {2.2, 2.2, 7.65, "ColonneHaute"},
+		{0.4, 3.2, 8.85, "ColonneHaute"}, {0.45, 4.4, 9.15, "PetiteVasque"},
+		{0.4, 5.4, 9.48, "PetiteVasque"}, {0.35, 6.3, 9.78, "PetiteVasque"},
+		{0.35, 1.7, 10.15, "Sommet"}, {0.45, 1.05, 10.55, "Sommet"},
+	} do
+		O.cylindre(m, piece[1], piece[2], CFrame.new(0, y + piece[3], 0), pierre, M.Pierre, piece[4])
+	end
+	local function eauDecor(taille, position, nom)
+		local p = O.decor(O.bloc(m, taille, CFrame.new(position), C.Eau, M.Verre, nom))
+		p.Transparency = eau.Transparency
+		p.Reflectance = eau.Reflectance
+	end
+	for i = 0, 15 do
+		local angle = i * math.pi * 2 / 16
+		local x, z = math.cos(angle), math.sin(angle)
+		-- Filets d'eau au bord des deux vasques, et touches de mousse espacées.
+		eauDecor(Vector3.new(0.15, 3.6, 0.15), Vector3.new(x * 4.9, y + 3.85, z * 4.9), "ChuteGrandeVasque")
+		if i % 2 == 0 then
+			eauDecor(Vector3.new(0.12, 3.5, 0.12), Vector3.new(x * 3, y + 7.85, z * 3), "ChutePetiteVasque")
+			O.decor(O.bloc(m, Vector3.new(0.55, 0.12, 0.55), CFrame.new(x * 4.7, y + 6.13, z * 4.7), mousse, Enum.Material.LeafyGrass, "MousseVasque"))
+		end
 	end
 
 	-- Le cristal flottant (il monte, descend et tourne : animé par le client)
 	local f = O.modele(v, "CristalFlottant")
-	local _, coeur = B.cristal(f, CFrame.new(0, y + 11, 0), 7, C.Cristal, rng, 60)
-	B.cristal(f, CFrame.new(0, y + 11.2, 0) * CFrame.Angles(math.pi, 0, 0), 3, C.Cristal, rng)
+	local _, coeur = B.cristal(f, CFrame.new(0, y + 19.2, 0), 7, C.Cristal, rng, 60)
+	B.cristal(f, CFrame.new(0, y + 19.4, 0) * CFrame.Angles(math.pi, 0, 0), 3, C.Cristal, rng)
 	for i = 0, 3 do
 		local a = i * math.pi / 2
-		B.cristal(f, CFrame.new(polaire(a, 4.5, y + 10.5)) * CFrame.Angles(0.3, -a, 0), 1.6, C.CristalViolet, rng)
+		B.cristal(f, CFrame.new(polaire(a, 4.5, y + 18.7)) * CFrame.Angles(0.3, -a, 0), 1.6, C.CristalViolet, rng)
 	end
 	O.lucioles(coeur, C.Cristal, 6)
 	O.decorModele(f)
@@ -83,6 +113,105 @@ local function monument(v, rng)
 	f:SetAttribute("Amplitude", 0.7)
 	O.atomique(f)
 	O.tag(f, "Flottant")
+end
+
+-- Met aussi à jour les places déjà figées, sans reconstruire le reste du village.
+function Village.preparerFontaine(village)
+	local ancienne = village:FindFirstChild("Monument")
+	if not ancienne or ancienne:GetAttribute("VersionFontaine") == 2 then
+		return
+	end
+	local ancienCristal = village:FindFirstChild("CristalFlottant")
+	local temporaire = Instance.new("Folder")
+	temporaire.Name = "FontaineEnConstruction"
+	temporaire.Parent = village
+	local ok, erreur = pcall(monument, temporaire, Random.new(1789))
+	if not ok then
+		temporaire:Destroy()
+		warn("[Village] Impossible de préparer la fontaine : " .. tostring(erreur))
+		return
+	end
+	local nouvelle = temporaire:FindFirstChild("Monument")
+	local nouveauCristal = temporaire:FindFirstChild("CristalFlottant")
+	if ancienCristal and ancienCristal:IsA("Model") and nouveauCristal then
+		local collection = game:GetService("CollectionService")
+		collection:RemoveTag(ancienCristal, "Flottant")
+		ancienCristal:PivotTo(nouveauCristal:GetPivot())
+		collection:AddTag(ancienCristal, "Flottant")
+		nouveauCristal:Destroy()
+	else
+		nouveauCristal.Parent = village
+	end
+	ancienne:Destroy()
+	nouvelle.Parent = village
+	temporaire:Destroy()
+end
+
+-- Chemins décoratifs posés sur le terrain réel, y compris sur les cartes figées.
+function Village.preparerSentiers(village)
+	local anciens = village:FindFirstChild("SentiersFontaine")
+	if anciens and anciens:GetAttribute("VersionSentiers") == 3 then
+		return
+	end
+	local sentiers = O.modele(village, "SentiersEnConstruction")
+	local rng = Random.new(43672)
+	local filtre = RaycastParams.new()
+	filtre.FilterType = Enum.RaycastFilterType.Include
+	filtre.FilterDescendantsInstances = {workspace.Terrain}
+	local terre = Color3.fromRGB(145, 112, 78)
+	local pierres = {Color3.fromRGB(113, 108, 98), Color3.fromRGB(127, 119, 107), Color3.fromRGB(98, 96, 89)}
+	local function hauteur(x, z)
+		local resultat = workspace:Raycast(Vector3.new(x, 180, z), Vector3.new(0, -300, 0), filtre)
+		if resultat and resultat.Material ~= Enum.Material.Water then
+			return resultat.Position.Y
+		end
+		return nil
+	end
+	local function terreAuSol(x, z, diametre)
+		local h = hauteur(x, z)
+		if not h then return end
+		-- Des disques superposés forment des bords arrondis et évitent les trous.
+		local p = O.decor(O.cylindre(sentiers, 0.12, diametre * rng:NextNumber(0.94, 1.06), CFrame.new(x, h + 0.05 + rng:NextNumber(0, 0.004), z), terre, M.Terre, "Terre"))
+		p.CastShadow = false
+	end
+	local function pave(x, z)
+		local h = hauteur(x, z)
+		if not h then return end
+		local p = O.decor(O.bloc(sentiers, Vector3.new(rng:NextNumber(0.65, 1.35), 0.11, rng:NextNumber(0.65, 1.45)), CFrame.new(x, h + 0.14, z) * CFrame.Angles(0, rng:NextNumber(-0.65, 0.65), 0), pierres[rng:NextInteger(1, #pierres)], M.Paves, "Pave"))
+		p.CastShadow = false
+	end
+	-- Anneau autour du bassin, puis deux allées : vers la gare et vers le pont.
+	local rayon = 15.8
+	for i = 0, 47 do
+		local angle = i * 2 * math.pi / 48
+		local x, z = rayon * math.cos(angle), rayon * math.sin(angle)
+		terreAuSol(x, z, 7.5)
+		if i % 2 == 0 then
+			local r = rng:NextNumber(12.4, 19.1)
+			pave(r * math.cos(angle), r * math.sin(angle))
+		end
+	end
+	local function allee(x1, z1, x2, z2, largeur)
+		local debut, fin = Vector2.new(x1, z1), Vector2.new(x2, z2)
+		local direction = fin - debut
+		local nombre = math.ceil(direction.Magnitude / 2.8)
+		for i = 0, nombre do
+			local position = debut:Lerp(fin, i / nombre)
+			local normal = Vector2.new(-direction.Y, direction.X).Unit
+			local decalage = rng:NextNumber(-0.65, 0.65)
+			terreAuSol(position.X + normal.X * decalage, position.Y + normal.Y * decalage, largeur)
+			if i % 2 == 0 then
+				local lateral = rng:NextNumber(-largeur * 0.4, largeur * 0.4)
+				pave(position.X + normal.X * lateral, position.Y + normal.Y * lateral)
+			end
+		end
+	end
+	allee(0, -15, 0, -96, 10)
+	allee(0, -89, -14.5, -97, 8)
+	allee(0, 15, 0, D.RIVIERE_Z - 16, 9)
+	sentiers:SetAttribute("VersionSentiers", 3)
+	if anciens then anciens:Destroy() end
+	sentiers.Name = "SentiersFontaine"
 end
 
 local function apparitions(v)
@@ -572,6 +701,7 @@ function Village.construire(carte)
 	falaises(v, rng)
 	cristaux(v, rng)
 	Village.preparerToits(v)
+	Village.preparerSentiers(v)
 end
 
 return Village

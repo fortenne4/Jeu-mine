@@ -11,7 +11,10 @@ if carte then
 	if (carte:GetAttribute("Modeles3D") or 0) == Modeles3D.signature() then
 		local village = carte:FindFirstChild("Village")
 		if village then
-			require(monde:WaitForChild("Village")).preparerToits(village)
+			local Village = require(monde:WaitForChild("Village"))
+			Village.preparerFontaine(village)
+			Village.preparerToits(village)
+			Village.preparerSentiers(village)
 		end
 		workspace:SetAttribute("MondeConstruit", true)
 		return

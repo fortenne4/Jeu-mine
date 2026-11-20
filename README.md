@@ -147,7 +147,7 @@ Pour la tester dans Studio : **Fichier › Paramètres du jeu › Sécurité ›
 ## Plan de la carte
 
 - Nord (-Z) : montagne de la mine. Les joueurs apparaissent sur la place (0, 0, 0), face à la mine.
-- Place : cristal flottant, 8 points d'apparition, 2 tableaux de classement.
+- Place : fontaine circulaire en pierre et cristal flottant, sentiers vers la gare et le pont, 8 points d'apparition, 2 tableaux de classement.
 - Ouest : comptoir des minerais et boutique de pioches, avec leurs enseignes au-dessus des auvents. Est : forge (épées et armures) et taverne.
 - Les toits du village et les auvents des échoppes sont solides et font rebondir le joueur une fois à la réception d’un saut, y compris sur les bords. Depuis le sol, sauter vers un auvent proche donne l’élan pour monter dessus.
 - Avenue nord : gare des wagonnets, puis rails jusqu'au portail de la mine.
