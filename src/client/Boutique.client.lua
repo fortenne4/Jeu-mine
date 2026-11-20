@@ -48,6 +48,16 @@ local liste = creer("ScrollingFrame", {Name = "Liste", Size = UDim2.fromScale(0.
 	creer("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center}),
 	creer("UIPadding", {PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6)}),
 })
+-- AutomaticCanvasSize ne suit pas toujours les cartes : on règle la hauteur défilable à la main (molette).
+do
+	local disposition = liste:FindFirstChildOfClass("UIListLayout") :: UIListLayout
+	local function majCanevas()
+		liste.CanvasSize = UDim2.fromOffset(0, disposition.AbsoluteContentSize.Y + 12)
+	end
+	liste.AutomaticCanvasSize = Enum.AutomaticSize.None
+	disposition:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(majCanevas)
+	majCanevas()
+end
 
 -- Fiche détaillée (à droite)
 local fiche = UI.panneau({Name = "Fiche", Position = UDim2.fromScale(0.36, 0), Size = UDim2.fromScale(0.64, 1),
