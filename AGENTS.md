@@ -126,6 +126,12 @@ Style des modèles : voxel à studs (type LEGO), < 20 000 triangles par pièce.
 
 ## 7. Comportement de l'agent
 
+- Quand les outils le permettent et que la demande contient des tâches indépendantes, utiliser des
+  sous-agents en parallèle. Confier une zone précise à chacun : mine et terrain ; interface et PNJ ;
+  effets et animations ; modèles et décors. Pour une tâche courte ou dépendante d'une autre, le
+  responsable peut intervenir directement. Respecter les limites et autorisations de la session.
+- Le responsable coordonne les fichiers partagés, vérifie les résultats et réalise les essais. Les
+  profils existants de `.claude/agents/` peuvent servir de consignes aux spécialistes si pertinents.
 - Répondre en français, court et clair : les collaborateurs ne sont pas forcément développeurs.
 - Si une demande est ambiguë ou risque de casser le travail d'un autre : demander avant d'agir.
 - Mettre à jour `README.md` quand on ajoute ou change un système visible (nouvelle boutique, nouveau PNJ…).

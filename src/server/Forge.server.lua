@@ -194,6 +194,7 @@ task.spawn(function()
 	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = CONFIG.DISTANCE_PROMPT
 	prompt.RequiresLineOfSight = false
+	prompt.UIOffset = Vector2.new(0, -115)
 	prompt.Style = Enum.ProximityPromptStyle.Default
 	prompt:SetAttribute("Theme", "Boutique") -- dessinée par Boutique.client.lua, comme celle de Liesel
 	prompt.Parent = part

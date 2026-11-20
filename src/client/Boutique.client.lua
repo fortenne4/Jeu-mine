@@ -617,7 +617,9 @@ local function montrerInvite(prompt: ProximityPrompt, typeEntree: Enum.Proximity
 		return
 	end
 	local bb = creer("BillboardGui", {Name = "InviteBoutique", Adornee = prompt.Parent, AlwaysOnTop = true,
-		Size = UDim2.fromOffset(300, 76), StudsOffset = Vector3.new(0, 1.5, 0), LightInfluence = 0,
+		-- Le point d'interaction est à hauteur du torse : placer l'invite au-dessus
+		-- de la tête en coordonnées du monde, quel que soit l'angle de la caméra.
+		Size = UDim2.fromOffset(220, 56), StudsOffsetWorldSpace = Vector3.new(0, 4.5, 0), LightInfluence = 0,
 		ResetOnSpawn = false, Enabled = not gui.Enabled, Parent = joueur:WaitForChild("PlayerGui")})
 	local carte = creer("TextButton", {Name = "Carte", Text = "", AutoButtonColor = false, AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.Bois, Parent = bb},

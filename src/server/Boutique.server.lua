@@ -218,6 +218,7 @@ task.spawn(function()
 	prompt.HoldDuration = 0
 	prompt.MaxActivationDistance = CONFIG.DISTANCE_PROMPT
 	prompt.RequiresLineOfSight = false
+	prompt.UIOffset = Vector2.new(0, -115)
 	-- Style par défaut : l'invite Roblox s'affiche toujours. Boutique.client.lua la passe en style
 	-- Custom chez lui (thème de la boutique) seulement une fois prêt à la dessiner.
 	prompt.Style = Enum.ProximityPromptStyle.Default

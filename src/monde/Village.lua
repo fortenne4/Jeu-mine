@@ -53,7 +53,7 @@ end
 
 local function monument(v, rng)
 	local m = O.modele(v, "Monument")
-	m:SetAttribute("VersionFontaine", 2)
+	m:SetAttribute("VersionFontaine", 3)
 	local y = 2 -- surface du terrain sur la place
 	-- Fontaine circulaire : diamètre 1,5 fois supérieur à l'ancien bassin.
 	local pierre = Color3.fromRGB(80, 82, 78)
@@ -85,7 +85,9 @@ local function monument(v, rng)
 	end
 	local function eauDecor(taille, position, nom)
 		local p = O.decor(O.bloc(m, taille, CFrame.new(position), C.Eau, M.Verre, nom))
-		p.Transparency = eau.Transparency
+		p.Color = Color3.fromRGB(124, 190, 194)
+		p.Transparency = 0.84
+		p.Size = Vector3.new(0.28, p.Size.Y, 0.28)
 		p.Reflectance = eau.Reflectance
 	end
 	for i = 0, 15 do
@@ -101,11 +103,11 @@ local function monument(v, rng)
 
 	-- Le cristal flottant (il monte, descend et tourne : animé par le client)
 	local f = O.modele(v, "CristalFlottant")
-	local _, coeur = B.cristal(f, CFrame.new(0, y + 19.2, 0), 7, C.Cristal, rng, 60)
-	B.cristal(f, CFrame.new(0, y + 19.4, 0) * CFrame.Angles(math.pi, 0, 0), 3, C.Cristal, rng)
+	local _, coeur = B.cristal(f, CFrame.new(0, y + 16.7, 0), 7, C.Cristal, rng, 60)
+	B.cristal(f, CFrame.new(0, y + 16.9, 0) * CFrame.Angles(math.pi, 0, 0), 3, C.Cristal, rng)
 	for i = 0, 3 do
 		local a = i * math.pi / 2
-		B.cristal(f, CFrame.new(polaire(a, 4.5, y + 18.7)) * CFrame.Angles(0.3, -a, 0), 1.6, C.CristalViolet, rng)
+		B.cristal(f, CFrame.new(polaire(a, 4.5, y + 16.2)) * CFrame.Angles(0.3, -a, 0), 1.6, C.CristalViolet, rng)
 	end
 	O.lucioles(coeur, C.Cristal, 6)
 	O.decorModele(f)
@@ -113,12 +115,15 @@ local function monument(v, rng)
 	f:SetAttribute("Amplitude", 0.7)
 	O.atomique(f)
 	O.tag(f, "Flottant")
+	O.atomique(m)
+	O.tag(m, "FontaineAnimee")
 end
 
 -- Met aussi à jour les places déjà figées, sans reconstruire le reste du village.
 function Village.preparerFontaine(village)
 	local ancienne = village:FindFirstChild("Monument")
-	if not ancienne or ancienne:GetAttribute("VersionFontaine") == 2 then
+	if not ancienne or ancienne:GetAttribute("VersionFontaine") == 3 then
+		if ancienne then O.tag(ancienne, "FontaineAnimee") end
 		return
 	end
 	local ancienCristal = village:FindFirstChild("CristalFlottant")
@@ -150,7 +155,7 @@ end
 -- Chemins décoratifs posés sur le terrain réel, y compris sur les cartes figées.
 function Village.preparerSentiers(village)
 	local anciens = village:FindFirstChild("SentiersFontaine")
-	if anciens and anciens:GetAttribute("VersionSentiers") == 3 then
+	if anciens and anciens:GetAttribute("VersionSentiers") == 5 then
 		return
 	end
 	local sentiers = O.modele(village, "SentiersEnConstruction")
@@ -159,7 +164,8 @@ function Village.preparerSentiers(village)
 	filtre.FilterType = Enum.RaycastFilterType.Include
 	filtre.FilterDescendantsInstances = {workspace.Terrain}
 	local terre = Color3.fromRGB(145, 112, 78)
-	local pierres = {Color3.fromRGB(113, 108, 98), Color3.fromRGB(127, 119, 107), Color3.fromRGB(98, 96, 89)}
+	-- Pierres de teintes assombries, avec quelques nuances terreuses et moussues.
+	local pierres = {Color3.fromRGB(80, 79, 75), Color3.fromRGB(99, 96, 88), Color3.fromRGB(68, 71, 68), Color3.fromRGB(87, 85, 74), Color3.fromRGB(77, 83, 68)}
 	local function hauteur(x, z)
 		local resultat = workspace:Raycast(Vector3.new(x, 180, z), Vector3.new(0, -300, 0), filtre)
 		if resultat and resultat.Material ~= Enum.Material.Water then
@@ -177,7 +183,7 @@ function Village.preparerSentiers(village)
 	local function pave(x, z)
 		local h = hauteur(x, z)
 		if not h then return end
-		local p = O.decor(O.bloc(sentiers, Vector3.new(rng:NextNumber(0.65, 1.35), 0.11, rng:NextNumber(0.65, 1.45)), CFrame.new(x, h + 0.14, z) * CFrame.Angles(0, rng:NextNumber(-0.65, 0.65), 0), pierres[rng:NextInteger(1, #pierres)], M.Paves, "Pave"))
+		local p = O.decor(O.bloc(sentiers, Vector3.new(rng:NextNumber(0.6, 1.4), 0.11, rng:NextNumber(0.7, 1.55)), CFrame.new(x, h + 0.14, z) * CFrame.Angles(0, rng:NextNumber(-0.65, 0.65), 0), pierres[rng:NextInteger(1, #pierres)], M.Pierre, "Pave"))
 		p.CastShadow = false
 	end
 	-- Anneau autour du bassin, puis deux allées : vers la gare et vers le pont.
@@ -209,7 +215,32 @@ function Village.preparerSentiers(village)
 	allee(0, -15, 0, -96, 10)
 	allee(0, -89, -14.5, -97, 8)
 	allee(0, 15, 0, D.RIVIERE_Z - 16, 9)
-	sentiers:SetAttribute("VersionSentiers", 3)
+	-- Ajout séparé pour conserver le dessin existant de la terre et des premiers pavés.
+	local repartition = Random.new(73591)
+	for i = 0, 107 do
+		local angle = (i + repartition:NextNumber(-0.35, 0.35)) * 2 * math.pi / 108
+		local r = repartition:NextNumber(12.5, 19.1)
+		pave(r * math.cos(angle), r * math.sin(angle))
+	end
+	local function pavesAllee(x1, z1, x2, z2, largeur)
+		local debut, fin = Vector2.new(x1, z1), Vector2.new(x2, z2)
+		local direction = fin - debut
+		local normal = Vector2.new(-direction.Y, direction.X).Unit
+		local nombre = math.ceil(direction.Magnitude / 2.8)
+		for i = 0, nombre do
+			local position = debut:Lerp(fin, i / nombre)
+			for _ = 1, 3 do
+				local lateral = repartition:NextNumber(-largeur * 0.38, largeur * 0.38)
+				local longitudinal = repartition:NextNumber(-1, 1)
+				local cible = position + normal * lateral + direction.Unit * longitudinal
+				pave(cible.X, cible.Y)
+			end
+		end
+	end
+	pavesAllee(0, -15, 0, -96, 10)
+	pavesAllee(0, -89, -14.5, -97, 8)
+	pavesAllee(0, 15, 0, D.RIVIERE_Z - 16, 9)
+	sentiers:SetAttribute("VersionSentiers", 5)
 	if anciens then anciens:Destroy() end
 	sentiers.Name = "SentiersFontaine"
 end

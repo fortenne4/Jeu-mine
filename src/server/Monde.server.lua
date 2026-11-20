@@ -16,6 +16,8 @@ if carte then
 			Village.preparerToits(village)
 			Village.preparerSentiers(village)
 		end
+		local mine = carte:FindFirstChild("Mine")
+		if mine then require(monde:WaitForChild("Mine")).preparerVoie(mine) end
 		workspace:SetAttribute("MondeConstruit", true)
 		return
 	end

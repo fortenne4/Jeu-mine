@@ -337,6 +337,24 @@ while not workspace:GetAttribute("MondeConstruit") and os.clock() - attente < 60
 	task.wait(0.25)
 end
 local points = CollectionService:GetTagged(CONFIG.TAG_SPAWN)
+-- Le sol voxel de la caverne peut être plus haut que le point théorique à Y=-60.
+-- Ne corrige que ses points de démonstration pour préserver les autres zones.
+local function solDuPoint(point: BasePart): CFrame
+	local bas = point.Position - Vector3.new(0, point.Size.Y / 2, 0)
+	local carte = workspace:FindFirstChild("Carte")
+	local mine = carte and carte:FindFirstChild("Mine")
+	local pointsCaverne = mine and mine:FindFirstChild("PointsMinerai")
+	if pointsCaverne and point:IsDescendantOf(pointsCaverne) then
+		local filtre = RaycastParams.new()
+		filtre.FilterType = Enum.RaycastFilterType.Include
+		filtre.FilterDescendantsInstances = {workspace.Terrain}
+		local resultat = workspace:Raycast(bas + Vector3.new(0, 12, 0), Vector3.new(0, -24, 0), filtre)
+		if resultat and resultat.Material ~= Enum.Material.Water and resultat.Position.Y >= bas.Y then
+			bas = Vector3.new(bas.X, resultat.Position.Y, bas.Z)
+		end
+	end
+	return CFrame.new(bas)
+end
 if #points == 0 then
 	for i, nom in ORDRE do
 		local x = (i - 2.5) * CONFIG.DEMO_ECART
@@ -348,7 +366,7 @@ else
 			p.Transparency = 1
 			p.CanCollide = false
 			p.CanQuery = false
-			apparaitre(CFrame.new(p.Position - Vector3.new(0, p.Size.Y / 2, 0)), p:GetAttribute("Type"))
+			apparaitre(solDuPoint(p), p:GetAttribute("Type"))
 		end
 	end
 end

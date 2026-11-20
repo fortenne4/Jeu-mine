@@ -513,14 +513,46 @@ end
 
 function B.tableTaverne(parent, cf)
 	local m = O.modele(parent, "Table")
-	O.cylindre(m, 0.4, 4.4, cf * CFrame.new(0, 3, 0), C.BoisClair, M.Planches, "Plateau")
-	O.cylindre(m, 2.8, 0.7, cf * CFrame.new(0, 1.4, 0), C.BoisFonce, M.Bois, "Pied")
-	for _, x in {-3.3, 3.3} do
-		O.cylindre(m, 1.6, 1.6, cf * CFrame.new(x, 0.8, 0), C.Bois, M.Planches, "Tabouret")
+	m:SetAttribute("VersionTableTaverne", 2)
+	-- Les décors du village sont calculés à Y=0, alors que la surface du terrain
+	-- voxel est à Y=2 : les pieds doivent reposer sur le sol visible.
+	cf = cf * CFrame.new(0, 2, 0)
+	local bois = Color3.fromRGB(109, 71, 42)
+	local planche = Color3.fromRGB(139, 93, 53)
+	local fer = Color3.fromRGB(64, 58, 50)
+	local plateau = O.bloc(m, Vector3.new(5.5, 0.35, 3.8), cf * CFrame.new(0, 3, 0), bois, M.Planches, "Plateau")
+	m.PrimaryPart = plateau
+	for _, z in {-1.25, 0, 1.25} do
+		O.decor(O.bloc(m, Vector3.new(5.35, 0.08, 1.18), cf * CFrame.new(0, 3.215, z), planche, M.Planches, "PlanchePlateau"))
 	end
-	for _, o in {{-0.9, 0.5}, {1, -0.6}} do
-		O.decor(O.cylindre(m, 0.8, 0.6, cf * CFrame.new(o[1], 3.6, o[2]), C.Bois, M.Bois, "Chope"))
-		O.decor(O.cylindre(m, 0.15, 0.62, cf * CFrame.new(o[1], 4.05, o[2]), Color3.fromRGB(246, 236, 210), M.Lisse, "Mousse"))
+	for _, x in {-2.2, 2.2} do
+		for _, z in {-1.35, 1.35} do
+			O.bloc(m, Vector3.new(0.42, 2.85, 0.42), cf * CFrame.new(x, 1.425, z), C.BoisFonce, M.Bois, "Pied")
+		end
+		O.decor(O.bloc(m, Vector3.new(0.3, 0.35, 2.8), cf * CFrame.new(x, 1.1, 0), bois, M.Bois, "Renfort"))
+	end
+	for _, x in {-3.7, 3.7} do
+		local tabouret = O.modele(m, "Tabouret")
+		O.bloc(tabouret, Vector3.new(1.6, 0.28, 1.6), cf * CFrame.new(x, 1.65, 0), planche, M.Planches, "Assise")
+		for _, dx in {-0.55, 0.55} do
+			for _, z in {-0.55, 0.55} do
+				O.bloc(tabouret, Vector3.new(0.22, 1.5, 0.22), cf * CFrame.new(x + dx, 0.75, z), bois, M.Bois, "Pied")
+			end
+		end
+	end
+	for _, o in {{-1.25, 0.35}, {1.15, -0.45}} do
+		local tasse = O.modele(m, "Chope")
+		local t = cf * CFrame.new(o[1], 3.26, o[2])
+		O.decor(O.cylindre(tasse, 1.1, 0.95, t * CFrame.new(0, 0.55, 0), Color3.fromRGB(137, 82, 39), M.Planches, "Corps"))
+		for _, y in {0.12, 0.92} do
+			O.decor(O.cylindre(tasse, 0.12, 1.0, t * CFrame.new(0, y, 0), fer, M.Metal, "Cercle"))
+		end
+		O.decor(O.cylindre(tasse, 0.17, 0.96, t * CFrame.new(0, 1.15, 0), Color3.fromRGB(246, 225, 173), M.Lisse, "Mousse"))
+		-- Anse carrée en bois sombre, lisible depuis le côté.
+		for _, y in {0.30, 0.85} do
+			O.decor(O.bloc(tasse, Vector3.new(0.36, 0.13, 0.18), t * CFrame.new(0.57, y, 0), C.BoisFonce, M.Bois, "Anse"))
+		end
+		O.decor(O.bloc(tasse, Vector3.new(0.14, 0.68, 0.18), t * CFrame.new(0.75, 0.575, 0), C.BoisFonce, M.Bois, "Anse"))
 	end
 	return m
 end
@@ -564,11 +596,12 @@ end
 function B.butoir(parent, cf)
 	local m = O.modele(parent, "Butoir")
 	for _, x in {-2.5, 2.5} do
-		O.bloc(m, Vector3.new(0.8, 3, 0.8), cf * CFrame.new(x, 1.5, 0), C.BoisFonce, M.Bois, "Poteau")
+		O.bloc(m, Vector3.new(0.6, 2.7, 0.6), cf * CFrame.new(x, 1.75, 0), Color3.fromRGB(91, 67, 50), M.Rouille, "Poteau")
 	end
-	O.bloc(m, Vector3.new(7, 1.2, 1.2), cf * CFrame.new(0, 2.6, 0), C.Bois, M.Bois, "Traverse")
-	local lampe = O.decor(O.bloc(m, Vector3.new(0.8, 0.8, 0.4), cf * CFrame.new(0, 3.6, -0.3), Color3.fromRGB(255, 60, 40), M.Neon, "Lampe"))
-	O.lumiere(lampe, Color3.fromRGB(255, 70, 50), 1, 10)
+	for i = 0, 7 do
+		local couleur = if i % 2 == 0 then Color3.fromRGB(157, 65, 49) else Color3.fromRGB(195, 185, 164)
+		O.bloc(m, Vector3.new(0.875, 0.8, 0.55), cf * CFrame.new(-3.0625 + i * 0.875, 3.05, 0), couleur, M.Metal, "Traverse")
+	end
 	return m
 end
 

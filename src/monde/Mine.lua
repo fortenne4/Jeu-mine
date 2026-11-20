@@ -19,14 +19,18 @@ local function troncon(parent, a, b)
 	local L = (b - a).Magnitude
 	local base = CFrame.lookAt(a, b)
 	local m = O.modele(parent, "Troncon")
-	O.bloc(m, Vector3.new(9, 0.2, L), base * CFrame.new(0, 0.1, -L / 2), Color3.fromRGB(88, 82, 76), M.Gravier, "Ballast")
+	O.bloc(m, Vector3.new(9, 0.2, L), base * CFrame.new(0, 0.1, -L / 2), Color3.fromRGB(117, 91, 64), M.Terre, "Ballast")
 	for _, x in {-2.5, 2.5} do
-		local rail = O.decor(O.bloc(m, Vector3.new(0.35, 0.45, L), base * CFrame.new(x, 0.75, -L / 2), C.Rail, M.Metal, "Rail"))
-		rail.Reflectance = 0.15
+		O.decor(O.bloc(m, Vector3.new(0.35, 0.45, L), base * CFrame.new(x, 0.75, -L / 2), Color3.fromRGB(87, 68, 54), M.Rouille, "Rail"))
+		O.decor(O.bloc(m, Vector3.new(0.12, 0.04, L), base * CFrame.new(x, 0.995, -L / 2), Color3.fromRGB(119, 112, 100), M.Metal, "RefletRail"))
 	end
 	local n = math.floor(L / 3)
 	for i = 0, n do
-		O.decor(O.bloc(m, Vector3.new(7.4, 0.5, 1.1), base * CFrame.new(0, 0.25, -i * L / n), C.BoisFonce, M.Bois, "Traverse"))
+		local couleur = if i % 3 == 0 then Color3.fromRGB(78, 50, 33) else Color3.fromRGB(68, 45, 31)
+		O.decor(O.bloc(m, Vector3.new(7.4, 0.5, 1.1), base * CFrame.new(0, 0.25, -i * L / n), couleur, M.Planches, "Traverse"))
+		for _, x in {-2.5, 2.5} do
+			O.decor(O.bloc(m, Vector3.new(0.7, 0.12, 0.65), base * CFrame.new(x, 0.56, -i * L / n), Color3.fromRGB(86, 65, 49), M.Rouille, "Fixation"))
+		end
 	end
 	return m
 end
@@ -81,10 +85,10 @@ local function gare(f, rng)
 	B.fronton(m, g * CFrame.new(0, 7.2, -2.2), "DÉPARTS", 5)
 
 	-- Butoir et wagonnets qui attendent
-	B.butoir(m, CFrame.new(0, 0, -100.5))
-	B.wagonnet(m, CFrame.new(0, 0, -108), Color3.fromRGB(34, 34, 38), rng)
-	B.wagonnet(m, CFrame.new(0, 0, -116.5), Color3.fromRGB(184, 100, 46), rng)
-	B.wagonnet(m, CFrame.new(0, 0, -125))
+	B.butoir(m, CFrame.new(0, 2, -100.5))
+	B.wagonnet(m, CFrame.new(0, 2, -108), Color3.fromRGB(34, 34, 38), rng)
+	B.wagonnet(m, CFrame.new(0, 2, -116.5), Color3.fromRGB(184, 100, 46), rng)
+	B.wagonnet(m, CFrame.new(0, 2, -125))
 
 	-- Tas de minerai et grue côté est
 	B.tas(m, CFrame.new(22, 0, -132), Color3.fromRGB(34, 34, 38), 8, rng)
@@ -105,15 +109,52 @@ end
 
 -- ================= Voie ferrée =================
 
+-- Enlève uniquement le terrain qui traverse la voie en pente ; le sol construit
+-- sous les rails reste en place pour porter les joueurs et les wagonnets.
+local function degagerDescente(mine)
+	if mine:GetAttribute("DescenteDegagee") == 1 then return end
+	local a, b = D.TUNNEL_FIN, D.DESCENTE_FIN
+	local longueur = (b - a).Magnitude
+	local axe = CFrame.lookAt(a, b)
+	terrain:FillBlock(axe * CFrame.new(0, 2, -longueur / 2), Vector3.new(10, 10, longueur), Enum.Material.Air)
+	mine:SetAttribute("DescenteDegagee", 1)
+end
+
 local function voie(f)
 	local m = O.modele(f, "Voie")
-	troncon(m, D.RAIL_DEBUT, D.TUNNEL_FIN)
-	troncon(m, D.TUNNEL_FIN, D.DESCENTE_FIN)
-	troncon(m, D.DESCENTE_FIN, D.QUAI_BAS)
+	m:SetAttribute("VersionVoie", 1)
+	local hauteurSol = Vector3.new(0, 2, 0) -- surface réelle du terrain voxélisé
+	troncon(m, D.RAIL_DEBUT + hauteurSol, D.TUNNEL_FIN + hauteurSol)
+	troncon(m, D.TUNNEL_FIN + hauteurSol, D.DESCENTE_FIN + hauteurSol)
+	troncon(m, D.DESCENTE_FIN + hauteurSol, D.QUAI_BAS + hauteurSol)
 	local A, Bp = D.TUNNEL_FIN, D.DESCENTE_FIN
 	local L = (Bp - A).Magnitude
 	O.bloc(m, Vector3.new(26, 4, L), CFrame.lookAt(A, Bp) * CFrame.new(0, -2, -L / 2), C.Roche, M.Ardoise, "SolDescente")
-	B.butoir(m, CFrame.new(D.QUAI_BAS + Vector3.new(0, 0, -0.5)) * CFrame.Angles(0, math.pi, 0))
+	B.butoir(m, CFrame.new(D.QUAI_BAS + hauteurSol + Vector3.new(0, 0, -0.5)) * CFrame.Angles(0, math.pi, 0))
+end
+
+-- Actualise la voie des cartes déjà enregistrées sans reconstruire la mine.
+function Mine.preparerVoie(mine)
+	degagerDescente(mine)
+	local ancienne = mine:FindFirstChild("Voie")
+	if not ancienne or ancienne:GetAttribute("VersionVoie") == 1 then return end
+	local temporaire = Instance.new("Folder")
+	temporaire.Parent = mine
+	local ok, erreur = pcall(voie, temporaire)
+	if not ok then temporaire:Destroy(); warn("[Mine] Voie non mise à jour : " .. tostring(erreur)); return end
+	local nouvelle = temporaire:FindFirstChild("Voie")
+	ancienne:Destroy()
+	nouvelle.Parent = mine
+	temporaire:Destroy()
+	local gareExistante = mine:FindFirstChild("Gare")
+	local ancienButoir = gareExistante and gareExistante:FindFirstChild("Butoir")
+	if ancienButoir then
+		B.butoir(gareExistante, CFrame.new(0, 2, -100.5))
+		ancienButoir:Destroy()
+		for _, objet in gareExistante:GetChildren() do
+			if objet.Name == "Wagonnet" and objet:IsA("Model") then objet:PivotTo(objet:GetPivot() + Vector3.new(0, 2, 0)) end
+		end
+	end
 end
 
 -- ================= Portail dans la falaise =================
@@ -312,6 +353,7 @@ function Mine.construire(carte)
 
 	gare(f, rng)
 	voie(f)
+	degagerDescente(f)
 	portail(f, rng)
 	soutenements(f)
 	portes(f)
