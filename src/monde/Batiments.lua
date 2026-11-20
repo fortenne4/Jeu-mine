@@ -218,7 +218,7 @@ function B.lierre(parent, fcf, W, hauteurMax, rng, porteX)
 end
 
 --[[ Maison à colombages
-	o = {largeur, profondeur, etages, mur, toit, volet, nom, enseigne, cheminee, rng}
+	o = {largeur, profondeur, etages, mur, toit, volet, nom, enseigne, cheminee, lierre, lierreFacade, rng}
 	Renvoie le modèle et le CFrame du bas de la porte (sur la façade). ]]
 function B.maison(parent, cf, o)
 	o = o or {}
@@ -279,7 +279,7 @@ function B.maison(parent, cf, o)
 	-- Lierre sur certaines façades
 	if o.lierre ~= false then
 		for _, f in faces do
-			if rng:NextNumber() < 0.35 then
+			if rng:NextNumber() < 0.35 and (not f[3] or o.lierreFacade ~= false) then
 				local porteX = if f[3] then f[1]:PointToObjectSpace(porteCF.Position).X else nil
 				B.lierre(m, f[1], f[2], haut, rng, porteX)
 			end

@@ -133,13 +133,14 @@ end
 
 local function boutiques(v, rng, obstacles)
 	local m = O.modele(v, "Boutiques")
+	local hauteurEnseignes = 13.45
 
 	-- Comptoir des minerais : on y vend ce qu'on a miné
 	local pos = Vector3.new(-60, 0, -14)
 	table.insert(obstacles, pos)
 	local cf = vers(pos, Vector3.zero)
-	B.maison(m, cf, {largeur = 20, profondeur = 16, etages = 2, mur = C.Ocre, nom = "ComptoirMinerais",
-		enseigne = "COMPTOIR DES MINERAIS", rng = rng})
+	local maisonComptoir = B.maison(m, cf, {largeur = 20, profondeur = 16, etages = 2, mur = C.Ocre, nom = "ComptoirMinerais", rng = rng})
+	B.fronton(maisonComptoir, cf * CFrame.new(0, hauteurEnseignes, -8), "COMPTOIR DES MINERAIS", 16)
 	local e = cf * CFrame.new(0, 0, -14.5)
 	B.echoppe(m, e, 10, Color3.fromRGB(150, 58, 46))
 	local minerais = {
@@ -172,8 +173,9 @@ local function boutiques(v, rng, obstacles)
 	pos = Vector3.new(-60, 0, 28)
 	table.insert(obstacles, pos)
 	cf = vers(pos, Vector3.zero)
-	B.maison(m, cf, {largeur = 18, profondeur = 14, etages = 1, mur = C.Platre, toit = C.ToitRouge, nom = "Outilleur",
-		enseigne = "PIOCHES & OUTILS", rng = rng})
+	local maisonOutilleur = B.maison(m, cf, {largeur = 24, profondeur = 14, etages = 2, mur = C.Platre, toit = C.ToitRouge,
+		nom = "Outilleur", lierreFacade = false, rng = rng})
+	B.fronton(maisonOutilleur, cf * CFrame.new(0, hauteurEnseignes, -7), "PIOCHES & OUTILS", 16)
 	e = cf * CFrame.new(0, 0, -13.5)
 	B.echoppe(m, e, 10, Color3.fromRGB(52, 84, 140))
 	for i, c in {Color3.fromRGB(150, 154, 162), Color3.fromRGB(184, 100, 46), Color3.fromRGB(255, 196, 48)} do
@@ -348,7 +350,9 @@ local function lanternes(v)
 		end
 	end
 	for i = 0, 7 do
-		B.lanterne(m, vers(polaire(math.rad(22.5 + i * 45), D.PLACE_RAYON + 2.5), Vector3.zero))
+		-- Décale le lampadaire qui masque l’enseigne de Liesel depuis la place.
+		local angle = 22.5 + i * 45 + (if i == 5 then 10 else 0)
+		B.lanterne(m, vers(polaire(math.rad(angle), D.PLACE_RAYON + 2.5), Vector3.zero))
 	end
 	for _, z in {48, 114, 130} do
 		B.lanterne(m, vers(Vector3.new(6, 0, z), Vector3.new(0, 0, z)), 9)

@@ -148,7 +148,7 @@ Pour la tester dans Studio : **Fichier › Paramètres du jeu › Sécurité ›
 
 - Nord (-Z) : montagne de la mine. Les joueurs apparaissent sur la place (0, 0, 0), face à la mine.
 - Place : cristal flottant, 8 points d'apparition, 2 tableaux de classement.
-- Ouest : comptoir des minerais et boutique de pioches. Est : forge (épées et armures) et taverne.
+- Ouest : comptoir des minerais et boutique de pioches, avec leurs enseignes au-dessus des auvents. Est : forge (épées et armures) et taverne.
 - Les toits du village et les auvents des échoppes sont solides et font rebondir le joueur une fois à la réception d’un saut, y compris sur les bords.
 - Avenue nord : gare des wagonnets, puis rails jusqu'au portail de la mine.
 - Mine : tunnel étayé, descente de 60 studs, grande caverne de cristal avec les 6 portes de tunnels privés.
