@@ -42,7 +42,7 @@ par des scripts Python (`blender/`). Ils sont exportés en FBX dans `assets/` :
 
 | Fichier | Contenu |
 |---|---|
-| `assets/Nains.fbx` | Les 4 nains Gaspard, Liesel, Brom, Margot (`blender/nains.py`, remplace `PNJ.fbx`) |
+| `assets/Nains.fbx` | Les 4 nains Gaspard, Liesel, Brom, Margot, articulés et animés (`blender/nains.py`, remplace `PNJ.fbx`) — voir « Nains du village » plus bas |
 | `assets/PNJ.fbx` | Ancienne version humaine des PNJ (ignorée si `Nains` est importé) |
 | `assets/Lierre.fbx` | 3 plaques de lierre grimpant + 1 retombant |
 | `assets/Rochers.fbx` | 5 rochers, 3 falaises stratifiées, 1 aiguille (dessus enneigé ou moussu) |
@@ -79,6 +79,30 @@ Planches de présentation (face, 3/4, gros plan) : `blender/apercus/pioches/`.
 
 Sans le dossier `Modeles3D`, le jeu garde les anciennes versions en blocs : rien ne casse.
 Les noms des pièces (`Gaspard_Tete_Peau`, `Lierre2_Feuilles`...) servent au jeu : ne pas les renommer.
+
+### Nains du village (modèles et animations)
+
+Les 4 PNJ sont inspirés d'une planche de nains ventrus : Gaspard ← Gromm (barbe grise tressée, manteau de fourrure,
+hache runique), Liesel ← Brunhilde (tresses rousses, petite barbe, bandeau), Brom ← Zog (torse nu, bretelles,
+casque à lampe), Margot ← Brolg (chope, casque à cornes, cape de fourrure). Ils font ~87 % de la taille d'un joueur
+et sont posés sur le vrai sol (terrain, plancher) au lancement. Les pièces `…_Lueur` et `…_Lampe` sont en Neon.
+
+Ils sont **articulés** : chaque bras est découpé en `BrasD`/`AvBrasD`/`MainD` (et `G`), plus `Buste` et `Tete`.
+Les repères invisibles `Nom_Groupe_Pivot` marquent les articulations (hanches, cou, épaule, coude, poignet).
+Le modèle actuel est importé dans `ServerStorage › Nains`.
+
+| Fichier | Rôle |
+|---|---|
+| `blender/nains.py` | Modèles + poses clés (`POSES`). Les poses qui touchent un point précis (chope aux lèvres, livre sous les yeux, marteau sur l'épée) sont calculées en évitant que les bras traversent le corps. L'enclume de Brom est placée sous son marteau au moment de la frappe. |
+| `src/partage/PosesNains.lua` | Poses exportées par `nains.py` (**généré, ne pas modifier à la main**). |
+| `src/client/AnimationsNains.client.lua` | Joue les animations chez chaque joueur : respiration, regard vers le joueur proche, et l'action de chaque nain à intervalle irrégulier (Brom forge avec étincelles, Margot boit, Gaspard lit son registre, Liesel examine sa pioche). Durées et rythmes en tête du fichier. |
+
+Après une modification de `nains.py` : relancer le script (il régénère `Nains.fbx` et `PosesNains.lua`),
+puis réimporter `assets/Nains.fbx` à la place de `ServerStorage › Nains`.
+
+> Les maillages importés appartiennent au compte Roblox de celui qui les importe : pour les autres membres,
+> Roblox peut refuser de les charger tant qu'ils ne sont pas partagés (groupe Roblox commun). Les pioches
+> passent alors automatiquement en version blocs.
 
 ## Boutique de pioches (Liesel)
 

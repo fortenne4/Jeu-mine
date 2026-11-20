@@ -289,9 +289,10 @@ local function boutiques(v, rng, obstacles)
 	B.caisse(m, e * CFrame.new(7, 0, 0.5))
 	B.caisse(m, e * CFrame.new(7.3, 2.6, 0.6) * CFrame.Angles(0, 0.3, 0), 2)
 	local pnj = B.pnj(m, e * CFrame.new(0, 0, 2.6), "Gaspard", "Marchand de minerais",
-		tenue(Color3.fromRGB(120, 40, 36), Color3.fromRGB(60, 50, 44), {
-			chapeau = Color3.fromRGB(70, 50, 36), cheveux = Color3.fromRGB(150, 146, 140), barbe = Color3.fromRGB(170, 166, 160),
-			peau = Color3.fromRGB(232, 190, 160), outil = "registre",
+		tenue(Color3.fromRGB(92, 70, 50), Color3.fromRGB(54, 46, 40), {
+			chapeau = Color3.fromRGB(70, 50, 36), cheveux = Color3.fromRGB(170, 168, 162), barbe = Color3.fromRGB(188, 186, 180),
+			peau = Color3.fromRGB(226, 176, 150), outil = "registre",
+			fourrure = Color3.fromRGB(120, 98, 74), lueur = Color3.fromRGB(90, 180, 255), -- modèle 3D d'après Gromm
 				corps = {hauteur = 1.02, largeur = 1.05},
 				-- veste de cuir, feutre en laine, barbe blanche
 				accessoires = {{77359892, "Hat"}, {330294871, "Face"}, {7192547628, "Jacket"}},
@@ -312,9 +313,10 @@ local function boutiques(v, rng, obstacles)
 	end
 	B.tonneau(m, e * CFrame.new(7, 0, 1))
 	pnj = B.pnj(m, e * CFrame.new(0, 0, 2.6), "Liesel", "Fabricante d'outils",
-		tenue(Color3.fromRGB(70, 96, 120), Color3.fromRGB(64, 56, 48), {
-			tablier = Color3.fromRGB(96, 66, 44), coiffure = "chignon", cheveux = Color3.fromRGB(176, 82, 40),
-			peau = Color3.fromRGB(240, 202, 176), outil = "pioche",
+		tenue(Color3.fromRGB(58, 44, 36), Color3.fromRGB(84, 70, 54), {
+			tablier = Color3.fromRGB(96, 66, 44), coiffure = "chignon", cheveux = Color3.fromRGB(178, 70, 30),
+			peau = Color3.fromRGB(240, 196, 170), outil = "pioche",
+			barbe = Color3.fromRGB(178, 70, 30), lueur = Color3.fromRGB(255, 140, 40), -- modèle 3D d'après Brunhilde
 			corps = {hauteur = 0.95, largeur = 0.9, proportions = 0.6},
 			-- tresse rousse, lunettes d'atelier, veste en jean
 			accessoires = {{7193455510, "Hair"}, {2316756148, "Face"}, {8516609675, "Jacket"}},
@@ -327,9 +329,10 @@ local function boutiques(v, rng, obstacles)
 	cf = vers(pos, Vector3.zero)
 	B.forge(m, cf)
 	pnj = B.pnj(m, cf * CFrame.new(2, 1, 2.2), "Brom", "Forgeron",
-		tenue(Color3.fromRGB(90, 70, 58), Color3.fromRGB(48, 42, 38),
-			{peau = Color3.fromRGB(196, 150, 118), barbe = Color3.fromRGB(150, 70, 36), barbeLongue = true, coiffure = "chauve",
-			cheveux = Color3.fromRGB(150, 70, 36), tablier = Color3.fromRGB(70, 46, 30), manchesCourtes = true, outil = "marteau",
+		tenue(Color3.fromRGB(72, 48, 32), Color3.fromRGB(74, 60, 46),
+			{peau = Color3.fromRGB(214, 160, 128), barbe = Color3.fromRGB(62, 42, 30), barbeLongue = true, coiffure = "chauve",
+			cheveux = Color3.fromRGB(56, 38, 28), tablier = Color3.fromRGB(70, 46, 30), manchesCourtes = true, outil = "marteau",
+			lueur = Color3.fromRGB(255, 96, 20), -- modèle 3D d'après Zog
 				corps = {hauteur = 1.05, largeur = 1.2, silhouette = 0.6},
 				-- barbe rousse tressée, lunettes de forge
 				accessoires = {{461491285, "Face"}, {108828585, "Face"}}}))
@@ -350,9 +353,10 @@ local function boutiques(v, rng, obstacles)
 		B.tonneau(m, cf * CFrame.new(x, 0, -10.5))
 	end
 	pnj = B.pnj(m, cf * CFrame.new(-5, 0, -11), "Margot", "Aubergiste",
-		tenue(Color3.fromRGB(150, 110, 60), Color3.fromRGB(80, 50, 60), {
-			tablier = Color3.fromRGB(230, 220, 200), coiffure = "long", cheveux = Color3.fromRGB(92, 56, 34),
-			peau = Color3.fromRGB(222, 176, 140), outil = "chope",
+		tenue(Color3.fromRGB(70, 50, 36), Color3.fromRGB(76, 58, 42), {
+			tablier = Color3.fromRGB(230, 220, 200), coiffure = "long", cheveux = Color3.fromRGB(172, 72, 32),
+			peau = Color3.fromRGB(232, 180, 150), outil = "chope",
+			fourrure = Color3.fromRGB(112, 90, 68), lueur = Color3.fromRGB(255, 196, 70), -- modèle 3D d'après Brolg
 				corps = {hauteur = 0.95, largeur = 0.92, proportions = 0.6},
 				-- longs cheveux bruns, pull en laine, longue jupe blanche (tablier)
 				accessoires = {{17877340, "Hair"}, {6984769289, "Sweater"}, {9240776381, "DressSkirt"}},

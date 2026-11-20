@@ -954,7 +954,7 @@ local function pnj3D(parent, cf, nom, role, tenue)
 	end
 	local base = tete.Position + haut * plusBas
 	local S = CFrame.fromMatrix(base, haut:Cross(-avant), haut, -avant)
-	local k = 3.9 / -plusBas -- nain : centre de la tête à ~3.9 studs du sol (un joueur en fait ~5)
+	local k = 4.7 / -plusBas -- nain : centre de la tête à ~4.7 studs du sol ; un joueur R15 l'a à ~5.4 : un peu plus petit, bien plus large
 
 	local peau = tenue.peau or Color3.fromRGB(226, 182, 150)
 	local cheveux = tenue.cheveux or Color3.fromRGB(70, 48, 32)
@@ -983,6 +983,14 @@ local function pnj3D(parent, cf, nom, role, tenue)
 		Acier = {Color3.fromRGB(120, 124, 132), M.Metal},
 		Verre = {Color3.fromRGB(170, 210, 230), M.Verre},
 		Foulard = {tenue.foulard or Color3.fromRGB(150, 60, 50), M.Tissu},
+		-- pièces des nains « épiques » (blender/nains.py)
+		Fourrure = {tenue.fourrure or Color3.fromRGB(110, 88, 66), M.Tissu},
+		Casque = {Color3.fromRGB(132, 134, 140), M.Metal},
+		Corne = {Color3.fromRGB(226, 212, 182), M.Lisse},
+		Or = {Color3.fromRGB(232, 178, 58), M.Metal},
+		Peinture = {Color3.fromRGB(52, 104, 168), M.Lisse},
+		Lampe = {Color3.fromRGB(255, 230, 150), M.Neon},
+		Lueur = {tenue.lueur or Color3.fromRGB(255, 200, 120), M.Neon},
 	}
 	local function regler(c, nomTeinte)
 		local t = teintes[nomTeinte]
@@ -992,19 +1000,38 @@ local function pnj3D(parent, cf, nom, role, tenue)
 		end
 		if nomTeinte == "Verre" then
 			c.Transparency = 0.35
+		elseif nomTeinte == "Pivot" then
+			c.Transparency = 1 -- repère d'articulation (épaule, coude, poignet, cou, hanches) : invisible
+			c.CastShadow = false
 		end
 		O.decor(c)
 	end
 
 	local m = O.modele(parent, nom)
+	-- Un sous-modèle par groupe : Corps, Buste, Tete, et pour les nains articulés BrasD/AvBrasD/MainD (et G)
 	local groupes = {Corps = O.modele(m, "Corps"), Buste = O.modele(m, "Buste"), Tete = O.modele(m, "Tete")}
 	for _, p in pieces do
-		M3.poser({p}, S, cf, k, groupes[M3.groupe(p) or ""] or groupes.Buste, regler)
+		local g = M3.groupe(p) or "Buste"
+		if not groupes[g] then
+			groupes[g] = O.modele(m, g)
+		end
+		M3.poser({p}, S, cf, k, groupes[g], regler)
 	end
+	-- Squelette complet (repères d'articulation présents) : animé par AnimationsNains.client.lua
+	local articule = groupes.BrasD ~= nil and groupes.Tete:FindFirstChild(nom .. "_Tete_Pivot") ~= nil
+	m:SetAttribute("Squelette", articule)
 	local teteClone = groupes.Tete:FindFirstChild(nom .. "_Tete_Peau") :: BasePart
 	local busteClone = groupes.Buste:FindFirstChild(nom .. "_Buste_Haut") :: BasePart
 	groupes.Tete.PrimaryPart = teteClone
 	groupes.Buste.PrimaryPart = busteClone
+	-- Pivots droits (axe Y vertical, tournés comme le PNJ) : après l'import, le repère propre des maillages
+	-- est couché, et tourner la tête autour de lui la faisait basculer au lieu de pivoter.
+	for _, piece in {teteClone, busteClone} do
+		if piece then
+			piece.PivotOffset = piece.CFrame:ToObjectSpace(CFrame.new(piece.Position) * cf.Rotation)
+		end
+	end
+	m:SetAttribute("RotationTeteMax", 0.45) -- barbes et tresses longues : petit mouvement de tête
 	print(string.format("[Monde] PNJ 3D %s : %d pièces, échelle %.3f, tête à %s (sol %s)", nom, #pieces, k,
 		tostring(teteClone and teteClone.Position), tostring(cf.Position)))
 
@@ -1013,7 +1040,16 @@ local function pnj3D(parent, cf, nom, role, tenue)
 	boite.Transparency = 1
 	boite.CastShadow = false
 
-	O.etiquette(teteClone, nom, role, 2.2)
+	-- Nom au-dessus de la tête, mais sous l'auvent ou le toit s'il y en a un juste au-dessus
+	-- (sinon le texte se fondait dans la toile des échoppes).
+	local hauteurNom = 2.2
+	local plafond = workspace:Raycast(teteClone.Position, Vector3.new(0, 8, 0))
+	if plafond then
+		hauteurNom = math.clamp(plafond.Position.Y - teteClone.Position.Y - 1.6, 1.0, 2.2)
+	end
+	local etiquette = O.etiquette(teteClone, nom, role, hauteurNom)
+	etiquette.AlwaysOnTop = true -- jamais caché par un bord de toit
+	etiquette.MaxDistance = 45
 	m.PrimaryPart = boite
 	m.WorldPivot = cf
 	O.tag(m, "PNJ")
@@ -1022,7 +1058,19 @@ local function pnj3D(parent, cf, nom, role, tenue)
 	return m
 end
 
+-- Pose le PNJ sur le vrai sol (terrain, estrade, plancher) : sans ça, ses pieds s'enfonçaient
+-- là où le terrain est plus haut que la position prévue. On ne fait que remonter, jamais descendre.
+local function auSol(cf: CFrame): CFrame
+	local haut = 4
+	local r = workspace:Raycast(cf.Position + Vector3.new(0, haut, 0), Vector3.new(0, -(haut + 2), 0))
+	if r and r.Position.Y > cf.Position.Y then
+		return cf + Vector3.new(0, r.Position.Y - cf.Position.Y, 0)
+	end
+	return cf
+end
+
 function B.pnj(parent, cf, nom, role, tenue)
+	cf = auSol(cf)
 	local modele3D = pnj3D(parent, cf, nom, role, tenue)
 	if modele3D then
 		return modele3D

@@ -42,8 +42,8 @@ for _, tag in {"Flottant", "Rotatif"} do
 end
 
 local function ajouterPnj(modele)
-	if not modele:IsA("Model") then
-		return
+	if not modele:IsA("Model") or modele:GetAttribute("Squelette") then
+		return -- nains articulés : animés par AnimationsNains.client.lua
 	end
 	task.spawn(function()
 		-- PNJ avatar (R15) : l'animation de repos gère la respiration, on tourne seulement le cou
@@ -123,7 +123,8 @@ RunService.RenderStepped:Connect(function(dt)
 		if racine then
 			local relatif = p.origineTete:PointToObjectSpace(racine.Position)
 			if relatif.Magnitude < PNJ_DISTANCE and relatif.Z < 2 then
-				cible = math.clamp(math.atan2(-relatif.X, -relatif.Z), -PNJ_ROTATION_MAX, PNJ_ROTATION_MAX)
+				local maxi = math.min(PNJ_ROTATION_MAX, modele:GetAttribute("RotationTeteMax") or PNJ_ROTATION_MAX)
+				cible = math.clamp(math.atan2(-relatif.X, -relatif.Z), -maxi, maxi)
 			end
 		end
 		p.rotation += (cible - p.rotation) * math.min(1, dt * 4)
