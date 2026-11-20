@@ -9,6 +9,7 @@
 	Sans import, rien n'est créé et le jeu garde les pioches en blocs. ]]
 local ServerStorage = game:GetService("ServerStorage")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ContentProvider = game:GetService("ContentProvider")
 
 local Pioches = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("Pioches"))
 local Modeles3D = require(ServerStorage:WaitForChild("Monde"):WaitForChild("Modeles3D"))
@@ -37,9 +38,55 @@ local function axeLePlusLong(taille: Vector3, sauf: Vector3?): Vector3
 	return meilleur
 end
 
+-- Les maillages importés appartiennent au compte Roblox de celui qui les a importés :
+-- pour un autre compte, Roblox peut refuser de les charger (pioche invisible).
+-- Dans ce cas on garde la version en blocs.
+-- (PreloadAsync peut ne jamais rendre la main sur un asset refusé : on attend au plus DELAI_MAILLAGES.)
+local DELAI_MAILLAGES = 4
+local verdictMaillages: boolean? = nil
+
+local function maillagesChargeables(): boolean
+	if verdictMaillages ~= nil then
+		return verdictMaillages
+	end
+	local ids, vus = {}, {}
+	for _, def in Pioches.LISTE do
+		for _, p in Modeles3D.pieces("Pioche" .. def.id) or {} do
+			if p.MeshId ~= "" and not vus[p.MeshId] then
+				vus[p.MeshId] = true
+				table.insert(ids, p.MeshId)
+			end
+		end
+	end
+	local reussis, echec = 0, false
+	task.spawn(function()
+		pcall(function()
+			ContentProvider:PreloadAsync(ids, function(_, statut)
+				if statut == Enum.AssetFetchStatus.Success then
+					reussis += 1
+				else
+					echec = true
+				end
+			end)
+		end)
+	end)
+	local debut = os.clock()
+	while not echec and reussis < #ids and os.clock() - debut < DELAI_MAILLAGES do
+		task.wait(0.1)
+	end
+	verdictMaillages = not echec and reussis >= #ids
+	if not verdictMaillages then
+		warn(string.format("[PiochesModeles] Maillages 3D des pioches inaccessibles pour ce compte (%d/%d chargés) : pioches en blocs", reussis, #ids))
+	end
+	return verdictMaillages
+end
+
 local function construire(id: string): Model?
 	local pieces = Modeles3D.pieces("Pioche" .. id)
 	if not pieces or #pieces == 0 then
+		return nil
+	end
+	if not maillagesChargeables() then
 		return nil
 	end
 	local manche, tete = {}, {}
