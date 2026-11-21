@@ -183,7 +183,7 @@ end
 -- Total en direct
 local plaqueTotal = creer("Frame", {Name = "Total", Position = UDim2.fromScale(0, 0.74), Size = UDim2.fromScale(1, 0.085),
 	BackgroundColor3 = T.Fond3D, BackgroundTransparency = 0.25, ZIndex = 4, Parent = fiche}, {coin(0.3), trait(T.OrFonce, 1.5, 0.3)})
-texte({Text = "TU REÇOIS", Font = Enum.Font.GothamBlack, TextColor3 = T.Gris, TextXAlignment = Enum.TextXAlignment.Left,
+local libelleTotal = texte({Text = "TU REÇOIS", Font = Enum.Font.GothamBlack, TextColor3 = T.Gris, TextXAlignment = Enum.TextXAlignment.Left,
 	Position = UDim2.fromScale(0.05, 0.2), Size = UDim2.fromScale(0.45, 0.6), ZIndex = 5, Parent = plaqueTotal}, 15)
 local totalTexte = texte({Font = Enum.Font.GothamBlack, TextColor3 = T.Or, TextXAlignment = Enum.TextXAlignment.Right,
 	Position = UDim2.fromScale(0.45, 0.12), Size = UDim2.fromScale(0.5, 0.76), ZIndex = 5, Parent = plaqueTotal}, 24)
@@ -210,6 +210,13 @@ local function prix(id: string): number
 	local p = etat.prix[id]
 	return if type(p) == "number" then p else (PrixMinerais.get(id) or 0)
 end
+-- Bonus de rang de la Guilde des Mineurs (attribut « BonusGuilde », en %) : même calcul que Marchand.server (arrondi à l'inférieur, par minerai)
+local function bonusGuilde(): number
+	return math.clamp(tonumber(joueur:GetAttribute("BonusGuilde")) or 0, 0, 100)
+end
+local function avecBonus(base: number): number
+	return math.floor(base * (1 + bonusGuilde() / 100))
+end
 local function stock(id: string): number
 	local q = etat.minerais[id]
 	return if type(q) == "number" then q else 0
@@ -217,7 +224,7 @@ end
 local function totalSac(): (number, number)
 	local valeur, nombre = 0, 0
 	for _, id in ORDRE do
-		valeur += stock(id) * prix(id)
+		valeur += avecBonus(stock(id) * prix(id))
 		nombre += stock(id)
 	end
 	return valeur, nombre
@@ -248,7 +255,7 @@ local function rafraichirFiche()
 		stockSel.Text = "Dans ton sac : " .. milliers(q)
 		champ.Text = tostring(quantite)
 		champ.TextEditable = true
-		majTotal(quantite * prix(id))
+		majTotal(avecBonus(quantite * prix(id)))
 		local actif = quantite >= 1 and not enAttente
 		principal.definir(if enAttente then "…" else string.format("VENDRE ×%s", milliers(quantite)), COULEUR_VENDRE, actif)
 	else
@@ -271,6 +278,9 @@ local function rafraichirFiche()
 	plus.Active = peut and quantite < q
 	moins.BackgroundTransparency = if moins.Active then 0 else 0.5
 	plus.BackgroundTransparency = if plus.Active then 0 else 0.5
+	local b = bonusGuilde()
+	libelleTotal.Text = if b > 0 then string.format("TU REÇOIS · +%d %% GUILDE", b) else "TU REÇOIS"
+	libelleTotal.TextColor3 = if b > 0 then Color3.fromRGB(196, 120, 255) else T.Gris
 	local valeur, nombre = totalSac()
 	resume.Text = if nombre > 0 then string.format("%s minerais · %s ◉", milliers(nombre), milliers(valeur)) else ""
 	principalTout.definir(if enAttente then "…" elseif nombre > 0 then "TOUT VENDRE · " .. milliers(valeur) .. " ◉" else "TOUT VENDRE",
@@ -301,7 +311,7 @@ local function rafraichirListe()
 		c.stock.Text = "×" .. milliers(q)
 		c.stock.TextColor3 = if dispo then T.Parchemin else T.Inactif
 		c.prix.Text = milliers(prix(id)) .. " ◉ / u"
-		c.valeur.Text = if dispo then "= " .. milliers(q * prix(id)) .. " ◉" else "épuisé"
+		c.valeur.Text = if dispo then "= " .. milliers(avecBonus(q * prix(id))) .. " ◉" else "épuisé"
 		c.valeur.TextColor3 = if dispo then T.Or else T.Inactif
 		local v = Icones.vue(c.vignette)
 		if v then
@@ -660,5 +670,12 @@ task.spawn(function()
 				F.fermerFenetre()
 			end
 		end
+	end
+end)
+
+-- Le rang de la Guilde change (quête rendue) : prix et totaux affichés suivent le nouveau bonus
+joueur:GetAttributeChangedSignal("BonusGuilde"):Connect(function()
+	if F.estOuverte() then
+		rafraichir()
 	end
 end)
