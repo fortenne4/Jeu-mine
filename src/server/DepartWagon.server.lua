@@ -5,6 +5,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 local D = require(ServerStorage:WaitForChild("Monde"):WaitForChild("Disposition"))
+local accesMine = require(script.Parent:WaitForChild("AccesMine"))
 
 local voyage = Instance.new("RemoteEvent")
 voyage.Name = "VoyageWagon"
@@ -81,6 +82,7 @@ local function partir(siege: Seat, humain: Humanoid, sens: string)
 		accuses[joueur] = nil
 		if not vivant(personnage, humain, racine) then return end
 		ejecter(humain)
+		if sens == "aller" then accesMine.autoriser(joueur, personnage) else accesMine.retirer(joueur) end
 		personnage:PivotTo(arrivee)
 		local quete = ServerStorage:FindFirstChild("QueteEvenement") -- Guilde des Mineurs (Quetes.server.lua)
 		if quete and quete:IsA("BindableEvent") then

@@ -28,6 +28,8 @@ Le village comprend des chemins pavés, un décor fleuri autour de la fontaine e
 
 Le serveur valide le départ (joueur assis dans le wagon, délai anti-spam), attend l'accusé du client puis téléporte le joueur ; le client ne joue que la cinématique, avec des clones locaux du wagon et du passager (`src/client/CinematiqueWagon.client.lua`). Les plans sont décrits dans la table `PLANS` (sens `aller` et `retour`) : on en ajoute un en ajoutant une entrée (durée, FOV, portion de voie, caméra). Si une cinématique s'allonge, augmenter `FIN_BLOCAGE` dans `src/server/DepartWagon.server.lua`.
 
+L'accès à la grande mine à pied est bloqué par des murs invisibles et une vérification serveur (`ProtectionMine.server.lua`). Le trajet validé en wagon autorise l'accès à la caverne, y compris après un retour des tunnels privés. Pour afficher les barrières pendant les essais, passer `DEBUG_SHOW_WALLS` à `true` en tête du script.
+
 > Si tu avais collé à la main les scripts de la pioche et des minerais dans ServerScriptService ou
 > StarterPlayerScripts, supprime ces anciennes copies. Rojo installe les siennes dans les dossiers « Jeu »
 > (sinon tu aurais deux pioches et des minerais en double).
