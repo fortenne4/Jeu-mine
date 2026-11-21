@@ -1,0 +1,1547 @@
+{
+ "EpeeFerPur": {
+  "Taille": [
+   1.725,
+   4.23,
+   0.48
+  ],
+  "Centre": [
+   0.0,
+   1.105,
+   0.0
+  ],
+  "TrailA": [
+   0,
+   0.95,
+   0
+  ],
+  "TrailB": [
+   -0.15,
+   3.14,
+   0
+  ],
+  "Teinte": [
+   210,
+   212,
+   220
+  ],
+  "Triangles": 5470,
+  "Parties": {
+   "Pommeau": {
+    "Material": "Metal",
+    "Color": [
+     210,
+     212,
+     220
+    ],
+    "Transparency": 0
+   },
+   "Fil": {
+    "Material": "Metal",
+    "Color": [
+     210,
+     212,
+     220
+    ],
+    "Transparency": 0
+   },
+   "Lame": {
+    "Material": "Metal",
+    "Color": [
+     60,
+     60,
+     68
+    ],
+    "Transparency": 0
+   },
+   "Cadre": {
+    "Material": "Metal",
+    "Color": [
+     210,
+     212,
+     220
+    ],
+    "Transparency": 0
+   },
+   "Lisere": {
+    "Material": "Metal",
+    "Color": [
+     60,
+     60,
+     68
+    ],
+    "Transparency": 0
+   },
+   "Gemme": {
+    "Material": "Metal",
+    "Color": [
+     210,
+     212,
+     220
+    ],
+    "Transparency": 0
+   },
+   "Bras": {
+    "Material": "Metal",
+    "Color": [
+     60,
+     60,
+     68
+    ],
+    "Transparency": 0
+   },
+   "Embout": {
+    "Material": "Metal",
+    "Color": [
+     210,
+     212,
+     220
+    ],
+    "Transparency": 0
+   },
+   "Manche": {
+    "Material": "Metal",
+    "Color": [
+     60,
+     60,
+     68
+    ],
+    "Transparency": 0
+   },
+   "Tresse": {
+    "Material": "Metal",
+    "Color": [
+     140,
+     142,
+     152
+    ],
+    "Transparency": 0
+   },
+   "Garde": {
+    "Material": "Metal",
+    "Color": [
+     210,
+     212,
+     220
+    ],
+    "Transparency": 0
+   },
+   "Poignee": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1
+   }
+  }
+ },
+ "EpeeCharbon": {
+  "Taille": [
+   1.998,
+   4.23,
+   0.48
+  ],
+  "Centre": [
+   0.0,
+   1.105,
+   0.0
+  ],
+  "TrailA": [
+   0,
+   0.95,
+   0
+  ],
+  "TrailB": [
+   -0.15,
+   3.14,
+   0
+  ],
+  "Teinte": [
+   60,
+   58,
+   66
+  ],
+  "Triangles": 8510,
+  "Parties": {
+   "Pommeau": {
+    "Material": "Slate",
+    "Color": [
+     92,
+     90,
+     100
+    ],
+    "Transparency": 0
+   },
+   "Fil": {
+    "Material": "Slate",
+    "Color": [
+     92,
+     90,
+     100
+    ],
+    "Transparency": 0
+   },
+   "Lame": {
+    "Material": "Slate",
+    "Color": [
+     50,
+     48,
+     55
+    ],
+    "Transparency": 0
+   },
+   "Cadre": {
+    "Material": "Slate",
+    "Color": [
+     92,
+     90,
+     100
+    ],
+    "Transparency": 0
+   },
+   "Gemme": {
+    "Material": "Slate",
+    "Color": [
+     92,
+     90,
+     100
+    ],
+    "Transparency": 0
+   },
+   "Garde": {
+    "Material": "Slate",
+    "Color": [
+     50,
+     48,
+     55
+    ],
+    "Transparency": 0
+   },
+   "Embout": {
+    "Material": "Slate",
+    "Color": [
+     92,
+     90,
+     100
+    ],
+    "Transparency": 0
+   },
+   "Manche": {
+    "Material": "Slate",
+    "Color": [
+     26,
+     25,
+     29
+    ],
+    "Transparency": 0
+   },
+   "Tresse": {
+    "Material": "Slate",
+    "Color": [
+     92,
+     90,
+     100
+    ],
+    "Transparency": 0
+   },
+   "Poignee": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1
+   }
+  }
+ },
+ "EpeeCharbonBronze": {
+  "Taille": [
+   1.725,
+   4.23,
+   0.48
+  ],
+  "Centre": [
+   0.0,
+   1.105,
+   0.0
+  ],
+  "TrailA": [
+   0,
+   0.95,
+   0
+  ],
+  "TrailB": [
+   -0.15,
+   3.14,
+   0
+  ],
+  "Teinte": [
+   232,
+   136,
+   76
+  ],
+  "Triangles": 8506,
+  "Parties": {
+   "Pommeau": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     136,
+     76
+    ],
+    "Transparency": 0
+   },
+   "Lame": {
+    "Material": "Slate",
+    "Color": [
+     50,
+     48,
+     55
+    ],
+    "Transparency": 0
+   },
+   "Fil": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     136,
+     76
+    ],
+    "Transparency": 0
+   },
+   "Fissures": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     112,
+     30
+    ],
+    "Transparency": 0,
+    "PointLight": {
+     "Couleur": [
+      255,
+      112,
+      30
+     ],
+     "Portee": 6,
+     "Luminosite": 1.2
+    }
+   },
+   "Cadre": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     136,
+     76
+    ],
+    "Transparency": 0
+   },
+   "Gemme": {
+    "Material": "Slate",
+    "Color": [
+     50,
+     48,
+     55
+    ],
+    "Transparency": 0
+   },
+   "Garde": {
+    "Material": "Metal",
+    "Color": [
+     186,
+     92,
+     48
+    ],
+    "Transparency": 0
+   },
+   "Embout": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     136,
+     76
+    ],
+    "Transparency": 0
+   },
+   "Manche": {
+    "Material": "Slate",
+    "Color": [
+     26,
+     25,
+     29
+    ],
+    "Transparency": 0
+   },
+   "Tresse": {
+    "Material": "Metal",
+    "Color": [
+     186,
+     92,
+     48
+    ],
+    "Transparency": 0
+   },
+   "Poignee": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1
+   }
+  }
+ },
+ "EpeeCharbonFer": {
+  "Taille": [
+   1.998,
+   4.23,
+   0.48
+  ],
+  "Centre": [
+   0.0,
+   1.105,
+   0.0
+  ],
+  "TrailA": [
+   0,
+   0.95,
+   0
+  ],
+  "TrailB": [
+   -0.15,
+   3.14,
+   0
+  ],
+  "Teinte": [
+   210,
+   212,
+   220
+  ],
+  "Triangles": 9330,
+  "Parties": {
+   "Pommeau": {
+    "Material": "Metal",
+    "Color": [
+     210,
+     212,
+     220
+    ],
+    "Transparency": 0
+   },
+   "Fil": {
+    "Material": "Metal",
+    "Color": [
+     210,
+     212,
+     220
+    ],
+    "Transparency": 0
+   },
+   "Lame": {
+    "Material": "Slate",
+    "Color": [
+     50,
+     48,
+     55
+    ],
+    "Transparency": 0
+   },
+   "Cadre": {
+    "Material": "Metal",
+    "Color": [
+     210,
+     212,
+     220
+    ],
+    "Transparency": 0
+   },
+   "Gemme": {
+    "Material": "Metal",
+    "Color": [
+     210,
+     212,
+     220
+    ],
+    "Transparency": 0
+   },
+   "Bras": {
+    "Material": "Metal",
+    "Color": [
+     140,
+     142,
+     152
+    ],
+    "Transparency": 0
+   },
+   "Embout": {
+    "Material": "Metal",
+    "Color": [
+     210,
+     212,
+     220
+    ],
+    "Transparency": 0
+   },
+   "Manche": {
+    "Material": "Slate",
+    "Color": [
+     26,
+     25,
+     29
+    ],
+    "Transparency": 0
+   },
+   "Tresse": {
+    "Material": "Metal",
+    "Color": [
+     60,
+     60,
+     68
+    ],
+    "Transparency": 0
+   },
+   "Garde": {
+    "Material": "Metal",
+    "Color": [
+     210,
+     212,
+     220
+    ],
+    "Transparency": 0
+   },
+   "Poignee": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1
+   }
+  }
+ },
+ "EpeeCharbonOr": {
+  "Taille": [
+   1.998,
+   4.23,
+   0.48
+  ],
+  "Centre": [
+   0.0,
+   1.105,
+   0.0
+  ],
+  "TrailA": [
+   0,
+   0.95,
+   0
+  ],
+  "TrailB": [
+   -0.15,
+   3.14,
+   0
+  ],
+  "Teinte": [
+   232,
+   166,
+   36
+  ],
+  "Triangles": 8990,
+  "Parties": {
+   "Pommeau": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Fil": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Lame": {
+    "Material": "Slate",
+    "Color": [
+     50,
+     48,
+     55
+    ],
+    "Transparency": 0
+   },
+   "Fissures": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     204,
+     72
+    ],
+    "Transparency": 0,
+    "PointLight": {
+     "Couleur": [
+      255,
+      204,
+      72
+     ],
+     "Portee": 6,
+     "Luminosite": 1.2
+    }
+   },
+   "Cadre": {
+    "Material": "Metal",
+    "Color": [
+     255,
+     210,
+     84
+    ],
+    "Transparency": 0
+   },
+   "Gemme": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     204,
+     72
+    ],
+    "Transparency": 0,
+    "PointLight": {
+     "Couleur": [
+      255,
+      204,
+      72
+     ],
+     "Portee": 5,
+     "Luminosite": 1.2
+    }
+   },
+   "Garde": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Embout": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Manche": {
+    "Material": "Fabric",
+    "Color": [
+     46,
+     32,
+     28
+    ],
+    "Transparency": 0
+   },
+   "Tresse": {
+    "Material": "Fabric",
+    "Color": [
+     86,
+     56,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Bague": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Poignee": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1
+   }
+  }
+ },
+ "EpeeBronze": {
+  "Taille": [
+   1.724,
+   4.23,
+   0.382
+  ],
+  "Centre": [
+   0.0,
+   1.105,
+   0.0
+  ],
+  "TrailA": [
+   0,
+   0.95,
+   0
+  ],
+  "TrailB": [
+   -0.15,
+   3.14,
+   0
+  ],
+  "Teinte": [
+   232,
+   136,
+   76
+  ],
+  "Triangles": 3654,
+  "Parties": {
+   "Pommeau": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     136,
+     76
+    ],
+    "Transparency": 0
+   },
+   "Fil": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     136,
+     76
+    ],
+    "Transparency": 0
+   },
+   "Lame": {
+    "Material": "Metal",
+    "Color": [
+     186,
+     92,
+     48
+    ],
+    "Transparency": 0
+   },
+   "Cadre": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     136,
+     76
+    ],
+    "Transparency": 0
+   },
+   "Gemme": {
+    "Material": "Metal",
+    "Color": [
+     112,
+     52,
+     32
+    ],
+    "Transparency": 0
+   },
+   "Garde": {
+    "Material": "Metal",
+    "Color": [
+     186,
+     92,
+     48
+    ],
+    "Transparency": 0
+   },
+   "Embout": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     136,
+     76
+    ],
+    "Transparency": 0
+   },
+   "Manche": {
+    "Material": "Metal",
+    "Color": [
+     112,
+     52,
+     32
+    ],
+    "Transparency": 0
+   },
+   "Tresse": {
+    "Material": "Metal",
+    "Color": [
+     186,
+     92,
+     48
+    ],
+    "Transparency": 0
+   },
+   "Poignee": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1
+   }
+  }
+ },
+ "EpeeBronzeCharbon": {
+  "Taille": [
+   1.725,
+   4.23,
+   0.48
+  ],
+  "Centre": [
+   0.0,
+   1.105,
+   0.0
+  ],
+  "TrailA": [
+   0,
+   0.95,
+   0
+  ],
+  "TrailB": [
+   -0.15,
+   3.14,
+   0
+  ],
+  "Teinte": [
+   186,
+   92,
+   48
+  ],
+  "Triangles": 7054,
+  "Parties": {
+   "Pommeau": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     136,
+     76
+    ],
+    "Transparency": 0
+   },
+   "Fil": {
+    "Material": "Metal",
+    "Color": [
+     186,
+     92,
+     48
+    ],
+    "Transparency": 0
+   },
+   "Lame": {
+    "Material": "Slate",
+    "Color": [
+     50,
+     48,
+     55
+    ],
+    "Transparency": 0
+   },
+   "Fissures": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     112,
+     30
+    ],
+    "Transparency": 0,
+    "PointLight": {
+     "Couleur": [
+      255,
+      112,
+      30
+     ],
+     "Portee": 6,
+     "Luminosite": 1.2
+    }
+   },
+   "Cadre": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     136,
+     76
+    ],
+    "Transparency": 0
+   },
+   "Gemme": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     112,
+     30
+    ],
+    "Transparency": 0,
+    "PointLight": {
+     "Couleur": [
+      255,
+      112,
+      30
+     ],
+     "Portee": 5,
+     "Luminosite": 1.2
+    }
+   },
+   "Garde": {
+    "Material": "Metal",
+    "Color": [
+     186,
+     92,
+     48
+    ],
+    "Transparency": 0
+   },
+   "Embout": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     136,
+     76
+    ],
+    "Transparency": 0
+   },
+   "Manche": {
+    "Material": "Slate",
+    "Color": [
+     26,
+     25,
+     29
+    ],
+    "Transparency": 0
+   },
+   "Tresse": {
+    "Material": "Metal",
+    "Color": [
+     186,
+     92,
+     48
+    ],
+    "Transparency": 0
+   },
+   "Poignee": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1
+   }
+  }
+ },
+ "EpeeBronzeFer": {
+  "Taille": [
+   1.725,
+   4.23,
+   0.48
+  ],
+  "Centre": [
+   0.0,
+   1.105,
+   0.0
+  ],
+  "TrailA": [
+   0,
+   0.95,
+   0
+  ],
+  "TrailB": [
+   -0.15,
+   3.14,
+   0
+  ],
+  "Teinte": [
+   186,
+   92,
+   48
+  ],
+  "Triangles": 6546,
+  "Parties": {
+   "Pommeau": {
+    "Material": "Metal",
+    "Color": [
+     186,
+     92,
+     48
+    ],
+    "Transparency": 0
+   },
+   "Fil": {
+    "Material": "Metal",
+    "Color": [
+     186,
+     92,
+     48
+    ],
+    "Transparency": 0
+   },
+   "Lame": {
+    "Material": "Metal",
+    "Color": [
+     210,
+     212,
+     220
+    ],
+    "Transparency": 0
+   },
+   "Gorge": {
+    "Material": "Metal",
+    "Color": [
+     140,
+     142,
+     152
+    ],
+    "Transparency": 0
+   },
+   "Cadre": {
+    "Material": "Metal",
+    "Color": [
+     222,
+     162,
+     92
+    ],
+    "Transparency": 0
+   },
+   "Gemme": {
+    "Material": "Metal",
+    "Color": [
+     210,
+     212,
+     220
+    ],
+    "Transparency": 0
+   },
+   "Bras": {
+    "Material": "Metal",
+    "Color": [
+     186,
+     92,
+     48
+    ],
+    "Transparency": 0
+   },
+   "Embout": {
+    "Material": "Metal",
+    "Color": [
+     186,
+     92,
+     48
+    ],
+    "Transparency": 0
+   },
+   "Manche": {
+    "Material": "Metal",
+    "Color": [
+     112,
+     52,
+     32
+    ],
+    "Transparency": 0
+   },
+   "Tresse": {
+    "Material": "Metal",
+    "Color": [
+     186,
+     92,
+     48
+    ],
+    "Transparency": 0
+   },
+   "Garde": {
+    "Material": "Metal",
+    "Color": [
+     222,
+     162,
+     92
+    ],
+    "Transparency": 0
+   },
+   "Poignee": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1
+   }
+  }
+ },
+ "EpeeBronzeOr": {
+  "Taille": [
+   1.725,
+   4.23,
+   0.48
+  ],
+  "Centre": [
+   0.0,
+   1.105,
+   0.0
+  ],
+  "TrailA": [
+   0,
+   0.95,
+   0
+  ],
+  "TrailB": [
+   -0.6,
+   3.14,
+   0
+  ],
+  "Teinte": [
+   255,
+   210,
+   84
+  ],
+  "Triangles": 6318,
+  "Parties": {
+   "Pommeau": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Fil": {
+    "Material": "Metal",
+    "Color": [
+     255,
+     210,
+     84
+    ],
+    "Transparency": 0
+   },
+   "Lame": {
+    "Material": "Metal",
+    "Color": [
+     150,
+     98,
+     38
+    ],
+    "Transparency": 0
+   },
+   "Gorge": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Fissures": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     204,
+     72
+    ],
+    "Transparency": 0,
+    "PointLight": {
+     "Couleur": [
+      255,
+      204,
+      72
+     ],
+     "Portee": 6,
+     "Luminosite": 1.2
+    }
+   },
+   "Cadre": {
+    "Material": "Metal",
+    "Color": [
+     255,
+     210,
+     84
+    ],
+    "Transparency": 0
+   },
+   "Gemme": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     204,
+     72
+    ],
+    "Transparency": 0,
+    "PointLight": {
+     "Couleur": [
+      255,
+      204,
+      72
+     ],
+     "Portee": 5,
+     "Luminosite": 1.2
+    }
+   },
+   "Garde": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Embout": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Manche": {
+    "Material": "Fabric",
+    "Color": [
+     46,
+     32,
+     28
+    ],
+    "Transparency": 0
+   },
+   "Tresse": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Poignee": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1
+   }
+  }
+ },
+ "EpeeFerOr": {
+  "Taille": [
+   1.725,
+   4.23,
+   0.48
+  ],
+  "Centre": [
+   0.0,
+   1.105,
+   0.0
+  ],
+  "TrailA": [
+   0,
+   0.95,
+   0
+  ],
+  "TrailB": [
+   -0.15,
+   3.14,
+   0
+  ],
+  "Teinte": [
+   232,
+   166,
+   36
+  ],
+  "Triangles": 6942,
+  "Parties": {
+   "Pommeau": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Fil": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Lame": {
+    "Material": "Metal",
+    "Color": [
+     210,
+     212,
+     220
+    ],
+    "Transparency": 0
+   },
+   "Gorge": {
+    "Material": "Metal",
+    "Color": [
+     140,
+     142,
+     152
+    ],
+    "Transparency": 0
+   },
+   "Cadre": {
+    "Material": "Metal",
+    "Color": [
+     255,
+     210,
+     84
+    ],
+    "Transparency": 0
+   },
+   "Gemme": {
+    "Material": "Metal",
+    "Color": [
+     255,
+     210,
+     84
+    ],
+    "Transparency": 0
+   },
+   "Garde": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Embout": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Manche": {
+    "Material": "Metal",
+    "Color": [
+     150,
+     98,
+     38
+    ],
+    "Transparency": 0
+   },
+   "Tresse": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Poignee": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1
+   }
+  }
+ },
+ "EpeeOr": {
+  "Taille": [
+   1.6,
+   4.27,
+   0.48
+  ],
+  "Centre": [
+   0.0,
+   1.085,
+   0.0
+  ],
+  "TrailA": [
+   0,
+   0.95,
+   0
+  ],
+  "TrailB": [
+   -0.25,
+   3.14,
+   0
+  ],
+  "Teinte": [
+   255,
+   210,
+   84
+  ],
+  "Triangles": 8466,
+  "Parties": {
+   "Aura": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     214,
+     96
+    ],
+    "Transparency": 0.3,
+    "PointLight": {
+     "Couleur": [
+      255,
+      214,
+      96
+     ],
+     "Portee": 8,
+     "Luminosite": 1.2
+    }
+   },
+   "Fil": {
+    "Material": "Metal",
+    "Color": [
+     255,
+     210,
+     84
+    ],
+    "Transparency": 0
+   },
+   "Lame": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Gorge": {
+    "Material": "Metal",
+    "Color": [
+     255,
+     210,
+     84
+    ],
+    "Transparency": 0
+   },
+   "Fissures": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     204,
+     72
+    ],
+    "Transparency": 0,
+    "PointLight": {
+     "Couleur": [
+      255,
+      204,
+      72
+     ],
+     "Portee": 6,
+     "Luminosite": 1.2
+    }
+   },
+   "Cadre": {
+    "Material": "Metal",
+    "Color": [
+     255,
+     210,
+     84
+    ],
+    "Transparency": 0
+   },
+   "Gemme": {
+    "Material": "Neon",
+    "Color": [
+     255,
+     204,
+     72
+    ],
+    "Transparency": 0,
+    "PointLight": {
+     "Couleur": [
+      255,
+      204,
+      72
+     ],
+     "Portee": 5,
+     "Luminosite": 1.2
+    }
+   },
+   "Garde": {
+    "Material": "Metal",
+    "Color": [
+     232,
+     166,
+     36
+    ],
+    "Transparency": 0
+   },
+   "Embout": {
+    "Material": "Metal",
+    "Color": [
+     255,
+     210,
+     84
+    ],
+    "Transparency": 0
+   },
+   "Manche": {
+    "Material": "Metal",
+    "Color": [
+     150,
+     98,
+     38
+    ],
+    "Transparency": 0
+   },
+   "Tresse": {
+    "Material": "Metal",
+    "Color": [
+     255,
+     210,
+     84
+    ],
+    "Transparency": 0
+   },
+   "Pommeau": {
+    "Material": "Metal",
+    "Color": [
+     255,
+     210,
+     84
+    ],
+    "Transparency": 0
+   },
+   "Poignee": {
+    "Material": "SmoothPlastic",
+    "Color": [
+     255,
+     255,
+     255
+    ],
+    "Transparency": 1
+   }
+  }
+ }
+}

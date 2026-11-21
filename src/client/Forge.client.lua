@@ -43,9 +43,11 @@ local function arrondir(c: Color3): Color3
 	return Color3.fromRGB(math.min(255, q(c.R)), math.min(255, q(c.G)), math.min(255, q(c.B)))
 end
 
--- Vrai modèle 3D d'un objet forgé : l'épée de fer recolorée à la teinte de l'alliage, sinon un lingot
+-- Vrai modèle 3D d'un objet forgé : épée dédiée (ses couleurs), sinon l'épée de fer teintée, sinon un lingot
 local function definirObjet(vp: ViewportFrame, typeId: string, couleur: Color3, vitesse: number, modele: string?)
-	if typeId == "Epee" and ArmesVoxels.existe(EPEE_3D) then
+	if typeId == "Epee" and modele and ArmesVoxels.existe(modele) then
+		Icones.definir(vp, "epee", modele, {vitesse = vitesse, hauteur = 0.1, marge = 0.85})
+	elseif typeId == "Epee" and ArmesVoxels.existe(EPEE_3D) then
 		Icones.definir(vp, "epee", EPEE_3D, {teinte = arrondir(couleur), vitesse = vitesse, hauteur = 0.1, marge = 0.85})
 	elseif typeId == "Casque" or typeId == "Plastron" or typeId == "Jambieres" then
 		Icones.definir(vp, "armure", modele or typeId, {teinte = arrondir(couleur), vitesse = vitesse, hauteur = 0.2, marge = 0.85, angle = 0.45})
@@ -631,6 +633,20 @@ local function celebrer(objet: any)
 	end
 end
 
+-- Cinématique de forge (ForgeCinematique.client pose l'attribut ForgeCinematique) : fenêtre masquée pendant,
+-- rendue après ; si elle ne démarre pas dans la seconde, ou dure plus de 10 s, on reprend la main
+local function attendreCinematique()
+	local debut = os.clock()
+	gui.Enabled = false
+	while not joueur:GetAttribute("ForgeCinematique") and os.clock() - debut < 1 do
+		task.wait()
+	end
+	while joueur:GetAttribute("ForgeCinematique") and os.clock() - debut < 10 do
+		task.wait(0.1)
+	end
+	gui.Enabled = F.estOuverte()
+end
+
 boutonForger.Activated:Connect(function()
 	if enAttente or not boutonForger.Active then
 		return
@@ -651,8 +667,11 @@ boutonForger.Activated:Connect(function()
 		return fnAction:InvokeServer({action = "forger", type = typeChoisi, composition = comp})
 	end)
 	task.wait(0.3)
-	enAttente = false
 	local reussi = ok and type(rep) == "table" and rep.ok == true
+	if reussi then
+		attendreCinematique()
+	end
+	enAttente = false
 	if ok and type(rep) == "table" then
 		if type(rep.etat) == "table" then
 			etat = rep.etat

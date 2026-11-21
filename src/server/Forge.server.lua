@@ -6,6 +6,7 @@
 -- Remotes (ReplicatedStorage) :
 --   ForgeOuvrir (RemoteEvent, serveur → client) : (etat, pointInteraction)
 --   ForgeAction (RemoteFunction, client → serveur) : {action = "forger", type = string, composition = {{id, qte}}} → reponse
+--   ForgeCinematique (RemoteEvent, serveur → client) : {type = "Epee"|"Casque"|..., modele = id, couleur = hex}, après chaque forge réussie
 -- Tests (Studio, partie non sauvegardée seulement) : 50 de chaque minerai à l'arrivée, et
 --   game.ServerStorage.ForgeAPI:Invoke("minerais", game.Players.TonNom, 50)
 
@@ -38,6 +39,10 @@ ouvrir.Parent = ReplicatedStorage
 local action = Instance.new("RemoteFunction")
 action.Name = "ForgeAction"
 action.Parent = ReplicatedStorage
+
+local cinematique = Instance.new("RemoteEvent")
+cinematique.Name = "ForgeCinematique"
+cinematique.Parent = ReplicatedStorage
 
 local derniere: {[Player]: number} = {}
 local pointForge: BasePart? = nil
@@ -109,6 +114,7 @@ action.OnServerInvoke = function(joueur: Player, demande: any): Reponse
 	p.prochainId += 1
 	table.insert(p.objets, objet)
 	Donnees.notifier(joueur)
+	cinematique:FireClient(joueur, {type = objet.type, modele = objet.modele, couleur = objet.couleur})
 	local quete = ServerStorage:FindFirstChild("QueteEvenement") -- Guilde des Mineurs (Quetes.server.lua)
 	if quete and quete:IsA("BindableEvent") then
 		quete:Fire("forger", joueur, res.type)

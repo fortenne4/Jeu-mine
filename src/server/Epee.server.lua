@@ -1,12 +1,17 @@
 --!strict
 -- Épée · SCRIPT SERVEUR
--- Donne l'outil « Épée » (modèle Partage.ArmesVoxels "EpeeFer", sinon lame simple) et relaie les coups.
+-- Donne l'outil « Épée » et relaie les coups. Épée en main = l'épée forgée équipée (sac, slot Epee),
+-- construite avec Partage.ArmesVoxels.construire(objet.modele) (EpeeFer si le modèle n'existe pas encore) ;
+-- sinon l'épée de base (Forge.EPEE_BASE). Attributs de l'outil : Epee, Degats, Modele, ObjetId.
 -- Les coups sont animés par chaque client (EpeeAnimation.client) : le serveur ne fait que valider la
 -- cadence, prévenir les autres clients et déclencher le hook ServerStorage.CoupEpee (joueur, coup, outil).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
+
+local Forge = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("Forge"))
+local Donnees = require(script.Parent:WaitForChild("Donnees"))
 
 local NOM_OUTIL = "Épée"
 local CADENCE_MIN = 0.15
@@ -51,17 +56,18 @@ local function modeleSecours(): Model
 	return m
 end
 
-local function modeleEpee(): Model
+local function modeleEpee(id: string): Model
 	local partage = ReplicatedStorage:WaitForChild("Partage")
 	local dossier = partage:FindFirstChild("ArmesVoxels") or partage:WaitForChild("ArmesVoxels", 3)
 	if dossier and dossier:IsA("ModuleScript") then
 		local ok, m = pcall(function()
-			return (require(dossier) :: any).construire("EpeeFer")
+			local armes = require(dossier) :: any
+			return armes.construire(if armes.existe(id) then id else Forge.EPEE_BASE.modele)
 		end)
 		if ok and typeof(m) == "Instance" and m:IsA("Model") and (m.PrimaryPart or m:FindFirstChild("Poignee", true)) then
 			return m
 		end
-		warn("[Epee] ArmesVoxels.construire(\"EpeeFer\") indisponible, lame de secours")
+		warn("[Epee] ArmesVoxels.construire(\"" .. id .. "\") indisponible, lame de secours")
 	end
 	return modeleSecours()
 end
@@ -78,10 +84,10 @@ local function attache(lame: BasePart, nom: string, y: number): Attachment
 	return n
 end
 
-local gabarit: Tool? = nil
+local gabarits: {[string]: Tool} = {}
 
-local function creerGabarit(): Tool
-	local m = modeleEpee()
+local function creerGabarit(id: string): Tool
+	local m = modeleEpee(id)
 	local poignee = (m.PrimaryPart or m:FindFirstChild("Poignee", true)) :: BasePart
 	local tool = Instance.new("Tool")
 	tool.Name = NOM_OUTIL
@@ -135,19 +141,52 @@ local function creerGabarit(): Tool
 	return tool
 end
 
-local function donner(joueur: Player)
-	local sac = joueur:WaitForChild("Backpack")
-	for _, conteneur in {sac, joueur.Character} do
-		for _, t in (conteneur :: Instance):GetChildren() do
-			if t:IsA("Tool") and t:GetAttribute("Epee") then
-				return
+-- Épée équipée dans le sac (objet forgé de type Epee), sinon l'épée de base
+local function choix(joueur: Player): (string, number, string, string)
+	local p = Donnees.profil(joueur)
+	local id = p and p.equipement.Epee
+	if p and id then
+		for _, o in p.objets do
+			if o.id == id and o.type == "Epee" then
+				return o.modele, o.valeur, o.nom, o.id
 			end
 		end
 	end
-	if not gabarit then
-		gabarit = creerGabarit()
+	local b = Forge.EPEE_BASE
+	return b.modele, b.valeur, b.nom, ""
+end
+
+-- Donne l'épée voulue ; remplace l'ancienne si elle a changé (et la remet en main si elle y était)
+local function donner(joueur: Player)
+	local sac = joueur:WaitForChild("Backpack")
+	local modele, valeur, nom, idObjet = choix(joueur)
+	local gabarit = gabarits[modele] or creerGabarit(modele)
+	gabarits[modele] = gabarit
+	local perso = joueur.Character
+	local cle = idObjet .. "|" .. modele .. "|" .. valeur
+	local enMain = false
+	for _, conteneur in {sac, perso} do
+		for _, t in (conteneur :: Instance):GetChildren() do
+			if t:IsA("Tool") and t:GetAttribute("Epee") then
+				if t:GetAttribute("Cle") == cle then
+					return
+				end
+				enMain = enMain or t.Parent == perso
+				t:Destroy()
+			end
+		end
 	end
-	(gabarit :: Tool):Clone().Parent = sac
+	local outil = gabarit:Clone()
+	outil.ToolTip = string.format("%s · %d dégâts · Clic : attaquer (combo x3)", nom, valeur)
+	outil:SetAttribute("Cle", cle)
+	outil:SetAttribute("Degats", valeur)
+	outil:SetAttribute("Modele", modele)
+	outil:SetAttribute("ObjetId", idObjet)
+	outil.Parent = sac
+	local h = enMain and perso and perso:FindFirstChildOfClass("Humanoid")
+	if h then
+		h:EquipTool(outil)
+	end
 end
 
 local derniers: {[Player]: number} = {}
@@ -187,12 +226,22 @@ local function surJoueur(joueur: Player)
 	if joueur.Character then
 		task.spawn(donner, joueur)
 	end
+	if Donnees.attendre(joueur) and joueur.Character then
+		donner(joueur)
+	end
 end
+
+-- Forge, équiper / retirer (Sac.server notifie) : l'épée en main suit
+Donnees.surChangement(function(joueur: Player)
+	if joueur.Parent and joueur.Character then
+		task.spawn(donner, joueur)
+	end
+end)
 
 Players.PlayerAdded:Connect(surJoueur)
 Players.PlayerRemoving:Connect(function(joueur)
 	derniers[joueur] = nil
 end)
 for _, joueur in Players:GetPlayers() do
-	surJoueur(joueur)
+	task.spawn(surJoueur, joueur)
 end

@@ -113,7 +113,11 @@ local function iconeObjet(vp: ViewportFrame, typeId: string, couleur: Color3, op
 	local o: any = table.clone(options or {})
 	o.teinte = if o.silhouette then nil else arrondir(couleur)
 	o.marge = o.marge or 0.85
-	if typeId == "Epee" and ArmesVoxels.existe(EPEE_3D) then
+	if typeId == "Epee" and modele and ArmesVoxels.existe(modele) then
+		o.teinte = nil -- épée dédiée : ses propres couleurs
+		o.hauteur = o.hauteur or 0.1
+		Icones.definir(vp, "epee", modele, o)
+	elseif typeId == "Epee" and ArmesVoxels.existe(EPEE_3D) then
 		o.hauteur = o.hauteur or 0.1
 		Icones.definir(vp, "epee", EPEE_3D, o)
 	elseif ARMURES[typeId] then

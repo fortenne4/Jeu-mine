@@ -37,7 +37,7 @@ Forge.MINERAIS = {
 
 Forge.ORDRE_TYPES = {"Epee", "Casque", "Plastron", "Jambieres"}
 Forge.TYPES = {
-	Epee = {id = "Epee", nom = "Épée", icone = "🗡️", stat = "Dégâts", mult = 2, min = 3, max = 24, frais = 20},
+	Epee = {id = "Epee", nom = "Épée", icone = "🗡️", stat = "Dégâts", mult = 2, min = 2, max = 12, frais = 20},
 	Casque = {id = "Casque", nom = "Casque", icone = "⛑️", stat = "Défense", mult = 1, min = 2, max = 12, frais = 15},
 	Plastron = {id = "Plastron", nom = "Plastron", icone = "🛡️", stat = "Défense", mult = 1.6, min = 4, max = 30, frais = 30},
 	Jambieres = {id = "Jambieres", nom = "Jambières", icone = "👖", stat = "Défense", mult = 1.3, min = 3, max = 20, frais = 25},
@@ -45,7 +45,7 @@ Forge.TYPES = {
 
 -- Échelles de pièces nommées (1 ou 2 minerais, proportions libres) : remplacent les alliages pour ce type.
 -- valeur = base × min(bonus quantité × bonus proportion, FACTEUR_MAX), toujours < base du rang suivant
-export type Palier = {rang: number, minerais: {string}, modele: string, nom: string, base: number, cout: number, rarete: string}
+export type Palier = {rang: number, minerais: {string}, dominant: string?, modele: string, nom: string, base: number, cout: number, rarete: string}
 Forge.BONUS_QTE = 0.3 -- +30 % au maximum de minerais
 Forge.BONUS_PROPORTION = 0.1 -- ±10 % selon la part du minerai le plus fort (duo)
 Forge.FACTEUR_MAX = 1.35 -- floor(base × 1.35) < base suivante (vérifié + écrêté)
@@ -62,12 +62,42 @@ Forge.ECHELLES = {
 		{rang = 9, minerais = {"Bronze", "Gold"}, modele = "CasqueBronzeOr", nom = "Casque de bronze et or", base = 102, cout = 330, rarete = "Mythique"},
 		{rang = 10, minerais = {"Fer", "Gold"}, modele = "CasqueFerOr", nom = "Casque de fer et or", base = 138, cout = 420, rarete = "Divin"},
 	},
+	-- Charbon + Bronze : deux modèles selon le minerai dominant (voir Forge.dominant)
+	Epee = {
+		{rang = 1, minerais = {"Charbon"}, modele = "EpeeCharbon", nom = "Épée de charbon", base = 10, cout = 25, rarete = "Commun"},
+		{rang = 2, minerais = {"Bronze"}, modele = "EpeeBronze", nom = "Épée de bronze", base = 14, cout = 40, rarete = "Commun"},
+		{rang = 3, minerais = {"Charbon", "Bronze"}, dominant = "Charbon", modele = "EpeeCharbonBronze", nom = "Épée de charbon et bronze", base = 19, cout = 55, rarete = "Peu commun"},
+		{rang = 4, minerais = {"Charbon", "Bronze"}, dominant = "Bronze", modele = "EpeeBronzeCharbon", nom = "Épée de bronze et charbon", base = 26, cout = 70, rarete = "Peu commun"},
+		{rang = 5, minerais = {"Fer"}, modele = "EpeeFerPur", nom = "Épée de fer pur", base = 36, cout = 95, rarete = "Peu commun"},
+		{rang = 6, minerais = {"Charbon", "Fer"}, modele = "EpeeCharbonFer", nom = "Épée de charbon et fer", base = 49, cout = 130, rarete = "Rare"},
+		{rang = 7, minerais = {"Bronze", "Fer"}, modele = "EpeeBronzeFer", nom = "Épée de bronze et fer", base = 67, cout = 175, rarete = "Rare"},
+		{rang = 8, minerais = {"Gold"}, modele = "EpeeOr", nom = "Épée d'or", base = 91, cout = 230, rarete = "Légendaire"},
+		{rang = 9, minerais = {"Charbon", "Gold"}, modele = "EpeeCharbonOr", nom = "Épée de charbon et or", base = 124, cout = 300, rarete = "Légendaire"},
+		{rang = 10, minerais = {"Bronze", "Gold"}, modele = "EpeeBronzeOr", nom = "Épée de bronze et or", base = 169, cout = 380, rarete = "Mythique"},
+		{rang = 11, minerais = {"Fer", "Gold"}, modele = "EpeeFerOr", nom = "Épée de fer et or", base = 230, cout = 480, rarete = "Divin"},
+	},
 } :: {[string]: {Palier}}
 
-local function cleMinerais(ids: {string}): string
+-- Épée de base donnée à tout joueur sans épée forgée équipée (Epee.server.lua)
+Forge.EPEE_BASE = {modele = "EpeeFer", nom = "Épée de fer", valeur = 6}
+
+-- Minerai dominant d'une composition : la plus grande quantité ; à égalité, le minerai de plus haut rang
+function Forge.dominant(composition: {{any}}): string?
+	local id: string?, qMax, rMax = nil, -1, -1
+	for _, e in composition do
+		local m = Forge.MINERAIS[e[1]]
+		local q = tonumber(e[2]) or 0
+		if m and (q > qMax or (q == qMax and m.rang > rMax)) then
+			id, qMax, rMax = m.id, q, m.rang
+		end
+	end
+	return id
+end
+
+local function cleMinerais(ids: {string}, dominant: string?): string
 	local t = table.clone(ids)
 	table.sort(t)
-	return table.concat(t, "+")
+	return table.concat(t, "+") .. (if dominant then ">" .. dominant else "")
 end
 
 local parCle: {[string]: {[string]: Palier}} = {}
@@ -75,7 +105,7 @@ local parModele: {[string]: Palier} = {}
 for typeId, echelle in Forge.ECHELLES do
 	parCle[typeId] = {}
 	for _, p in echelle do
-		parCle[typeId][cleMinerais(p.minerais)] = p
+		parCle[typeId][cleMinerais(p.minerais, p.dominant)] = p
 		parModele[p.modele] = p
 	end
 end
@@ -86,21 +116,28 @@ function Forge.palier(typeId: string, modele: string?, composition: {{any}}?): P
 	if p and p.modele:sub(1, #typeId) == typeId then
 		return p
 	end
+	local t = parCle[typeId]
+	if not t then
+		return nil
+	end
 	local ids = {}
 	for _, e in composition or {} do
 		table.insert(ids, tostring(e[1]))
 	end
-	return parCle[typeId] and parCle[typeId][cleMinerais(ids)]
+	local dominant = Forge.dominant(composition or {})
+	return (dominant and t[cleMinerais(ids, dominant)]) or t[cleMinerais(ids)]
 end
 
--- NomAffiche du modèle ArmuresVoxels s'il existe déjà, sinon le nom de la table
-local armures: any = nil
+-- NomAffiche du modèle 3D (ArmesVoxels / ArmuresVoxels) s'il existe déjà, sinon le nom de la table
+local modules: {[string]: any} = {}
 local function nomAffiche(p: Palier): string
-	if armures == nil then
-		local m = script.Parent:FindFirstChild("ArmuresVoxels")
+	local nomModule = if p.modele:sub(1, 4) == "Epee" then "ArmesVoxels" else "ArmuresVoxels"
+	if modules[nomModule] == nil then
+		local m = script.Parent:FindFirstChild(nomModule)
 		local ok, res = pcall(require, m :: any)
-		armures = if ok and type(res) == "table" then res else false
+		modules[nomModule] = if ok and type(res) == "table" then res else false
 	end
+	local armures = modules[nomModule]
 	if armures and armures.existe(p.modele) then
 		local ok, d = pcall(armures.donnees, p.modele)
 		if ok and type(d) == "table" and type(d.Nom) == "string" and d.Nom ~= "" then
@@ -221,7 +258,7 @@ function Forge.calculer(typeId: any, composition: any): (Resultat?, string?)
 	if echelle then
 		local p = Forge.palier(t.id, nil, liste)
 		if not p then
-			return nil, "Un " .. string.lower(t.nom) .. " se forge avec 1 ou 2 minerais"
+			return nil, (if t.id == "Epee" then "Une épée" else "Un " .. string.lower(t.nom)) .. " se forge avec 1 ou 2 minerais"
 		end
 		local q = 1 + Forge.BONUS_QTE * (math.sqrt(total / t.min) - 1) / (math.sqrt(t.max / t.min) - 1)
 		local m = 1

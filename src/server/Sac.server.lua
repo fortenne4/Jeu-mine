@@ -72,6 +72,7 @@ action.OnServerInvoke = function(joueur: Player, demande: any): Reponse
 	end
 	p.inconnus.equipement[slot] = nil
 	EquipementVisuel.appliquer(joueur)
+	Donnees.notifier(joueur) -- Epee.server change l'épée en main
 	return {ok = true, message = (if demande.action == "equiper" then "Équipé : " else "Retiré : ") .. t.nom, etat = etat(p)}
 end
 

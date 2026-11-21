@@ -233,6 +233,43 @@ Le comptoir se ferme si on s'éloigne (Q ou ✕ pour le fermer).
 
 Test en Studio : la partie de test donne 50 de chaque minerai (`TEST_STUDIO` dans `Forge.server.lua`) : de quoi vendre tout de suite.
 
+## Forge de Brom : épées et casques
+
+Tout joueur reçoit l'**épée de base** (`EpeeFer`, 6 dégâts). Chez Brom (touche **E**), il forge de meilleures épées
+avec ses minerais (1 ou 2 minerais, de 2 à 12 au total, + des Pièces). Une épée forgée **équipée dans le sac** (case Épée)
+remplace l'épée de base dans la main ; on la retire → retour à l'épée de base.
+
+Recettes d'épées (`Forge.ECHELLES.Epee` dans `src/partage/Forge.lua`) — dégâts de base, jusqu'à +35 % avec plus de minerais :
+
+| Rang | Minerais | Modèle | Dégâts |
+|---|---|---|---|
+| 1 | Charbon | EpeeCharbon | 10 |
+| 2 | Bronze | EpeeBronze | 14 |
+| 3 | Charbon + Bronze, charbon dominant | EpeeCharbonBronze | 19 |
+| 4 | Charbon + Bronze, bronze dominant | EpeeBronzeCharbon | 26 |
+| 5 | Fer | EpeeFerPur | 36 |
+| 6 | Charbon + Fer | EpeeCharbonFer | 49 |
+| 7 | Bronze + Fer | EpeeBronzeFer | 67 |
+| 8 | Or | EpeeOr | 91 |
+| 9 | Charbon + Or | EpeeCharbonOr | 124 |
+| 10 | Bronze + Or | EpeeBronzeOr | 169 |
+| 11 | Fer + Or | EpeeFerOr | 230 |
+
+Minerai **dominant** = celui en plus grande quantité ; à égalité, le minerai le plus rare (Bronze avant Charbon).
+L'ordre des minerais ne compte pas pour les autres paires (Fer + Charbon = EpeeCharbonFer).
+Les casques suivent la même logique (`Forge.ECHELLES.Casque`, 10 rangs, Défense).
+
+Après une forge réussie, le serveur lance la **cinématique de forge** (`ForgeCinematique`, voir `src/client/ForgeCinematique.client.lua`) ;
+la fenêtre de Brom se cache pendant et affiche le résultat après.
+
+| Fichier | Rôle |
+|---|---|
+| `src/partage/Forge.lua` | Recettes (logique pure partagée) : échelles épée/casque, minerai dominant, dégâts/défense, prix. |
+| `src/server/Forge.server.lua` | Valide la recette, débite minerais et Pièces, crée l'objet, lance la cinématique. |
+| `src/server/Epee.server.lua` | Construit l'épée en main (épée forgée équipée ou épée de base), attribut `Degats` sur l'outil. |
+| `src/client/Forge.client.lua` | Interface de la forge (aperçu 3D, proportions, célébration après la cinématique). |
+| `src/client/ForgeCinematique.client.lua` | Cinématique locale (~5,7 s) : Brom (clone, sur une estrade) martèle 6 fois un lingot de lave sur la grosse enclume, qui s'étire vers l'épée ou le casque, refroidit et révèle l'objet. Attribut joueur `ForgeCinematique` pendant ; repli en fondu si la forge n'est pas chargée. |
+
 ## Guilde des Mineurs (quêtes de Margot)
 
 Approche-toi de Margot (taverne) et appuie sur **E** : le tableau de la Guilde s'ouvre. Un « ! » au-dessus d'elle signale

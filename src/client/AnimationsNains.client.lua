@@ -305,11 +305,23 @@ RunService.RenderStepped:Connect(function(dt)
 	local perso = joueur.Character
 	local racine = perso and perso:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local horloge = os.clock()
+	local cinematique = joueur:GetAttribute("ForgeCinematique") == true
 	for modele, info in nains do
 		if not modele.Parent then
 			nains[modele] = nil
 			continue
 		end
+		-- cinématique de forge : Brom figé au repos (ForgeCinematique.client le clone puis le cache)
+		if cinematique and modele.Name == "Brom" then
+			if not info.fige then
+				info.fige = true
+				info.suite, info.regard = nil, 0
+				info.pose = lirePose("Brom", "repos")
+				poserSegments(info, info.pose, 0, 0)
+			end
+			continue
+		end
+		info.fige = nil
 		if camera and (camera.CFrame.Position - info.pivots.cou).Magnitude > DISTANCE_ANIMATION then
 			continue
 		end
