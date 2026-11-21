@@ -27,6 +27,10 @@ local lampadaire = {
 	{"HeadTopStep", Vector3.new(1.0745, 0.312, 0.9528), CFrame.new(0.181, 11.4715, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1), Color3.new(0.698, 0.4353, 0.2157), Enum.Material.Wood, 0, true, false},
 	{"CantileverMainBeam", Vector3.new(4.7069, 0.45, 0.6352), CFrame.new(2.2833, 11.5015, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1), Color3.new(0.5686, 0.3294, 0.1529), Enum.Material.Wood, 0, true, false},
 	{"CantileverUpperSlab", Vector3.new(4.8754, 0.246, 0.7675), CFrame.new(2.3956, 11.8195, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1), Color3.new(0.698, 0.4353, 0.2157), Enum.Material.Wood, 0, true, false},
+	-- Ferrures discrètes, sans collision, qui renforcent visuellement le bras en bois.
+	{"ContreventementFer", Vector3.new(0.13, 1.65, 0.12), CFrame.new(0.76, 10.53, -0.25) * CFrame.Angles(0, 0, math.rad(-46)), Color3.fromRGB(49, 43, 42), Enum.Material.Metal, 0, false, false},
+	{"ContreventementFer", Vector3.new(0.13, 1.65, 0.12), CFrame.new(0.76, 10.53, 0.25) * CFrame.Angles(0, 0, math.rad(-46)), Color3.fromRGB(49, 43, 42), Enum.Material.Metal, 0, false, false},
+	{"CerclageBras", Vector3.new(0.12, 0.5, 0.68), CFrame.new(1.45, 11.5, 0), Color3.fromRGB(49, 43, 42), Enum.Material.Metal, 0, false, false},
 	{"CantileverTip", Vector3.new(0.5335, 0.414, 0.7675), CFrame.new(3.8564, 11.5015, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1), Color3.new(0.5686, 0.3294, 0.1529), Enum.Material.Wood, 0, true, false},
 	{"LeftUndersideStep", Vector3.new(0.6178, 0.348, 0.6263), CFrame.new(1.2839, 11.1355, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1), Color3.new(0.3608, 0.2118, 0.1137), Enum.Material.Wood, 0, true, false},
 	{"LeftInnerStep", Vector3.new(0.5616, 0.384, 0.7587), CFrame.new(0.4212, 10.8835, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1), Color3.new(0.5686, 0.3294, 0.1529), Enum.Material.Wood, 0, true, false},

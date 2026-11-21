@@ -47,6 +47,78 @@ end
 
 -- ================= Gare du village =================
 
+local function preparerDepart(m)
+	local g = vers(Vector3.new(14, 0, -114), Vector3.new(0, 0, -114))
+	-- Nettoie uniquement les pièces de l'ancien guichet sur les cartes figées.
+	local anciennesPieces = {
+		Socle = g * CFrame.new(0, 0.5, 0),
+		Cabane = g * CFrame.new(0, 4.5, 0.3),
+		Guichet = g * CFrame.new(0, 5, -2.25),
+		Fronton = g * CFrame.new(0, 7.2, -2.55),
+	}
+	for _, piece in m:GetChildren() do
+		if piece:IsA("BasePart") then
+			local ancien = anciennesPieces[piece.Name]
+			local toitGuichet = piece.Name == "Toit" and (piece.Position - Vector3.new(14, 9.2, -114)).Magnitude < 5
+			if (ancien and (piece.Position - ancien.Position).Magnitude < 0.2) or toitGuichet then piece:Destroy() end
+		end
+	end
+	local precedent = m:FindFirstChild("LevierDepart")
+	if precedent and precedent:GetAttribute("Version") == 5 then return end
+	if precedent then precedent:Destroy() end
+	local cf = CFrame.new(11.6, 2, -125) * CFrame.Angles(0, math.pi / 2, 0)
+	local levier = O.modele(m, "LevierDepart")
+	levier:SetAttribute("Version", 5)
+	O.bloc(levier, Vector3.new(1.2, 6, 1.2), cf * CFrame.new(0, 3, 0), C.BoisFonce, M.Bois, "Poteau")
+	local panneau = O.bloc(levier, Vector3.new(4.2, 1.7, 0.35), cf * CFrame.new(0, 6.8, -0.25), C.BoisFonce, M.Planches, "Panneau")
+	O.texte(panneau, Enum.NormalId.Front, "DÉPART")
+	O.bloc(levier, Vector3.new(1.2, 1.5, 0.2), cf * CFrame.new(1.55, 6.8, -0.53), C.Fer, M.Metal, "Platine")
+	O.decor(O.bloc(levier, Vector3.new(0.2, 1.1, 0.2), cf * CFrame.new(1.55, 7, -0.79) * CFrame.Angles(math.rad(-30), 0, 0), C.Fer, M.Metal, "Manche"))
+	O.decor(O.ellipsoide(levier, Vector3.new(0.45, 0.45, 0.45), cf * CFrame.new(1.55, 7.45, -1.05), Color3.fromRGB(142, 43, 34), M.Metal, "Poignee"))
+	-- Le repère invisible conserve la position précédente de l'invite d'interaction.
+	local repere = O.decor(O.bloc(levier, Vector3.new(0.1, 0.1, 0.1), cf * CFrame.new(0, 5.15, -1.24), C.Fer, M.Metal, "RepereInteraction"))
+	repere.Transparency = 1
+	repere.CanQuery = false
+	repere.CanTouch = false
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "ActionnerDepart"
+	prompt.ActionText = "Actionner"
+	prompt.ObjectText = "Départ"
+	prompt.KeyboardKeyCode = Enum.KeyCode.F
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 25
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = repere
+end
+
+-- Commande de retour placée au bord du quai, utilisable depuis le wagon arrêté.
+local function preparerRetour(caverne)
+	local precedent = caverne:FindFirstChild("LevierRetour")
+	if precedent and precedent:GetAttribute("Version") == 3 then return end
+	if precedent then precedent:Destroy() end
+	local cf = CFrame.new(-9.7, D.CAVERNE_SOL, -395) * CFrame.Angles(0, -math.pi / 2, 0)
+	local levier = O.modele(caverne, "LevierRetour")
+	levier:SetAttribute("Version", 3)
+	O.bloc(levier, Vector3.new(1.2, 4.5, 1.2), cf * CFrame.new(0, 2.25, 0), C.BoisFonce, M.Bois, "Poteau")
+	local panneau = O.bloc(levier, Vector3.new(4.2, 1.7, 0.35), cf * CFrame.new(0, 5.3, -0.25), C.BoisFonce, M.Planches, "Panneau")
+	O.texte(panneau, Enum.NormalId.Front, "RETOUR")
+	O.bloc(levier, Vector3.new(1.2, 1.5, 0.2), cf * CFrame.new(1.55, 5.3, -0.53), C.Fer, M.Metal, "Platine")
+	O.decor(O.bloc(levier, Vector3.new(0.2, 1.1, 0.2), cf * CFrame.new(1.55, 5.5, -0.79) * CFrame.Angles(math.rad(-30), 0, 0), C.Fer, M.Metal, "Manche"))
+	O.decor(O.ellipsoide(levier, Vector3.new(0.45, 0.45, 0.45), cf * CFrame.new(1.55, 5.95, -1.05), Color3.fromRGB(142, 43, 34), M.Metal, "Poignee"))
+	local repere = O.decor(O.bloc(levier, Vector3.new(0.1, 0.1, 0.1), cf * CFrame.new(0, 3.65, -1.24), C.Fer, M.Metal, "RepereInteraction"))
+	repere.Transparency = 1
+	repere.CanQuery = false
+	repere.CanTouch = false
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "ActionnerRetour"
+	prompt.ActionText = "Actionner"
+	prompt.ObjectText = "Retour à la gare"
+	prompt.KeyboardKeyCode = Enum.KeyCode.F
+	prompt.MaxActivationDistance = 25
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = repere
+end
+
 local function gare(f, rng)
 	local m = O.modele(f, "Gare")
 	local zc, x0 = -123, -14.5
@@ -74,15 +146,8 @@ local function gare(f, rng)
 	B.caisse(m, CFrame.new(-21.3, 4.8, -144) * CFrame.Angles(0, 0.4, 0), 2)
 	B.tonneau(m, CFrame.new(-21.8, 2.2, -104))
 
-	-- Guichet des départs (côté est de la voie)
-	local g = vers(Vector3.new(14, 0, -114), Vector3.new(0, 0, -114))
-	O.bloc(m, Vector3.new(7, 1, 6), g * CFrame.new(0, 0.5, 0), C.PierreFoncee, M.Pierre, "Socle")
-	O.bloc(m, Vector3.new(6, 7, 5), g * CFrame.new(0, 4.5, 0.3), C.Bois, M.Planches, "Cabane")
-	local guichet = O.bloc(m, Vector3.new(3.4, 2.2, 0.3), g * CFrame.new(0, 5, -2.25), C.Fenetre, M.Neon, "Guichet")
-	guichet.Transparency = 0.3
-	O.coin(m, Vector3.new(7.4, 2.4, 3.2), g * CFrame.new(0, 9.2, -1.3), C.Toit, M.Tuiles, "Toit")
-	O.coin(m, Vector3.new(7.4, 2.4, 3.2), g * CFrame.new(0, 9.2, 1.9) * CFrame.Angles(0, math.pi, 0), C.Toit, M.Tuiles, "Toit")
-	B.fronton(m, g * CFrame.new(0, 7.2, -2.2), "DÉPARTS", 5)
+	-- Levier autonome en bordure de voie.
+	preparerDepart(m)
 
 	-- Butoir et wagonnets qui attendent
 	B.butoir(m, CFrame.new(0, 2, -100.5))
@@ -133,8 +198,60 @@ local function voie(f)
 	B.butoir(m, CFrame.new(D.QUAI_BAS + hauteurSol + Vector3.new(0, 0, -0.5)) * CFrame.Angles(0, math.pi, 0))
 end
 
+-- Remplace uniquement l'enseigne du portail, y compris sur une carte figée.
+local ENSEIGNE_LARGEUR = 150
+local ENSEIGNE_HAUTEUR = 24
+local ENSEIGNE_Y = D.PORTAIL_HAUTEUR + 18
+local ENSEIGNE_Z = D.PORTAIL_Z + 8
+local function preparerEnseigne(mine)
+	local portail = mine:FindFirstChild("Portail")
+	if not portail then return end
+	local existante = portail:FindFirstChild("EnseigneGrandeMine")
+	if existante and existante:GetAttribute("Version") == 4 then return end
+	if existante then existante:Destroy() end
+	local ancienne = portail:FindFirstChild("Enseigne")
+	if ancienne and ancienne:IsA("BasePart") then ancienne:Destroy() end
+	local cadre = O.modele(portail, "EnseigneGrandeMine")
+	cadre:SetAttribute("Version", 4)
+	local y, z = ENSEIGNE_Y, ENSEIGNE_Z
+	local panneau = O.decor(O.bloc(cadre, Vector3.new(ENSEIGNE_LARGEUR, ENSEIGNE_HAUTEUR, 0.8), CFrame.new(0, y, z), Color3.fromRGB(187, 143, 91), M.Planches, "Panneau"))
+	O.lumiere(panneau, Color3.fromRGB(255, 190, 112), 0.7, 24, false)
+	local texte = O.texte(panneau, Enum.NormalId.Back, "LA GRANDE MINE", {ppp = 16, police = Enum.Font.Fondamento, couleur = C.Or})
+	local label = texte:FindFirstChild("Label")
+	if label and label:IsA("TextLabel") then
+		label.Size = UDim2.fromScale(0.98, 0.96)
+		label.Position = UDim2.fromScale(0.01, 0.02)
+		label.TextStrokeColor3 = Color3.fromRGB(24, 14, 8)
+		label.TextStrokeTransparency = 0.25
+	end
+	O.decor(O.bloc(cadre, Vector3.new(12, 0.18, 0.12), CFrame.new(0, y - ENSEIGNE_HAUTEUR * 0.42, z + 0.43), Color3.fromRGB(103, 35, 36), M.Bois, "Ornement"))
+	for _, hauteur in {-ENSEIGNE_HAUTEUR / 2 - 0.35, ENSEIGNE_HAUTEUR / 2 + 0.35} do
+		O.decor(O.bloc(cadre, Vector3.new(ENSEIGNE_LARGEUR + 1.6, 0.8, 1.05), CFrame.new(0, y + hauteur, z + 0.1), C.BoisFonce, M.Bois, "Traverse"))
+	end
+	local bord = ENSEIGNE_LARGEUR / 2 + 0.4
+	for _, x in {-bord, bord} do
+		O.decor(O.bloc(cadre, Vector3.new(0.8, ENSEIGNE_HAUTEUR + 1.5, 1.05), CFrame.new(x, y, z + 0.1), C.BoisFonce, M.Bois, "Bordure"))
+		for _, dy in {-ENSEIGNE_HAUTEUR / 2 + 1, ENSEIGNE_HAUTEUR / 2 - 1} do
+			O.decor(O.bloc(cadre, Vector3.new(0.55, 0.55, 0.16), CFrame.new(x, y + dy, z + 0.72), C.Fer, M.Metal, "Rivet"))
+		end
+	end
+	-- Deux chaînes stylisées relient le panneau à sa poutre supérieure.
+	local poutreY = y + ENSEIGNE_HAUTEUR / 2 + 5
+	O.decor(O.bloc(cadre, Vector3.new(ENSEIGNE_LARGEUR + 8, 1.8, 1.8), CFrame.new(0, poutreY, z - 0.25), C.BoisFonce, M.Bois, "PoutreSuspension"))
+	for _, x in {-ENSEIGNE_LARGEUR * 0.4, ENSEIGNE_LARGEUR * 0.4} do
+		for i = 0, 3 do
+			O.decor(O.bloc(cadre, Vector3.new(0.35, 0.85, 0.35), CFrame.new(x, y + ENSEIGNE_HAUTEUR / 2 + 1 + i, z), C.Fer, M.Metal, "MaillonChaine"))
+		end
+	end
+end
+
 -- Actualise la voie des cartes déjà enregistrées sans reconstruire la mine.
 function Mine.preparerVoie(mine)
+	preparerEnseigne(mine)
+	local gareExistante = mine:FindFirstChild("Gare")
+	if gareExistante then preparerDepart(gareExistante) end
+	local caverneExistante = mine:FindFirstChild("Caverne")
+	if caverneExistante then preparerRetour(caverneExistante) end
 	degagerDescente(mine)
 	local ancienne = mine:FindFirstChild("Voie")
 	if not ancienne or ancienne:GetAttribute("VersionVoie") == 1 then return end
@@ -146,7 +263,6 @@ function Mine.preparerVoie(mine)
 	ancienne:Destroy()
 	nouvelle.Parent = mine
 	temporaire:Destroy()
-	local gareExistante = mine:FindFirstChild("Gare")
 	local ancienButoir = gareExistante and gareExistante:FindFirstChild("Butoir")
 	if ancienButoir then
 		B.butoir(gareExistante, CFrame.new(0, 2, -100.5))
@@ -179,8 +295,7 @@ local function portail(f, rng)
 	O.bloc(m, Vector3.new(W + 0.2, 12, 8), CFrame.new(0, H + 6, z), pierre, M.Granite, "Linteau")
 	O.bloc(m, Vector3.new(W, 3.5, 3.5), CFrame.new(0, H - 1.75, z + 3), C.BoisFonce, M.Bois, "Poutre")
 	O.bloc(m, Vector3.new(6, 6, 9), CFrame.new(0, H + 3.5, z), C.PierreClaire, M.Pierre, "CleDeVoute")
-	local enseigne = O.bloc(m, Vector3.new(30, 5, 0.6), CFrame.new(0, H + 9, z + 4.3), C.BoisFonce, M.Planches, "Enseigne")
-	O.texte(enseigne, Enum.NormalId.Back, "LA GRANDE MINE", {ppp = 24})
+	preparerEnseigne(f)
 
 	-- Cristaux géants qui sortent de la falaise
 	for _, c in {{-48, 36, 24, C.Cristal}, {-30, 58, 20, C.CristalViolet}, {42, 30, 26, C.CristalViolet}, {26, 62, 18, C.Cristal}, {62, 18, 16, C.Cristal}} do
@@ -261,6 +376,7 @@ local function caverne(f, rng)
 	end
 	local enseigne = O.bloc(m, Vector3.new(11, 2.6, 0.4), CFrame.new(-12, y + 10, -376.5), C.BoisFonce, M.Planches, "Enseigne")
 	O.texte(enseigne, Enum.NormalId.Back, "QUAI DES PROFONDEURS")
+	preparerRetour(m)
 
 	-- Grand amas de cristaux violets
 	local amas = CFrame.new(-30, y - 0.5, -445)

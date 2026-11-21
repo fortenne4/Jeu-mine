@@ -3,6 +3,10 @@
 local Lighting = game:GetService("Lighting")
 
 local Ambiance = {}
+local HEURE_CREPUSCULE = 18.15
+local OMBRE_FROIDE = Color3.fromRGB(47, 40, 61)
+local LUMIERE_AMBIANTE = Color3.fromRGB(105, 93, 118)
+local INTENSITE_BLOOM = 0.85
 
 local function nouveau(classe, props)
 	local i: any = Instance.new(classe)
@@ -14,11 +18,11 @@ local function nouveau(classe, props)
 end
 
 function Ambiance.appliquer()
-	Lighting.ClockTime = 17.7
+	Lighting.ClockTime = HEURE_CREPUSCULE
 	Lighting.GeographicLatitude = 30
 	Lighting.Brightness = 2.4
-	Lighting.Ambient = Color3.fromRGB(52, 42, 50)
-	Lighting.OutdoorAmbient = Color3.fromRGB(132, 106, 100)
+	Lighting.Ambient = OMBRE_FROIDE
+	Lighting.OutdoorAmbient = LUMIERE_AMBIANTE
 	Lighting.ColorShift_Top = Color3.fromRGB(255, 196, 150)
 	Lighting.EnvironmentDiffuseScale = 0.55
 	Lighting.EnvironmentSpecularScale = 0.8
@@ -40,7 +44,7 @@ function Ambiance.appliquer()
 		Glare = 0.45,
 		Haze = 2.2,
 	})
-	nouveau("BloomEffect", {Intensity = 0.7, Size = 28, Threshold = 1.4})
+	nouveau("BloomEffect", {Intensity = INTENSITE_BLOOM, Size = 28, Threshold = 1.4})
 	nouveau("SunRaysEffect", {Intensity = 0.07, Spread = 0.75})
 	nouveau("ColorCorrectionEffect", {
 		Brightness = 0.02,

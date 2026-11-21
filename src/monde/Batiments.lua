@@ -58,6 +58,10 @@ function B.porte(parent, cf)
 		O.bloc(parent, Vector3.new(0.6, 7.3, 0.6), cf * CFrame.new(x, 3.65, -0.3), C.BoisFonce, M.Bois, "Montant")
 	end
 	O.decor(O.bloc(parent, Vector3.new(0.25, 0.7, 0.3), cf * CFrame.new(1.3, 3.5, -0.4), C.Fer, M.Metal, "Poignee"))
+	-- Ferrures plaquées : elles ne gênent ni l'accès ni les interactions.
+	for _, y in {1.4, 5.6} do
+		O.decor(O.bloc(parent, Vector3.new(1.15, 0.18, 0.08), cf * CFrame.new(-0.95, y, -0.34), C.Fer, M.Metal, "FerrurePorte"))
+	end
 	B.applique(parent, cf * CFrame.new(3.4, 5.2, 0))
 end
 
@@ -77,6 +81,9 @@ function B.fenetre(parent, cf, allumee, volet, rng)
 	if rng:NextNumber() < 0.6 then
 		for _, x in {-2.35, 2.35} do
 			O.bloc(parent, Vector3.new(1.3, 3.5, 0.25), cf * CFrame.new(x, 0, -0.2), volet, M.Planches, "Volet")
+			for _, y in {-1.05, 1.05} do
+				O.decor(O.bloc(parent, Vector3.new(1, 0.12, 0.08), cf * CFrame.new(x, y, -0.36), C.Fer, M.Metal, "FerrureVolet"))
+			end
 		end
 	end
 	if allumee and rng:NextNumber() < 0.3 then
@@ -214,7 +221,7 @@ function B.maison(parent, cf, o)
 	local E = o.etages or 1
 	local mur = o.mur or C.Platre
 	local toit = o.toit or C.Toit
-	local volet = o.volet or C.Volet
+	local volet = o.volet or Color3.fromRGB(110, 47, 52)
 	local m = O.modele(parent, o.nom or "Maison")
 
 	local socle = 1.6
@@ -258,6 +265,10 @@ function B.maison(parent, cf, o)
 				for i = 0, n do
 					O.bloc(m, Vector3.new(0.7, HE, 0.5), fcf * CFrame.new(-W / 2 + i * W / n, y0 + HE / 2, -0.2), C.BoisFonce, M.Bois, "Poteau")
 				end
+				-- Petites jambes de force aux extrémités, sous la poutre haute.
+				for _, s in {-1, 1} do
+					O.decor(O.bloc(m, Vector3.new(0.22, 1.5, 0.18), fcf * CFrame.new(s * (W / 2 - 0.7), y0 + HE - 1.05, -0.48) * CFrame.Angles(0, 0, s * 0.65), C.BoisFonce, M.Bois, "RenfortColombage"))
+				end
 			end
 		end
 	end
@@ -284,6 +295,10 @@ function B.maison(parent, cf, o)
 		local centre = cf * CFrame.new(0, haut + RH / 2, s * P / 4)
 		O.bloc(m, Vector3.new(L + 2 * depasse, 0.7, pente + depasse),
 			centre * CFrame.Angles(s * theta, 0, 0) * CFrame.new(0, 0.4, s * depasse / 2), toit, M.Tuiles, "Toit")
+		-- Rives de toit en bois, purement décoratives pour conserver les collisions.
+		for _, x in {-L / 2 - depasse + 0.15, L / 2 + depasse - 0.15} do
+			O.decor(O.bloc(m, Vector3.new(0.3, 0.22, pente + depasse), centre * CFrame.Angles(s * theta, 0, 0) * CFrame.new(x, 0.82, s * depasse / 2), C.BoisFonce, M.Bois, "RiveToit"))
+		end
 	end
 	O.bloc(m, Vector3.new(L + 2 * depasse + 0.4, 0.9, 0.9), cf * CFrame.new(0, haut + RH + 0.35, 0), C.BoisFonce, M.Bois, "Faitage")
 

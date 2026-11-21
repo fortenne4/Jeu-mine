@@ -155,7 +155,7 @@ end
 -- Chemins décoratifs posés sur le terrain réel, y compris sur les cartes figées.
 function Village.preparerSentiers(village)
 	local anciens = village:FindFirstChild("SentiersFontaine")
-	if anciens and anciens:GetAttribute("VersionSentiers") == 5 then
+	if anciens and anciens:GetAttribute("VersionSentiers") == 8 then
 		return
 	end
 	local sentiers = O.modele(village, "SentiersEnConstruction")
@@ -163,9 +163,9 @@ function Village.preparerSentiers(village)
 	local filtre = RaycastParams.new()
 	filtre.FilterType = Enum.RaycastFilterType.Include
 	filtre.FilterDescendantsInstances = {workspace.Terrain}
-	local terre = Color3.fromRGB(145, 112, 78)
-	-- Pierres de teintes assombries, avec quelques nuances terreuses et moussues.
-	local pierres = {Color3.fromRGB(80, 79, 75), Color3.fromRGB(99, 96, 88), Color3.fromRGB(68, 71, 68), Color3.fromRGB(87, 85, 74), Color3.fromRGB(77, 83, 68)}
+	local terre = Color3.fromRGB(97, 91, 103)
+	-- Pierres usées gris-violet, avec des nuances froides proches les unes des autres.
+	local pierres = {Color3.fromRGB(103, 98, 112), Color3.fromRGB(117, 111, 124), Color3.fromRGB(90, 88, 102), Color3.fromRGB(108, 102, 115), Color3.fromRGB(99, 98, 109)}
 	local function hauteur(x, z)
 		local resultat = workspace:Raycast(Vector3.new(x, 180, z), Vector3.new(0, -300, 0), filtre)
 		if resultat and resultat.Material ~= Enum.Material.Water then
@@ -177,7 +177,7 @@ function Village.preparerSentiers(village)
 		local h = hauteur(x, z)
 		if not h then return end
 		-- Des disques superposés forment des bords arrondis et évitent les trous.
-		local p = O.decor(O.cylindre(sentiers, 0.12, diametre * rng:NextNumber(0.94, 1.06), CFrame.new(x, h + 0.05 + rng:NextNumber(0, 0.004), z), terre, M.Terre, "Terre"))
+		local p = O.decor(O.cylindre(sentiers, 0.12, diametre * rng:NextNumber(0.94, 1.06), CFrame.new(x, h + 0.05 + rng:NextNumber(0, 0.004), z), terre, M.Paves, "Terre"))
 		p.CastShadow = false
 	end
 	local function pave(x, z)
@@ -240,7 +240,92 @@ function Village.preparerSentiers(village)
 	pavesAllee(0, -15, 0, -96, 10)
 	pavesAllee(0, -89, -14.5, -97, 8)
 	pavesAllee(0, 15, 0, D.RIVIERE_Z - 16, 9)
-	sentiers:SetAttribute("VersionSentiers", 5)
+	-- Pierres supplémentaires, espacées et irrégulières, sans modifier le tracé.
+	local ajouts = Random.new(29604)
+	for i = 0, 47 do
+		local angle = (i + ajouts:NextNumber(-0.4, 0.4)) * math.pi * 2 / 48
+		local distance = ajouts:NextNumber(12.6, 18.8)
+		pave(distance * math.cos(angle), distance * math.sin(angle))
+	end
+	local function ajouterPaves(x1, z1, x2, z2, largeur)
+		local debut, fin = Vector2.new(x1, z1), Vector2.new(x2, z2)
+		local direction = fin - debut
+		local normal = Vector2.new(-direction.Y, direction.X).Unit
+		local nombre = math.ceil(direction.Magnitude / 2)
+		for i = 0, nombre do
+			local centre = debut:Lerp(fin, i / nombre)
+			local cible = centre + normal * ajouts:NextNumber(-largeur * 0.38, largeur * 0.38)
+				+ direction.Unit * ajouts:NextNumber(-0.9, 0.9)
+			pave(cible.X, cible.Y)
+		end
+	end
+	ajouterPaves(0, -15, 0, -96, 10)
+	ajouterPaves(0, -89, -14.5, -97, 8)
+	ajouterPaves(0, 15, 0, D.RIVIERE_Z - 16, 9)
+	-- Assises et bordures suivent la même courbe que le chemin d'origine.
+	local function dalle(x, z, taille, angle, nom, couleur)
+		local h = hauteur(x, z)
+		if not h then return end
+		local p = O.decor(O.bloc(sentiers, Vector3.new(taille.X, 0.1, taille.Y), CFrame.new(x, h + 0.205, z) * CFrame.Angles(0, angle, 0), couleur, M.Pierre, nom))
+		p.CastShadow = false
+	end
+	local bordure = Color3.fromRGB(79, 74, 88)
+	for i = 0, 47 do
+		local angle = i * math.pi * 2 / 48
+		local ca, sa = math.cos(angle), math.sin(angle)
+		-- Les allées couvrent ces secteurs : éviter deux dalles au même niveau.
+		if math.abs(15.8 * ca) > 4.6 then
+			dalle(15.8 * ca, 15.8 * sa, Vector2.new(5.5, 1.7), -angle, "DalleReguliere", pierres[i % #pierres + 1])
+		end
+		for _, rayonBord in {12.1, 19.5} do
+			-- Ouvertures face aux allées, afin de ne pas barrer leur raccord.
+			if math.abs(rayonBord * ca) > 5.3 then
+				dalle(rayonBord * ca, rayonBord * sa, Vector2.new(0.45, rayonBord * 2 * math.sin(math.pi / 48)), -angle, "BordureCourbe", bordure)
+			end
+		end
+		if i % 8 == 2 then
+			local h = hauteur(20.1 * ca, 20.1 * sa)
+			if h then
+				O.decor(O.ellipsoide(sentiers, Vector3.new(1.1, 0.28, 0.8), CFrame.new(20.1 * ca, h + 0.15, 20.1 * sa), Color3.fromRGB(70, 91, 66), M.Herbe, "VerdureBordure"))
+			end
+		end
+	end
+	local function paverAllee(x1, z1, x2, z2, largeur, raccordGare)
+		local debut, fin = Vector2.new(x1, z1), Vector2.new(x2, z2)
+		local direction = fin - debut
+		local normal = Vector2.new(-direction.Y, direction.X).Unit
+		local nombre = math.ceil(direction.Magnitude / 3)
+		local angle = math.atan2(-direction.X, -direction.Y)
+		for i = 0, nombre do
+			local centre = debut:Lerp(fin, i / nombre)
+			for j = -1, 1 do
+				local position = centre + normal * j * largeur * 0.3
+				if not raccordGare or position.X < -5.2 then
+					dalle(position.X, position.Y, Vector2.new(largeur * 0.29, direction.Magnitude / nombre - 0.04), angle, "DalleReguliere", pierres[(i + j + 1) % #pierres + 1])
+				end
+			end
+			for _, signe in {-1, 1} do
+				local position = centre + normal * signe * largeur * 0.49
+				if (not raccordGare or position.X < -5.2) and (raccordGare or math.abs(centre.Y) > 19.5) then
+					dalle(position.X, position.Y, Vector2.new(0.45, direction.Magnitude / nombre - 0.02), angle, "Bordure", bordure)
+				end
+			end
+		end
+	end
+	paverAllee(0, -15, 0, -96, 10)
+	paverAllee(0, -89, -14.5, -97, 8, true)
+	paverAllee(0, 15, 0, D.RIVIERE_Z - 16, 9)
+	-- Extrémité en demi-cercle côté gare : elle reste décorative et hors de la voie.
+	local finGare = Vector2.new(-14.5, -97)
+	local axeGare = (finGare - Vector2.new(0, -89)).Unit
+	local normalGare = Vector2.new(-axeGare.Y, axeGare.X)
+	for i = 0, 11 do
+		local theta = -math.pi / 2 + (i + 0.5) * math.pi / 12
+		local direction = axeGare * math.cos(theta) + normalGare * math.sin(theta)
+		local position = finGare + direction * 3.9
+		dalle(position.X, position.Y, Vector2.new(0.45, 1.03), math.atan2(-direction.Y, direction.X), "BordureTerminusGare", bordure)
+	end
+	sentiers:SetAttribute("VersionSentiers", 8)
 	if anciens then anciens:Destroy() end
 	sentiers.Name = "SentiersFontaine"
 end

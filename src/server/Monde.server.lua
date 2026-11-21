@@ -3,6 +3,18 @@
 local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
 
+-- Les cartes figées conservent leurs anciennes enseignes : harmoniser uniquement
+-- les textes de surface créés par Outils.texte, sans toucher aux interfaces.
+local function harmoniserEnseignes(carte)
+    for _, objet in carte:GetDescendants() do
+        if objet:IsA("SurfaceGui") and (objet.Name == "TexteFront" or objet.Name == "TexteBack") then
+            local etiquette = objet:FindFirstChild("Label")
+            if etiquette and etiquette:IsA("TextLabel") then
+                etiquette.Font = Enum.Font.Antique
+            end
+        end
+    end
+end
 -- Carte figée : on la garde, sauf si les modèles 3D importés ont changé depuis
 local carte = workspace:FindFirstChild("Carte")
 if carte then
@@ -15,9 +27,14 @@ if carte then
 			Village.preparerFontaine(village)
 			Village.preparerToits(village)
 			Village.preparerSentiers(village)
+			require(monde:WaitForChild("DecorFontaine")).preparer(village)
 		end
 		local mine = carte:FindFirstChild("Mine")
 		if mine then require(monde:WaitForChild("Mine")).preparerVoie(mine) end
+		if not carte:FindFirstChild("HorizonMine") then require(monde:WaitForChild("HorizonMine")).construire(carte) end
+		if not carte:FindFirstChild("DecorVillage") then require(monde:WaitForChild("DecorVillage")).construire(carte) end
+		require(monde:WaitForChild("MineursDecor")).construire(carte)
+		harmoniserEnseignes(carte)
 		workspace:SetAttribute("MondeConstruit", true)
 		return
 	end
@@ -31,6 +48,8 @@ local ok, erreur = pcall(Monde.construire)
 if not ok then
 	warn("[Monde] Erreur pendant la construction : " .. tostring(erreur))
 end
+local carteConstruite = workspace:FindFirstChild("Carte")
+if carteConstruite then harmoniserEnseignes(carteConstruite) end
 workspace:SetAttribute("MondeConstruit", true)
 
 Players.CharacterAutoLoads = true

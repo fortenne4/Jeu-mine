@@ -180,7 +180,7 @@ function Outils.texte(part, face, texte, opts)
 	t.BackgroundTransparency = 1
 	t.Size = UDim2.fromScale(0.92, 0.8)
 	t.Position = UDim2.fromScale(0.04, 0.1)
-	t.Font = opts.police or Enum.Font.Fantasy
+	t.Font = opts.police or Enum.Font.Antique
 	t.Text = texte
 	t.TextScaled = true
 	t.TextColor3 = opts.couleur or C.Or

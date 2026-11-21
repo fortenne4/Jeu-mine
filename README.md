@@ -20,6 +20,14 @@ Le code vit dans `src/` et Rojo le synchronise avec Roblox Studio.
 2. Dans Studio, ouvrir l'onglet **Plugins** › **Rojo** › **Connect**.
 3. Lancer **Play** : la carte se construit en quelques secondes, puis les joueurs apparaissent sur la place.
 
+### Départ du wagonnet
+
+Le village comprend des chemins pavés, un décor fleuri autour de la fontaine et des accessoires miniers. Le style et la palette sont décrits dans `DIRECTION_ARTISTIQUE.md`.
+
+À la gare, appuie sur **E** pour monter dans le wagonnet vide, puis regarde le levier sous le panneau « Départ » et appuie sur **F** pour rejoindre le quai au fond de la mine. Pour remonter, monte dans le wagon et actionne avec **F** le levier « Retour » du quai souterrain. Le début du trajet est visible à la troisième personne, suivi d'un écran de chargement apparaissant progressivement jusqu'à l'arrivée. Si tu actionnes un levier à pied, un message te demande de monter dans le wagon.
+
+Depuis le wagon, le joueur lance une pierre à deux mains vers le levier ; le départ se déclenche à l'impact.
+
 > Si tu avais collé à la main les scripts de la pioche et des minerais dans ServerScriptService ou
 > StarterPlayerScripts, supprime ces anciennes copies. Rojo installe les siennes dans les dossiers « Jeu »
 > (sinon tu aurais deux pioches et des minerais en double).

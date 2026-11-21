@@ -13,6 +13,10 @@ local Terrain = require(script.Terrain)
 local Village = require(script.Village)
 local Mine = require(script.Mine)
 local Modeles3D = require(script.Modeles3D)
+local HorizonMine = require(script.HorizonMine)
+local DecorVillage = require(script.DecorVillage)
+local DecorFontaine = require(script.DecorFontaine)
+local MineursDecor = require(script.MineursDecor)
 
 local Monde = {}
 
@@ -82,6 +86,10 @@ function Monde.construire()
 	Terrain.construire()
 	Village.construire(carte)
 	Mine.construire(carte)
+	HorizonMine.construire(carte)
+	DecorVillage.construire(carte)
+	DecorFontaine.preparer(carte:WaitForChild("Village"))
+	MineursDecor.construire(carte)
 
 	carte:SetAttribute("Modeles3D", Modeles3D.signature())
 	carte.Parent = workspace
