@@ -54,6 +54,39 @@ par des scripts Python (`blender/`). Ils sont exportés en FBX dans `assets/` :
 | `assets/PNJ.fbx` | Ancienne version humaine des PNJ (ignorée si `Nains` est importé) |
 | `assets/Lierre.fbx` | 3 plaques de lierre grimpant + 1 retombant |
 | `assets/Rochers.fbx` | 5 rochers, 3 falaises stratifiées, 1 aiguille (dessus enneigé ou moussu) |
+| `assets/Arbres.fbx` | 3 pins sylvestres (`Pin1..3`) et 2 saules pleureurs (`Saule1..2`), d'après `previews/arbres/reference_*.png` (`blender/arbres.py`). Les pins remplacent les sapins en blocs de la vallée ; les saules poussent au bord de la rivière. Sans import : arbres en blocs |
+| `assets/Auberge.fbx` | Auberge à colombages (`blender/auberge.py`) : **style de toutes les maisons du village** |
+
+### Style des maisons : l'auberge
+
+`blender/auberge.py` reproduit l'image `previews/auberge/reference.png` : rez-de-chaussée en pierre (porte en arc,
+fenêtres à volets, jardinières), petit pignon à colombages à gauche, grand pignon à droite, toit central avec lucarne
+et cheminée, lierre, tonneaux, auvent. Aperçus : `previews/auberge/Auberge_face|cote|dos|planche.png`, et
+`Auberge_comparaison.png` (référence à gauche, planche à droite).
+
+Une fois `Auberge.fbx` importé dans `ServerStorage › Modeles3D` (même méthode que ci-dessous), **toutes les maisons**
+(`B.maison` dans `src/monde/Batiments.lua` : maisons, boutiques, taverne, entrepôts, moulin) utilisent ce modèle,
+mis à l'échelle de leur largeur. Le plâtre, les tuiles et les volets gardent une nuance de la couleur de chaque maison.
+Sans import, les maisons sont construites en blocs Roblox dans le même style (`maisonBlocs` dans `Batiments.lua`),
+sans rien à faire dans Studio. Quatre modèles (`modele = 1..4` dans l'appel à `B.maison`) :
+
+| Modèle | Silhouette | Utilisé pour |
+|---|---|---|
+| 1 | L'auberge : petit pignon à gauche, toit central avec lucarne, grand pignon en avancée à droite, auvent | Taverne, maisons |
+| 2 | Grand pignon central en avancée, toits latéraux avec lucarnes, pignons d'extrémité | Comptoir des minerais, maisons |
+| 3 | Étage entier à colombages en encorbellement, rangée de fenêtres, lucarnes | Pioches & outils, maisons |
+| 4 | Pignon sur rue et appentis à bois | Entrepôts, moulin, maisons |
+
+Chemins : un réseau de chemins du même style que l'anneau de la fontaine (terre, pavés, dalles, bordures) relie les
+maisons entre elles, les boutiques, la forge, la taverne, les entrepôts et le moulin. Chaque bâtiment se raccorde au plus
+court à un voisin ou au réseau existant (avenue, allée du pont, anneau de la fontaine), plus quelques liaisons entre voisins
+proches ; aucun chemin ne traverse une maison, une échoppe, la fontaine ou la rivière. L'allée du sud continue après le pont
+pour l'autre rive. Le point d'arrivée est l'attribut `Accueil` du bâtiment (posé dans `Village.lua`) ; le tracé et les
+lampadaires qui bordent les chemins sont faits par `Village.preparerSentiers`.
+
+`prestige = true` (maisons des PNJ) : porche couvert avec lanternes, bannières à la couleur de la boutique (`couleur`),
+potence avec panneau, jardinières à toutes les fenêtres, rez-de-chaussée plus haut. La forge (`B.forge`) garde son atelier
+ouvert mais prend le même style : pierre et colombages, toit de tuiles à deux pans, pignon de façade avec l'enseigne.
 
 Régénérer (après avoir modifié un script) :
 
@@ -61,7 +94,7 @@ Régénérer (après avoir modifié un script) :
 "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background --factory-startup --python blender/pnj.py
 ```
 
-(idem avec `lierre.py` et `rochers.py`). Des aperçus sont rendus dans `blender/apercus/`.
+(idem avec `lierre.py`, `rochers.py`, `auberge.py` et `arbres.py`). Des aperçus sont rendus dans `blender/apercus/`.
 
 ### Pioches fantasy (voxels à studs, style LihFolk)
 

@@ -155,7 +155,7 @@ end
 -- Chemins décoratifs posés sur le terrain réel, y compris sur les cartes figées.
 function Village.preparerSentiers(village)
 	local anciens = village:FindFirstChild("SentiersFontaine")
-	if anciens and anciens:GetAttribute("VersionSentiers") == 8 then
+	if anciens and anciens:GetAttribute("VersionSentiers") == 11 then
 		return
 	end
 	local sentiers = O.modele(village, "SentiersEnConstruction")
@@ -173,7 +173,10 @@ function Village.preparerSentiers(village)
 		end
 		return nil
 	end
+	-- Pendant le tracé des nouveaux chemins : vrai si le sol est déjà pavé à cet endroit (évite deux dalles au même niveau)
+	local occupe = nil
 	local function terreAuSol(x, z, diametre)
+		if occupe and occupe(x, z) then return end
 		local h = hauteur(x, z)
 		if not h then return end
 		-- Des disques superposés forment des bords arrondis et évitent les trous.
@@ -181,6 +184,7 @@ function Village.preparerSentiers(village)
 		p.CastShadow = false
 	end
 	local function pave(x, z)
+		if occupe and occupe(x, z) then return end
 		local h = hauteur(x, z)
 		if not h then return end
 		local p = O.decor(O.bloc(sentiers, Vector3.new(rng:NextNumber(0.6, 1.4), 0.11, rng:NextNumber(0.7, 1.55)), CFrame.new(x, h + 0.14, z) * CFrame.Angles(0, rng:NextNumber(-0.65, 0.65), 0), pierres[rng:NextInteger(1, #pierres)], M.Pierre, "Pave"))
@@ -264,6 +268,7 @@ function Village.preparerSentiers(village)
 	ajouterPaves(0, 15, 0, D.RIVIERE_Z - 16, 9)
 	-- Assises et bordures suivent la même courbe que le chemin d'origine.
 	local function dalle(x, z, taille, angle, nom, couleur)
+		if occupe and occupe(x, z, nom == "Bordure") then return end
 		local h = hauteur(x, z)
 		if not h then return end
 		local p = O.decor(O.bloc(sentiers, Vector3.new(taille.X, 0.1, taille.Y), CFrame.new(x, h + 0.205, z) * CFrame.Angles(0, angle, 0), couleur, M.Pierre, nom))
@@ -325,7 +330,236 @@ function Village.preparerSentiers(village)
 		local position = finGare + direction * 3.9
 		dalle(position.X, position.Y, Vector2.new(0.45, 1.03), math.atan2(-direction.Y, direction.X), "BordureTerminusGare", bordure)
 	end
-	sentiers:SetAttribute("VersionSentiers", 8)
+	-- Chemins vers toutes les maisons et boutiques, dans le même style (terre, pavés, dalles, bordures).
+	-- Le point d'arrivée est l'attribut « Accueil » posé par Village.construire sur chaque bâtiment.
+	-- L'allée du sud est prolongée après le pont pour les maisons de l'autre rive.
+	-- Couloirs déjà pavés (allées d'origine) : un nouveau chemin ne repose rien dessus.
+	local couloirs = {
+		{Vector2.new(0, -15), Vector2.new(0, -96), 5},
+		{Vector2.new(0, -89), Vector2.new(-14.5, -97), 4},
+		{Vector2.new(0, 15), Vector2.new(0, D.RIVIERE_Z - 16), 4.5},
+	}
+	local function dansCouloir(q, c)
+		local d = c[2] - c[1]
+		local t = math.clamp((q - c[1]):Dot(d) / d:Dot(d), 0, 1)
+		return (q - (c[1] + d * t)).Magnitude < c[3] + 0.4
+	end
+	local tous = {} -- couloirs de tous les nouveaux chemins (les bordures s'arrêtent à l'entrée des autres)
+	local function relier(c)
+		local x1, z1, x2, z2, largeur = c[1].X, c[1].Y, c[2].X, c[2].Y, c[3] * 2
+		occupe = function(x, z, bordure)
+			local q = Vector2.new(x, z)
+			local r = q.Magnitude
+			if r > 11.6 and r < 20.2 then
+				return true -- anneau de la fontaine
+			end
+			for _, autre in couloirs do
+				if dansCouloir(q, autre) then
+					return true
+				end
+			end
+			if bordure then
+				for _, autre in tous do
+					if autre ~= c and dansCouloir(q, autre) then
+						return true
+					end
+				end
+			end
+			return false
+		end
+		allee(x1, z1, x2, z2, largeur)
+		pavesAllee(x1, z1, x2, z2, largeur)
+		paverAllee(x1, z1, x2, z2, largeur)
+		occupe = nil
+		table.insert(couloirs, c)
+	end
+	local sudDebut, sudFin = D.RIVIERE_Z + 16, 140
+	-- Lampadaires (même modèle que ceux de l'avenue) le long des nouvelles allées
+	local lumieres = {}
+	local eclairage = village:FindFirstChild("Eclairage")
+	if eclairage then
+		for _, l in eclairage:GetChildren() do
+			table.insert(lumieres, l:GetPivot().Position)
+		end
+	end
+	local obstacle = RaycastParams.new()
+	obstacle.FilterType = Enum.RaycastFilterType.Exclude
+	obstacle.FilterDescendantsInstances = {sentiers}
+	obstacle.RespectCanCollide = true
+	local lampadaires = O.modele(sentiers, "LampadairesAllees")
+	local function lampadaire(pos, regard)
+		for _, autre in lumieres do
+			if (Vector3.new(autre.X, 0, autre.Z) - Vector3.new(pos.X, 0, pos.Z)).Magnitude < 9 then
+				return
+			end
+		end
+		local h = hauteur(pos.X, pos.Z)
+		if not h then
+			return
+		end
+		-- jamais sur un toit ou dans un mur : le sol doit être le terrain (ou un chemin)
+		local touche = workspace:Raycast(Vector3.new(pos.X, h + 40, pos.Z), Vector3.new(0, -60, 0), obstacle)
+		if touche and not touche.Instance:IsA("Terrain") and touche.Instance.Name ~= "Chemin" and touche.Instance.Name ~= "Dallage" then
+			return
+		end
+		B.lanterne(lampadaires, CFrame.lookAt(Vector3.new(pos.X, h, pos.Z), Vector3.new(regard.X, h, regard.Z)))
+		table.insert(lumieres, pos)
+	end
+	local function eclairer(debut, fin, largeur, depart)
+		local direction = fin - debut
+		local longueur = direction.Magnitude
+		local u = direction.Unit
+		local normal = Vector2.new(-u.Y, u.X)
+		local s, cote = depart, 1
+		while s < longueur - 7 do
+			local centre = debut + u * s
+			local p = centre + normal * cote * (largeur / 2 + 1.6)
+			lampadaire(Vector3.new(p.X, 0, p.Y), Vector3.new(centre.X, 0, centre.Y))
+			s += 13
+			cote = -cote
+		end
+	end
+	eclairer(Vector2.new(0, sudDebut), Vector2.new(0, sudFin), 9, 6)
+	-- Réseau de chemins entre les maisons (et pas en étoile depuis la fontaine) :
+	-- les maisons se relient au plus court entre elles ou aux allées existantes (arbre de longueur minimale),
+	-- plus quelques liaisons entre voisines proches. Un chemin ne traverse ni maison, ni échoppe, ni fontaine, ni rivière.
+	local batiments, noeuds = {}, {}
+	for _, d in village:GetDescendants() do
+		if d:IsA("Model") then
+			local accueil = d:GetAttribute("Accueil")
+			if typeof(accueil) == "Vector3" or d.Name == "Echoppe" then
+				local cf, taille = d:GetBoundingBox()
+				table.insert(batiments, {cf = cf, taille = taille})
+				if typeof(accueil) == "Vector3" then
+					table.insert(noeuds, {p = Vector2.new(accueil.X, accueil.Z), largeur = d:GetAttribute("LargeurAllee") or 6,
+						bat = #batiments, sud = accueil.Z > D.RIVIERE_Z})
+				end
+			end
+		end
+	end
+	-- points d'accroche sur le réseau existant : avenue de la gare, allée du pont, allée de l'autre rive, anneau de la fontaine
+	local accroches = {}
+	for z = -30, -90, -15 do
+		table.insert(accroches, Vector2.new(0, z))
+	end
+	for z = 30, D.RIVIERE_Z - 18, 15 do
+		table.insert(accroches, Vector2.new(0, z))
+	end
+	for z = sudDebut, sudFin, 12 do
+		table.insert(accroches, Vector2.new(0, z))
+	end
+	for k = 0, 7 do
+		local a = math.rad(22.5 + k * 45)
+		table.insert(accroches, Vector2.new(math.cos(a), math.sin(a)) * 19.5)
+	end
+	for _, p in accroches do
+		table.insert(noeuds, {p = p, largeur = 6, accroche = true, sud = p.Y > D.RIVIERE_Z})
+	end
+	local function valide(i, j)
+		local a, b = noeuds[i], noeuds[j]
+		if (a.accroche and b.accroche) or a.sud ~= b.sud then
+			return false
+		end
+		local d = b.p - a.p
+		local L = d.Magnitude
+		if L > 100 or L < 1 then
+			return false
+		end
+		if not (a.accroche or b.accroche) then
+			local t = math.clamp(-a.p:Dot(d) / (L * L), 0, 1)
+			if (a.p + d * t).Magnitude < 21 then
+				return false -- ne coupe pas à travers la fontaine
+			end
+		end
+		local n = math.max(2, math.ceil(L / 1.5))
+		for k = 1, n - 1 do
+			local q = a.p + d * (k / n)
+			for bi, bat in batiments do
+				local proche = (bi == a.bat and (q - a.p).Magnitude < 5) or (bi == b.bat and (q - b.p).Magnitude < 5)
+				if not proche then
+					local r = bat.cf:PointToObjectSpace(Vector3.new(q.X, bat.cf.Position.Y, q.Y))
+					if math.abs(r.X) < bat.taille.X / 2 + 1 and math.abs(r.Z) < bat.taille.Z / 2 + 1 then
+						return false
+					end
+				end
+			end
+		end
+		return true, L
+	end
+	local aretes = {}
+	for i = 1, #noeuds do
+		for j = i + 1, #noeuds do
+			local ok, L = valide(i, j)
+			if ok then
+				table.insert(aretes, {i, j, L})
+			end
+		end
+	end
+	table.sort(aretes, function(x, y)
+		return x[3] < y[3]
+	end)
+	local groupe = {}
+	local function racine(i)
+		while groupe[i] ~= i do
+			groupe[i] = groupe[groupe[i]]
+			i = groupe[i]
+		end
+		return i
+	end
+	local premiere
+	for i, nd in noeuds do
+		groupe[i] = i
+		if nd.accroche then
+			-- les accroches sont déjà reliées entre elles par les allées existantes
+			if premiere then
+				groupe[i] = premiere
+			else
+				premiere = i
+			end
+		end
+	end
+	local retenues, deja = {}, {}
+	for _, e in aretes do
+		local ri, rj = racine(e[1]), racine(e[2])
+		if ri ~= rj then
+			groupe[ri] = rj
+			table.insert(retenues, e)
+			deja[e[1] .. "-" .. e[2]] = true
+		end
+	end
+	-- petites boucles : chaque maison se relie aussi à sa plus proche voisine (si pas déjà fait)
+	for i, nd in noeuds do
+		if not nd.accroche then
+			for _, e in aretes do
+				local autre = if e[1] == i then e[2] elseif e[2] == i then e[1] else nil
+				if autre and not noeuds[autre].accroche then
+					if e[3] < 40 and not deja[e[1] .. "-" .. e[2]] then
+						table.insert(retenues, e)
+						deja[e[1] .. "-" .. e[2]] = true
+					end
+					break
+				end
+			end
+		end
+	end
+	for i, nd in noeuds do
+		if not nd.accroche and racine(i) ~= racine(premiere) then
+			warn(string.format("[Village] maison isolée : aucun chemin possible vers (%.0f, %.0f)", nd.p.X, nd.p.Y))
+		end
+	end
+	local sud = {Vector2.new(0, sudDebut), Vector2.new(0, sudFin), 4.5}
+	table.insert(tous, sud)
+	for _, e in retenues do
+		local a, b = noeuds[e[1]], noeuds[e[2]]
+		table.insert(tous, {a.p, b.p, math.min(a.largeur, b.largeur) / 2})
+	end
+	for _, c in tous do
+		relier(c)
+		if c ~= sud then
+			eclairer(c[1], c[2], c[3] * 2, 7)
+		end
+	end
+	sentiers:SetAttribute("VersionSentiers", 11)
 	if anciens then anciens:Destroy() end
 	sentiers.Name = "SentiersFontaine"
 end
@@ -384,10 +618,13 @@ local function boutiques(v, rng, obstacles)
 	local pos = Vector3.new(-60, 0, -14)
 	table.insert(obstacles, pos)
 	local cf = vers(pos, Vector3.zero)
-	local maisonComptoir = B.maison(m, cf, {largeur = 20, profondeur = 16, etages = 2, mur = C.Ocre, nom = "ComptoirMinerais", rng = rng})
-	B.fronton(maisonComptoir, cf * CFrame.new(0, hauteurEnseignes, -8), "COMPTOIR DES MINERAIS", 16)
+	local maisonComptoir, _, enseigneComptoir, largeurComptoir = B.maison(m, cf, {largeur = 20, profondeur = 16, etages = 2, mur = C.Ocre, nom = "ComptoirMinerais", rng = rng,
+		modele = 2, prestige = true, couleur = Color3.fromRGB(150, 58, 46)})
+	B.fronton(maisonComptoir, enseigneComptoir or cf * CFrame.new(0, hauteurEnseignes, -8), "COMPTOIR DES MINERAIS", largeurComptoir or 16)
 	local e = cf * CFrame.new(0, 0, -14.5)
 	B.echoppe(m, e, 10, Color3.fromRGB(150, 58, 46))
+	maisonComptoir:SetAttribute("Accueil", sol((e * CFrame.new(0, 0, -3.5)).Position))
+	maisonComptoir:SetAttribute("LargeurAllee", 7)
 	local minerais = {
 		{Color3.fromRGB(34, 34, 38), M.Ardoise},
 		{Color3.fromRGB(184, 100, 46), M.Metal},
@@ -419,11 +656,13 @@ local function boutiques(v, rng, obstacles)
 	pos = Vector3.new(-60, 0, 28)
 	table.insert(obstacles, pos)
 	cf = vers(pos, Vector3.zero)
-	local maisonOutilleur = B.maison(m, cf, {largeur = 24, profondeur = 14, etages = 2, mur = C.Platre, toit = C.ToitRouge,
-		nom = "Outilleur", lierreFacade = false, rng = rng})
-	B.fronton(maisonOutilleur, cf * CFrame.new(0, hauteurEnseignes, -7), "PIOCHES & OUTILS", 16)
+	local maisonOutilleur, _, enseigneOutilleur, largeurOutilleur = B.maison(m, cf, {largeur = 24, profondeur = 14, etages = 2, mur = C.Platre, toit = C.ToitRouge,
+		nom = "Outilleur", lierreFacade = false, rng = rng, modele = 3, prestige = true, couleur = Color3.fromRGB(52, 84, 140)})
+	B.fronton(maisonOutilleur, enseigneOutilleur or cf * CFrame.new(0, hauteurEnseignes, -7), "PIOCHES & OUTILS", largeurOutilleur or 16)
 	e = cf * CFrame.new(0, 0, -13.5)
 	B.echoppe(m, e, 10, Color3.fromRGB(52, 84, 140))
+	maisonOutilleur:SetAttribute("Accueil", sol((e * CFrame.new(0, 0, -3.5)).Position))
+	maisonOutilleur:SetAttribute("LargeurAllee", 7)
 	for i, c in {Color3.fromRGB(150, 154, 162), Color3.fromRGB(184, 100, 46), Color3.fromRGB(255, 196, 48)} do
 		B.pioche(m, e * CFrame.new(-3 + (i - 1) * 3, 3.55, 0) * CFrame.Angles(0, 0.25 * (i - 2), 0), c)
 	end
@@ -443,7 +682,9 @@ local function boutiques(v, rng, obstacles)
 	pos = Vector3.new(60, 0, -12)
 	table.insert(obstacles, pos)
 	cf = vers(pos, Vector3.zero)
-	B.forge(m, cf)
+	local forge = B.forge(m, cf)
+	forge:SetAttribute("Accueil", sol((cf * CFrame.new(0, 0, -12.5)).Position))
+	forge:SetAttribute("LargeurAllee", 7)
 	pnj = B.pnj(m, cf * CFrame.new(2, 1, 2.2), "Brom", "Forgeron",
 		tenue(Color3.fromRGB(72, 48, 32), Color3.fromRGB(74, 60, 46),
 			{peau = Color3.fromRGB(214, 160, 128), barbe = Color3.fromRGB(62, 42, 30), barbeLongue = true, coiffure = "chauve",
@@ -460,8 +701,10 @@ local function boutiques(v, rng, obstacles)
 	pos = Vector3.new(62, 0, 30)
 	table.insert(obstacles, pos)
 	cf = vers(pos, Vector3.zero)
-	B.maison(m, cf, {largeur = 26, profondeur = 18, etages = 2, mur = C.Platre, toit = C.ToitRouge, nom = "Taverne",
-		enseigne = "TAVERNE DU PIC DORÉ", rng = rng})
+	local taverne = B.maison(m, cf, {largeur = 26, profondeur = 18, etages = 2, mur = C.Platre, toit = C.ToitRouge, nom = "Taverne",
+		enseigne = "TAVERNE DU PIC DORÉ", rng = rng, modele = 1, prestige = true, couleur = Color3.fromRGB(196, 150, 44)})
+	taverne:SetAttribute("Accueil", sol((cf * CFrame.new(0, 0, -20.5)).Position))
+	taverne:SetAttribute("LargeurAllee", 7)
 	for _, x in {-8, 0, 8} do
 		B.tableTaverne(m, cf * CFrame.new(x, 0, -16))
 	end
@@ -499,16 +742,12 @@ local function maisons(v, rng, obstacles)
 		local pos = Vector3.new(d[1], 0, d[2])
 		table.insert(obstacles, pos)
 		local cf = vers(pos, Vector3.zero)
-		local _, porte = B.maison(m, cf, {
-			largeur = d[3], profondeur = d[4], etages = d[5], rng = rng, nom = "Maison" .. i,
+		local maison, porte = B.maison(m, cf, {
+			largeur = d[3], profondeur = d[4], etages = d[5], rng = rng, nom = "Maison" .. i, modele = (i - 1) % 4 + 1,
 			mur = MURS[rng:NextInteger(1, #MURS)], toit = TOITS[rng:NextInteger(1, #TOITS)], volet = VOLETS[rng:NextInteger(1, #VOLETS)],
 		})
-		local devant = (porte * CFrame.new(0, 0, -2.2)).Position
-		if pos.Z > D.RIVIERE_Z then
-			chemin(m, devant, Vector3.new(0, 0, devant.Z)) -- rejoint la route du sud
-		else
-			chemin(m, devant, sol(devant).Unit * (D.PLACE_RAYON - 1)) -- rejoint la place
-		end
+		-- l'allée pavée (preparerSentiers) part de la fontaine et arrive devant la porte
+		maison:SetAttribute("Accueil", sol((porte * CFrame.new(0, 0, -3.4)).Position))
 		if rng:NextNumber() < 0.6 then
 			B.tonneau(m, porte * CFrame.new(-3.6, -1.6, -1.6))
 		end
@@ -519,9 +758,9 @@ local function maisons(v, rng, obstacles)
 		local pos = Vector3.new(x, 0, -86)
 		table.insert(obstacles, pos)
 		local cf = vers(pos, Vector3.new(0, 0, -86))
-		local _, porte = B.maison(m, cf, {largeur = 24, profondeur = 16, etages = 1, mur = C.PlatreGris, toit = C.Toit,
-			nom = "Entrepot", enseigne = "ENTREPÔT", cheminee = false, rng = rng})
-		chemin(m, (porte * CFrame.new(0, 0, -2.2)).Position, Vector3.new(math.sign(x) * 8, 0, -86))
+		local entrepot, porte = B.maison(m, cf, {largeur = 24, profondeur = 16, etages = 1, mur = C.PlatreGris, toit = C.Toit,
+			nom = "Entrepot", enseigne = "ENTREPÔT", cheminee = false, rng = rng, modele = 4})
+		entrepot:SetAttribute("Accueil", sol((porte * CFrame.new(0, 0, -3.4)).Position))
 		for k = 0, 2 do
 			B.caisse(m, porte * CFrame.new(5 + k * 2.8, -1.6, -2.5))
 		end
@@ -549,7 +788,8 @@ local function riviere(v, rng)
 
 	-- Moulin à eau
 	local cfMoulin = CFrame.lookAt(Vector3.new(-34, 0, 60), Vector3.new(-34, 0, 0))
-	B.maison(m, cfMoulin, {largeur = 16, profondeur = 14, etages = 1, mur = C.Ocre, toit = C.Toit, nom = "Moulin", rng = rng})
+	local moulin, porteMoulin = B.maison(m, cfMoulin, {largeur = 16, profondeur = 14, etages = 1, mur = C.Ocre, toit = C.Toit, nom = "Moulin", rng = rng, modele = 4})
+	moulin:SetAttribute("Accueil", sol((porteMoulin * CFrame.new(0, 0, -3.4)).Position))
 	local axe = CFrame.new(-34, 1.5, 76) * CFrame.Angles(0, math.pi / 2, 0) -- axe X local = nord-sud
 	O.disque(m, 9, 0.8, axe * CFrame.new(4.5, 0, 0), C.Fer, M.Metal, "Axe")
 	O.bloc(m, Vector3.new(1.6, 9.2, 1.6), CFrame.new(-34, -3.4, 72.6), C.BoisFonce, M.Bois, "Support")
@@ -626,13 +866,6 @@ local function decor(v, rng, obstacles)
 	local zone = O.decor(O.bloc(m, Vector3.new(90, 8, 90), CFrame.new(0, 6, 0), Color3.new(1, 1, 1), M.Lisse, "ZoneLucioles"))
 	zone.Transparency = 1
 	O.lucioles(zone, Color3.fromRGB(255, 210, 140), 10)
-
-	-- Arbres d'automne dans le village
-	for _, p in {{-34, -62}, {34, -62}, {-86, 24}, {86, 22}, {-22, 104}, {22, 104}, {-128, -12}, {128, -14}, {-60, 96}, {60, 96}} do
-		local base = Vector3.new(p[1], -0.4, p[2])
-		table.insert(obstacles, base)
-		B.feuillu(m, base, rng:NextNumber(17, 24), rng)
-	end
 end
 
 local function nature(v, rng, obstacles)
@@ -677,8 +910,10 @@ local function nature(v, rng, obstacles)
 				local base = Vector3.new(x, h - 0.6, z)
 				if h > 15 or rng:NextNumber() < 0.55 then
 					B.pin(f, base, rng:NextNumber(22, 38), rng)
+				elseif math.abs(z - D.RIVIERE_Z) < 40 then
+					B.saule(f, base, rng:NextNumber(20, 27), rng) -- saules pleureurs au bord de la rivière
 				else
-					B.feuillu(f, base, rng:NextNumber(16, 24), rng)
+					B.pin(f, base, rng:NextNumber(22, 38), rng)
 				end
 				arbres += 1
 			end

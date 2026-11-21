@@ -27,7 +27,7 @@ function Monde.construire()
 	if nb > 0 then
 		print(string.format("[Monde] %d modèles 3D trouvés dans ServerStorage.Modeles3D", nb))
 		-- Diagnostic d'affichage : quelques pièces importées (maillage, taille, transparence)
-		for _, nom in {"Gaspard", "Lierre1", "Falaise1"} do
+		for _, nom in {"Gaspard", "Lierre1", "Falaise1", "Auberge"} do
 			local pieces = Modeles3D.pieces(nom)
 			if pieces then
 				local p: any = pieces[1]

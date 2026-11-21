@@ -19,9 +19,17 @@ local function charger(): {[string]: {MeshPart}}
 	local sources = {}
 	local dossier = ServerStorage:FindFirstChild("Modeles3D")
 	if dossier then
+		-- Modeles3D, plus les modèles rangés directement dans ServerStorage (ex. ServerStorage.Nains) :
+		-- sinon un dossier Modeles3D créé pour un autre import (arbres...) cacherait les nains.
+		local candidats = dossier:GetChildren()
+		for _, e in ServerStorage:GetChildren() do
+			if e ~= dossier and e.Name ~= "Monde" then
+				table.insert(candidats, e)
+			end
+		end
 		-- les nains remplacent l'ancien import « PNJ » (mêmes noms de pièces)
-		local nains = dossier:FindFirstChild("Nains", true) ~= nil
-		for _, e in dossier:GetChildren() do
+		local nains = dossier:FindFirstChild("Nains", true) ~= nil or ServerStorage:FindFirstChild("Nains") ~= nil
+		for _, e in candidats do
 			if not (nains and e.Name == "PNJ") then
 				table.insert(sources, e)
 			end
