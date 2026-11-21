@@ -21,6 +21,8 @@ local BASALTE = Enum.Material.Basalt
 local NEIGE = Enum.Material.Snow
 local GLACIER = Enum.Material.Glacier
 local CALCAIRE = Enum.Material.Limestone
+local GRES = Enum.Material.Sandstone -- bancs rougeâtres dans les falaises
+local BOUE = Enum.Material.Mud -- roche humide, pied des parois
 
 local function lisse(a, b, t)
 	local u = math.clamp((t - a) / (b - a), 0, 1)
@@ -89,23 +91,45 @@ local function materiauSurface(x, z, h, pente)
 		end
 		return ROCHE
 	end
-	-- falaises : bandes de roches de couleurs différentes
+	-- falaises : strates géologiques ondulées (épaisseurs inégales), coulures sombres et mousse dans les fissures
 	if pente > 1.05 then
-		local couche = math.floor((h + 7 * bruit(x, z, 35, 9.9)) / 9) % 4
-		if couche == 1 then
-			return ARDOISE
-		elseif couche == 3 then
-			return CALCAIRE
+		-- coulures verticales d'humidité (ne dépendent que de x, z : elles descendent toute la paroi)
+		local coulure = bruit(x, z, 7, 12.4)
+		if coulure > 0.42 then
+			return if h < 140 and bruit(x, z, 5, 3.9) > 0.1 then HERBE_HAUTE else BASALTE
 		end
-		return ROCHE
-	end
-	-- pentes moyennes : éboulis de cailloux et de terre, quelques touffes d'herbe en bas
-	if pente > 0.6 then
-		local n = bruit(x, z, 10, 3.3)
-		if h < 90 and n > 0.3 then
+		-- mousse accrochée dans les creux, plus fréquente en bas
+		if h < 120 and bruit(x * 1.3, z * 1.3, 11, 2.6) > 0.48 - h / 600 then
 			return HERBE_HAUTE
 		end
-		return if n > 0.02 then ROCHE else TERRE
+		local niveau = h + 9 * bruit(x, z, 42, 9.9) + 4 * bruit(x, z, 13, 4.1)
+		local couche = math.floor(niveau / 6.5) % 7
+		if couche == 0 or couche == 4 then
+			return ROCHE
+		elseif couche == 1 then
+			return GRES
+		elseif couche == 2 then
+			return CALCAIRE
+		elseif couche == 3 then
+			return ARDOISE
+		elseif couche == 5 then
+			return if bruit(x, z, 20, 7.7) > 0 then CALCAIRE else GRES
+		end
+		return BASALTE
+	end
+	-- pentes moyennes : éboulis, terre, mousse et touffes d'herbe en bas
+	if pente > 0.6 then
+		local n = bruit(x, z, 10, 3.3)
+		if h < 110 and n > 0.22 then
+			return HERBE_HAUTE
+		end
+		if n < -0.35 then
+			return GRES
+		end
+		if h < 40 and bruit(x, z, 8, 5.2) > 0.3 then
+			return BOUE
+		end
+		return if n > -0.05 then ROCHE else TERRE
 	end
 	-- alpages : herbe rase, terre et rochers affleurants
 	if h > 130 then
@@ -250,10 +274,13 @@ function Terrain.construire()
 	terrain:SetMaterialColor(HERBE, Color3.fromRGB(98, 116, 56))
 	terrain:SetMaterialColor(HERBE_HAUTE, Color3.fromRGB(110, 118, 58))
 	terrain:SetMaterialColor(TERRE, Color3.fromRGB(104, 84, 64))
-	terrain:SetMaterialColor(ROCHE, Color3.fromRGB(112, 104, 98))
-	terrain:SetMaterialColor(ARDOISE, Color3.fromRGB(78, 76, 80))
-	terrain:SetMaterialColor(BASALTE, Color3.fromRGB(58, 54, 60))
-	terrain:SetMaterialColor(CALCAIRE, Color3.fromRGB(150, 138, 120))
+	-- palette chaude et variée (avant : gris uniforme) ; tons accordés au crépuscule de DIRECTION_ARTISTIQUE.md
+	terrain:SetMaterialColor(ROCHE, Color3.fromRGB(150, 130, 114))
+	terrain:SetMaterialColor(ARDOISE, Color3.fromRGB(112, 102, 122))
+	terrain:SetMaterialColor(BASALTE, Color3.fromRGB(76, 68, 78))
+	terrain:SetMaterialColor(CALCAIRE, Color3.fromRGB(200, 176, 138))
+	terrain:SetMaterialColor(GRES, Color3.fromRGB(190, 128, 94))
+	terrain:SetMaterialColor(BOUE, Color3.fromRGB(80, 66, 54))
 	terrain:SetMaterialColor(NEIGE, Color3.fromRGB(238, 228, 230))
 	terrain:SetMaterialColor(GLACIER, Color3.fromRGB(176, 200, 214))
 

@@ -3,9 +3,9 @@
 local Lighting = game:GetService("Lighting")
 
 local Ambiance = {}
-local HEURE_CREPUSCULE = 18.15
+local HEURE_CREPUSCULE = 17.75 -- fin de journée dorée : le soleil rase encore les falaises (détails des roches lisibles)
 local OMBRE_FROIDE = Color3.fromRGB(47, 40, 61)
-local LUMIERE_AMBIANTE = Color3.fromRGB(105, 93, 118)
+local LUMIERE_AMBIANTE = Color3.fromRGB(124, 108, 138) -- un peu plus claire : les falaises ne tombent plus dans le noir
 local INTENSITE_BLOOM = 0.85
 
 local function nouveau(classe, props)
@@ -26,7 +26,7 @@ function Ambiance.appliquer()
 	Lighting.ColorShift_Top = Color3.fromRGB(255, 196, 150)
 	Lighting.EnvironmentDiffuseScale = 0.55
 	Lighting.EnvironmentSpecularScale = 0.8
-	Lighting.ExposureCompensation = 0.1
+	Lighting.ExposureCompensation = 0.22
 	Lighting.ShadowSoftness = 0.25
 	Lighting.GlobalShadows = true
 
@@ -37,12 +37,13 @@ function Ambiance.appliquer()
 	end
 	nouveau("Atmosphere", {
 		Name = "Crepuscule",
-		Density = 0.32,
-		Offset = 0.15,
-		Color = Color3.fromRGB(226, 160, 128),
-		Decay = Color3.fromRGB(110, 76, 104),
-		Glare = 0.45,
-		Haze = 2.2,
+		-- un peu moins dense qu'avant : les crêtes, le château et les sommets lointains se détachent en plans successifs
+		Density = 0.29,
+		Offset = 0.32,
+		Color = Color3.fromRGB(228, 166, 140),
+		Decay = Color3.fromRGB(104, 78, 118),
+		Glare = 0.5,
+		Haze = 1.6,
 	})
 	nouveau("BloomEffect", {Intensity = INTENSITE_BLOOM, Size = 28, Threshold = 1.4})
 	nouveau("SunRaysEffect", {Intensity = 0.07, Spread = 0.75})

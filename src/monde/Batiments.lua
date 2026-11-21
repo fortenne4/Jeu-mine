@@ -1605,7 +1605,9 @@ local function roche3D(parent, nom, cible, taille, rng, parHauteur)
 	local k = taille / (if parHauteur then t.Y else math.max(t.X, t.Z))
 	local m = O.modele(parent, nom)
 	local altitude = cible.Position.Y + t.Y * k * 0.7
-	local teinte = C.Roche:Lerp(C.PierreFoncee, rng:NextNumber(0, 0.6))
+	-- roches de tons variés (brun chaud, ocre, grès rosé, gris violacé) plutôt qu'un gris unique
+	local TONS = {Color3.fromRGB(128, 110, 96), Color3.fromRGB(156, 132, 104), Color3.fromRGB(150, 104, 84), Color3.fromRGB(98, 90, 106)}
+	local teinte = TONS[rng:NextInteger(1, #TONS)]:Lerp(C.PierreFoncee, rng:NextNumber(0, 0.35))
 	M3.poser(pieces, S, cible, k, m, function(c, nomTeinte)
 		if nomTeinte == "Dessus" then
 			if altitude > 175 then

@@ -291,6 +291,35 @@ Le cercle « Sortie » derrière le point d'apparition ramène le joueur devant 
 | `src/server/CerclesTunnels.server.lua` | Détection serveur des cercles (boucle 0,1 s, morts ignorés, délai 2,5 s), streaming puis téléportation aller et retour. |
 | `src/monde/Mine.lua` | Portes encastrées (`portes`, version 2) et grand cristal ; `preparerPortes` / `preparerCristal` mettent à jour une carte figée. |
 
+## Bordures de la carte (château fort, sommets, cascades)
+
+`src/monde/Bordures.lua` habille le tour de la vallée (pur décor, aucune collision) :
+- **Château fort** perché sur la crête au-dessus de la mine, façade tournée vers la place : remparts crénelés, 6 tours à toits
+  coniques, châtelet avec herse et pont-levis, donjon, grande salle aux vitraux, tour du mage, bannières, fenêtres allumées,
+  torches et fumée de cheminée. Le site est choisi automatiquement (terrain plat en hauteur, au bord de la falaise) et aplani.
+- **Sommets lointains** : 18 massifs enneigés en anneau au-delà des montagnes jouables, qui s'estompent dans la brume.
+- **3 cascades** en particules (flanc du château, et deux qui alimentent la rivière à l'est et à l'ouest) : filets d'eau
+  alignés sur leur chute, gouttelettes, vapeur, ruisseaux d'eau du terrain sur les pentes douces, nuage d'embruns,
+  éclaboussures et bassin au pied ; la roche autour est mouillée et moussue.
+- **Parois stratifiées** (48, bords biseautés, inclinées comme la pente et encastrées, jamais sur les crêtes) sur les falaises : bancs de roche ocre, rose, brun et violet, joints et failles sombres,
+  corniches moussues, herbes, buissons fleuris, lierre qui pend, éboulis.
+- **Terrain des falaises** : strates géologiques ondulées (roche, grès, calcaire, ardoise, basalte), coulures d'humidité et mousse.
+- **Forêt d'altitude** (pins qui se raréfient en montant), **brumes**, **lucioles** (rivière et sous-bois)
+  et **oiseaux** (`src/client/Oiseaux.client.lua` : volées autour du château et de la vallée, deux rapaces qui planent).
+- **Faune** : troupeaux de **chèvres** sur les corniches herbeuses (`blender/chevre.py` → `assets/Chevre.fbx`), qui broutent
+  et relèvent la tête ; **papillons** autour du village ; **poissons** qui sautent dans la rivière ; **feuilles et pétales**
+  portés par le vent (`src/client/VieSauvage.client.lua` pour les animations, toutes locales au joueur).
+
+| Fichier | Rôle |
+|---|---|
+| `blender/chateau.py` → `assets/Chateau.fbx` | Modèle du château (pièces `Chateau_<Groupe>_<Teinte>`) ; aperçus `blender/apercus/chateau_*.png` |
+| `blender/cimes.py` → `assets/Cimes.fbx` | 3 massifs lointains `Cime1..3` (Roche / Neige / Ombre) ; aperçu `blender/apercus/cimes.png` |
+| `blender/parois.py` → `assets/Parois.fbx` | 4 pans de falaise `Paroi1..4` (pièces par teinte de roche + mousse, lierre, fleurs) ; aperçus `blender/apercus/parois*.png` |
+| `src/monde/Bordures.lua` | Placement, couleurs, cascades, parois, forêt, brumes, lucioles. Réglages dans `CONFIG` en tête de fichier. |
+
+Les FBX (et `Rochers.fbx`, `Lierre.fbx`) sont importés dans `ServerStorage › Modeles3D` de la place.
+Sans import, le petit château en blocs de `HorizonMine.lua` reste affiché : rien ne casse.
+
 ## Plan de la carte
 
 - Nord (-Z) : montagne de la mine. Les joueurs apparaissent sur la place (0, 0, 0), face à la mine.

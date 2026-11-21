@@ -17,6 +17,7 @@ local HorizonMine = require(script.HorizonMine)
 local DecorVillage = require(script.DecorVillage)
 local DecorFontaine = require(script.DecorFontaine)
 local MineursDecor = require(script.MineursDecor)
+local Bordures = require(script.Bordures)
 
 local Monde = {}
 
@@ -90,6 +91,10 @@ function Monde.construire()
 	DecorVillage.construire(carte)
 	DecorFontaine.preparer(carte:WaitForChild("Village"))
 	MineursDecor.construire(carte)
+	local ok, err = pcall(Bordures.construire, carte) -- décor de bordure : ne doit jamais empêcher le jeu de démarrer
+	if not ok then
+		warn("[Monde] Bordures non construites : " .. tostring(err))
+	end
 
 	carte:SetAttribute("Modeles3D", Modeles3D.signature())
 	carte.Parent = workspace
