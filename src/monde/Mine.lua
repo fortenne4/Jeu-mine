@@ -4,6 +4,7 @@ local D = require(script.Parent.Disposition)
 local O = require(script.Parent.Outils)
 local B = require(script.Parent.Batiments)
 local Cercle = require(script.Parent.CercleLumineux)
+local M3 = require(script.Parent.Modeles3D)
 local M, C = O.M, O.C
 
 local Mine = {}
@@ -155,50 +156,92 @@ local function voie(f)
 	B.butoir(m, CFrame.new(D.QUAI_BAS + hauteurSol + Vector3.new(0, 0, -0.5)) * CFrame.Angles(0, math.pi, 0))
 end
 
--- Remplace uniquement l'enseigne du portail, y compris sur une carte figée.
-local ENSEIGNE_LARGEUR = 150
-local ENSEIGNE_HAUTEUR = 24
-local ENSEIGNE_Y = D.PORTAIL_HAUTEUR + 18
-local ENSEIGNE_Z = D.PORTAIL_Z + 8
+-- Inscription « LA GRANDE MINE » en pierres taillées lumineuses, incrustée dans la falaise au-dessus du portail
+-- (remplace l'ancien grand panneau en bois). Modèle : blender/inscription.py → assets/Inscription.fbx.
+-- Texte de 170 studs de large (capitales d'environ 13) : la même taille que le texte de l'ancien panneau, lisible depuis la place.
+-- Sans le modèle 3D : lettres gravées en lumière dans des blocs de pierre (aucun panneau non plus).
+local INSCRIPTION_BASE_Y = D.PORTAIL_HAUTEUR + 33 -- au-dessus du couronnement rocheux de la façade
+local INSCRIPTION_LARGEUR = 170
+local INSCRIPTION_HAUTEUR = 13
+local function surfaceFalaise(): number
+	-- point le plus avancé de la paroi sur toute la largeur du texte (seulement le terrain)
+	local p = RaycastParams.new()
+	p.FilterType = Enum.RaycastFilterType.Include
+	p.FilterDescendantsInstances = {terrain}
+	local avant = -math.huge
+	for x = -INSCRIPTION_LARGEUR / 2, INSCRIPTION_LARGEUR / 2, 10 do
+		for _, y in {INSCRIPTION_BASE_Y + 2, INSCRIPTION_BASE_Y + INSCRIPTION_HAUTEUR / 2, INSCRIPTION_BASE_Y + INSCRIPTION_HAUTEUR - 2} do
+			local r = workspace:Raycast(Vector3.new(x, y, D.PORTAIL_Z + 60), Vector3.new(0, 0, -120), p)
+			if r then
+				avant = math.max(avant, r.Position.Z)
+			end
+		end
+	end
+	return if avant > -math.huge then avant else D.PORTAIL_Z - 2
+end
+
 local function preparerEnseigne(mine)
 	local portail = mine:FindFirstChild("Portail")
 	if not portail then return end
 	local existante = portail:FindFirstChild("EnseigneGrandeMine")
-	if existante and existante:GetAttribute("Version") == 4 then return end
+	if existante and existante:GetAttribute("Version") == 6 then return end
 	if existante then existante:Destroy() end
 	local ancienne = portail:FindFirstChild("Enseigne")
 	if ancienne and ancienne:IsA("BasePart") then ancienne:Destroy() end
 	local cadre = O.modele(portail, "EnseigneGrandeMine")
-	cadre:SetAttribute("Version", 4)
-	local y, z = ENSEIGNE_Y, ENSEIGNE_Z
-	local panneau = O.decor(O.bloc(cadre, Vector3.new(ENSEIGNE_LARGEUR, ENSEIGNE_HAUTEUR, 0.8), CFrame.new(0, y, z), Color3.fromRGB(187, 143, 91), M.Planches, "Panneau"))
-	O.lumiere(panneau, Color3.fromRGB(255, 190, 112), 0.7, 24, false)
-	local texte = O.texte(panneau, Enum.NormalId.Back, "LA GRANDE MINE", {ppp = 16, police = Enum.Font.Fondamento, couleur = C.Or})
-	local label = texte:FindFirstChild("Label")
-	if label and label:IsA("TextLabel") then
-		label.Size = UDim2.fromScale(0.98, 0.96)
-		label.Position = UDim2.fromScale(0.01, 0.02)
-		label.TextStrokeColor3 = Color3.fromRGB(24, 14, 8)
-		label.TextStrokeTransparency = 0.25
-	end
-	O.decor(O.bloc(cadre, Vector3.new(12, 0.18, 0.12), CFrame.new(0, y - ENSEIGNE_HAUTEUR * 0.42, z + 0.43), Color3.fromRGB(103, 35, 36), M.Bois, "Ornement"))
-	for _, hauteur in {-ENSEIGNE_HAUTEUR / 2 - 0.35, ENSEIGNE_HAUTEUR / 2 + 0.35} do
-		O.decor(O.bloc(cadre, Vector3.new(ENSEIGNE_LARGEUR + 1.6, 0.8, 1.05), CFrame.new(0, y + hauteur, z + 0.1), C.BoisFonce, M.Bois, "Traverse"))
-	end
-	local bord = ENSEIGNE_LARGEUR / 2 + 0.4
-	for _, x in {-bord, bord} do
-		O.decor(O.bloc(cadre, Vector3.new(0.8, ENSEIGNE_HAUTEUR + 1.5, 1.05), CFrame.new(x, y, z + 0.1), C.BoisFonce, M.Bois, "Bordure"))
-		for _, dy in {-ENSEIGNE_HAUTEUR / 2 + 1, ENSEIGNE_HAUTEUR / 2 - 1} do
-			O.decor(O.bloc(cadre, Vector3.new(0.55, 0.55, 0.16), CFrame.new(x, y + dy, z + 0.72), C.Fer, M.Metal, "Rivet"))
+	cadre:SetAttribute("Version", 6)
+
+	-- les lettres sont posées juste devant la roche la plus avancée ; derrière, une assise de roche sombre comble
+	-- les creux de la paroi (incrustées, jamais en l'air), et devant, le terrain est dégagé (rien ne les recouvre)
+	local z = surfaceFalaise() + 1.5
+	local y = INSCRIPTION_BASE_Y
+	local centreY = y + INSCRIPTION_HAUTEUR / 2
+	terrain:FillBlock(CFrame.new(0, centreY, z - 8), Vector3.new(INSCRIPTION_LARGEUR + 8, INSCRIPTION_HAUTEUR + 6, 12), Enum.Material.Slate)
+	terrain:FillBlock(CFrame.new(0, centreY, z + 3), Vector3.new(INSCRIPTION_LARGEUR + 8, INSCRIPTION_HAUTEUR + 4, 8), Enum.Material.Air)
+
+	local pieces = M3.pieces("Inscription")
+	if pieces then
+		local mn, mx = M3.boite(pieces)
+		local S = CFrame.new((mn.X + mx.X) / 2, mn.Y, (mn.Z + mx.Z) / 2)
+		local k = INSCRIPTION_LARGEUR / (mx.X - mn.X) -- par la largeur : le texte entier tient au-dessus du portail
+		local TEINTES = {
+			Pierre = {Color3.fromRGB(168, 156, 140), M.Calcaire},
+			Lueur = {Color3.fromRGB(255, 190, 96), M.Neon},
+			Gorge = {Color3.fromRGB(30, 24, 26), M.Ardoise},
+		}
+		-- la face du modèle (-Z) regarde le village (+Z du monde) : demi-tour
+		M3.poser(pieces, S, CFrame.new(0, y, z) * CFrame.Angles(0, math.pi, 0), k, cadre, function(c, teinte)
+			local t = TEINTES[teinte]
+			if t then
+				c.Color, c.Material = t[1], t[2]
+			end
+			O.decor(c)
+			c.CastShadow = teinte ~= "Lueur"
+		end)
+	else
+		-- secours : une pierre taillée par lettre, la lettre gravée en lumière sur sa face
+		local texte = "LA GRANDE MINE"
+		local n = #texte
+		local pas = INSCRIPTION_LARGEUR / n
+		for i = 1, n do
+			local lettre = texte:sub(i, i)
+			if lettre ~= " " then
+				local x = -INSCRIPTION_LARGEUR / 2 + (i - 0.5) * pas
+				local bloc = O.decor(O.bloc(cadre, Vector3.new(pas * 0.92, INSCRIPTION_HAUTEUR, 1.6), CFrame.new(x, y + INSCRIPTION_HAUTEUR / 2, z + 0.4),
+					Color3.fromRGB(150, 140, 128), M.Calcaire, "PierreLettre"))
+				local g = O.texte(bloc, Enum.NormalId.Back, lettre, {ppp = 12, police = Enum.Font.Fondamento, couleur = Color3.fromRGB(255, 196, 96), lumiere = 0})
+				local label = g:FindFirstChild("Label")
+				if label and label:IsA("TextLabel") then
+					label.Size, label.Position = UDim2.fromScale(0.96, 0.96), UDim2.fromScale(0.02, 0.02)
+				end
+			end
 		end
 	end
-	-- Deux chaînes stylisées relient le panneau à sa poutre supérieure.
-	local poutreY = y + ENSEIGNE_HAUTEUR / 2 + 5
-	O.decor(O.bloc(cadre, Vector3.new(ENSEIGNE_LARGEUR + 8, 1.8, 1.8), CFrame.new(0, poutreY, z - 0.25), C.BoisFonce, M.Bois, "PoutreSuspension"))
-	for _, x in {-ENSEIGNE_LARGEUR * 0.4, ENSEIGNE_LARGEUR * 0.4} do
-		for i = 0, 3 do
-			O.decor(O.bloc(cadre, Vector3.new(0.35, 0.85, 0.35), CFrame.new(x, y + ENSEIGNE_HAUTEUR / 2 + 1 + i, z), C.Fer, M.Metal, "MaillonChaine"))
-		end
+	-- lueur chaude qui baigne l'inscription
+	for _, x in {-50, 0, 50} do
+		local p = O.decor(O.bloc(cadre, Vector3.one, CFrame.new(x, y + INSCRIPTION_HAUTEUR / 2, z + 6), Color3.new(), M.Lisse, "Halo"))
+		p.Transparency = 1
+		O.lumiere(p, Color3.fromRGB(255, 180, 96), 1.4, 30)
 	end
 end
 

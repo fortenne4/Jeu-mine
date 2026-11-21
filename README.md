@@ -57,6 +57,8 @@ par des scripts Python (`blender/`). Ils sont exportés en FBX dans `assets/` :
 | `assets/Lierre.fbx` | 3 plaques de lierre grimpant + 1 retombant |
 | `assets/Rochers.fbx` | 5 rochers, 3 falaises stratifiées, 1 aiguille (dessus enneigé ou moussu) |
 | `assets/Arbres.fbx` | 3 pins sylvestres (`Pin1..3`) et 2 saules pleureurs (`Saule1..2`), d'après `previews/arbres/reference_*.png` (`blender/arbres.py`). Les pins remplacent les sapins en blocs de la vallée ; les saules poussent au bord de la rivière. Sans import : arbres en blocs |
+| `assets/Sapins.fbx` | 3 sapins / épicéas (`Sapin1..3`, `blender/sapins.py`, mêmes outils que `arbres.py`) : uniquement branches, rameaux qui retombent en peigne et aiguilles fines en arête de poisson (aucun volume en boule), vert sombre bleuté, ~47 000 triangles. Environ un arbre sur quatre dans les forêts et les bosquets, plus nombreux en altitude. Sans import : des pins à la place |
+| `assets/Inscription.fbx` | Inscription « LA GRANDE MINE » (`blender/inscription.py`, police Georgia Bold) : lettres en pierre taillée, cœur lumineux incrusté, gorge sombre. Incrustée dans la falaise au-dessus du portail (`preparerEnseigne`, `src/monde/Mine.lua`), 170 studs de large. Sans import : lettres gravées en lumière dans des blocs de pierre |
 | `assets/Auberge.fbx` | Auberge à colombages (`blender/auberge.py`) : **style de toutes les maisons du village** |
 
 ### Style des maisons : l'auberge
@@ -146,6 +148,14 @@ puis réimporter `assets/Nains.fbx` à la place de `ServerStorage › Nains`.
 > Les maillages importés appartiennent au compte Roblox de celui qui les importe : pour les autres membres,
 > Roblox peut refuser de les charger tant qu'ils ne sont pas partagés (groupe Roblox commun). Les pioches
 > passent alors automatiquement en version blocs.
+
+## Bâtiments des vendeurs
+
+Les stands des PNJ sont tous à la même distance de la place, juste devant la rue circulaire. Le bâtiment de chaque vendeur
+(`batimentVendeur`, `src/monde/Village.lua`) est plus grand qu'une maison et sa façade est collée derrière le stand.
+L'enseigne est montée sur les poteaux du stand, au-dessus de l'auvent (`enseigneStand`) : elle ne touche aucun mur.
+Chaque vendeur a son annexe : **tour de comptoir** en pierre (Gaspard), **atelier ouvert** avec meule, râtelier et grande
+pioche-enseigne (Liesel), **terrasse couverte** avec guirlandes lumineuses et enseigne (Margot). La forge de Brom est inchangée.
 
 ## Boutique de pioches (Liesel)
 
@@ -325,9 +335,17 @@ Sans import, le petit château en blocs de `HorizonMine.lua` reste affiché : ri
 - Nord (-Z) : montagne de la mine. Les joueurs apparaissent sur la place (0, 0, 0), face à la mine.
 - Place : fontaine circulaire en pierre, eau animée et bruit d'éclaboussure, cristal flottant, sentiers vers la gare et le pont, 8 points d'apparition, 2 tableaux de classement.
 - Ouest : comptoir des minerais et boutique de pioches, avec leurs enseignes au-dessus des auvents. Est : forge (épées et armures) et taverne.
+- Rues (plan dans `Village.RUES`, `src/monde/Village.lua`) : une rue circulaire pavée autour de la place passe devant les quatre comptoirs ;
+  les rues ouest et est partent entre les boutiques, bordées de deux rangées de maisons alignées façade sur la rue ;
+  la rue du sud, après le pont, a deux maisons de chaque côté et une au bout. Chaque porte est reliée à sa rue par une
+  courte allée perpendiculaire (`preparerSentiers`, version 12). Éclairage réduit à 16 lampadaires (place, avenue,
+  entrée / milieu / bout des rues) + les lanternes du pont (`lanternes`).
+- Rendu propre : `Village.terrasser` aplanit le terrain sous et autour de chaque bâtiment (talus en pente douce),
+  des **bosquets** (pins, saules près de l'eau) poussent dans les espaces sans maisons, et `Village.degager`
+  (appelé en fin de construction) retire tout arbre, rocher, falaise ou paroi posé sur une rue ou dans un bâtiment.
 - Les toits du village et les auvents des échoppes sont solides et font rebondir le joueur une fois à la réception d’un saut, y compris sur les bords. Depuis le sol, sauter vers un auvent proche donne l’élan pour monter dessus.
 - Avenue nord : gare des wagonnets et voie ferrée vieillie jusqu'à la caverne, avec butoirs rouges et blancs. Le joueur peut monter dans le wagonnet vide avec E et en sortir en sautant.
 - Mine : tunnel étayé, descente de 60 studs, grande caverne de cristal (grand cristal violet dans le lobe ouest) avec les 6 portes de tunnels privés encastrées dans la paroi.
-- Sud : rivière, pont de pierre, moulin à eau, autres maisons.
+- Sud : rivière, pont de pierre, moulin à eau (et son puits), rue du sud et ses maisons.
 
 Toutes les coordonnées sont dans `src/monde/Disposition.lua`.

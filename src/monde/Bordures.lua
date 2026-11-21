@@ -380,7 +380,8 @@ local function foret(parent, rng, B)
 		local pente = math.sqrt(gx * gx + gz * gz) / 8
 		-- les arbres se raréfient en montant, aucun au-dessus de la limite des neiges
 		if h > 25 and h < 190 and pente < 1.35 and rng:NextNumber() > (h - 25) / 260 then
-			local m = B.pin(f, Vector3.new(x, sol(x, z) - 0.8, z), rng:NextNumber(20, 34) * (1 - (h - 30) / 400), rng)
+			local planter = if rng:NextNumber() < 0.2 + h / 400 then B.sapin else B.pin -- les sapins dominent en altitude
+			local m = planter(f, Vector3.new(x, sol(x, z) - 0.8, z), rng:NextNumber(22, 36) * (1 - (h - 30) / 400), rng)
 			if m then
 				for _, d in m:GetDescendants() do
 					if d:IsA("BasePart") then

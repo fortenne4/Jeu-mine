@@ -266,7 +266,7 @@ local function auberge3D(parent, cf, o)
 	local droite = Vector3.yAxis:Cross(-avant)
 	local S = CFrame.fromMatrix(Vector3.new(centre.X, mn.Y, centre.Z), droite, Vector3.yAxis, -avant)
 	-- même largeur de rue que les maisons en blocs, sans rendre la porte ridicule
-	local k = math.clamp((o.largeur or 18) / 28, 0.65, 0.9)
+	local k = o.echelle or math.clamp((o.largeur or 18) / 28, 0.65, 0.9) -- o.echelle : bâtiments des vendeurs, plus grands
 
 	local rng = o.rng or Random.new()
 	local mur = (o.mur or C.Platre)
@@ -1516,6 +1516,8 @@ local TEINTES_ARBRES = {
 	RameauxClairs = {Color3.fromRGB(138, 160, 78), M.Lisse}, RameauxSombres = {Color3.fromRGB(70, 98, 46), M.Lisse},
 	Feuilles = {Color3.fromRGB(110, 140, 62), M.Lisse}, FeuillesClaires = {Color3.fromRGB(160, 176, 92), M.Lisse},
 	Pommes = {Color3.fromRGB(118, 84, 52), M.Bois}, AiguillesSombres = {Color3.fromRGB(38, 64, 36), M.Lisse},
+	-- sapins (blender/sapins.py) : vert plus sombre et bleuté que les pins
+	AiguillesSapin = {Color3.fromRGB(34, 66, 46), M.Lisse}, AiguillesSapinClaires = {Color3.fromRGB(70, 112, 64), M.Lisse},
 }
 local TRONC_PIN = Color3.fromRGB(176, 98, 54) -- haut du fût orangé (la pièce s'appelle aussi « Tronc »)
 local SOLIDES_ARBRES = {Ecorce = true, Tronc = true}
@@ -1552,6 +1554,11 @@ end
 -- Saule pleureur (au bord de l'eau) ; feuillu d'automne si les modèles 3D ne sont pas importés
 function B.saule(parent, base, h, rng)
 	return arbre3D(parent, "^Saule%d+$", "Saule", base, h, rng) or B.feuillu(parent, base, h * 0.8, rng)
+end
+
+-- Sapin (épicéa) modélisé ; un pin s'il n'est pas importé
+function B.sapin(parent, base, h, rng)
+	return arbre3D(parent, "^Sapin%d+$", "Sapin", base, h, rng) or B.pin(parent, base, h, rng)
 end
 
 function B.pin(parent, base, h, rng)

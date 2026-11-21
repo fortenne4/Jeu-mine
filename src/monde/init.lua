@@ -95,6 +95,11 @@ function Monde.construire()
 	if not ok then
 		warn("[Monde] Bordures non construites : " .. tostring(err))
 	end
+	-- dernier passage : aucun arbre, rocher ou falaise sur une rue ou dans un bâtiment
+	local okDegager, errDegager = pcall(Village.degager, carte)
+	if not okDegager then
+		warn("[Monde] Dégagement du village impossible : " .. tostring(errDegager))
+	end
 
 	carte:SetAttribute("Modeles3D", Modeles3D.signature())
 	carte.Parent = workspace
