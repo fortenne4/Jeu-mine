@@ -109,6 +109,10 @@ action.OnServerInvoke = function(joueur: Player, demande: any): Reponse
 	p.prochainId += 1
 	table.insert(p.objets, objet)
 	Donnees.notifier(joueur)
+	local quete = ServerStorage:FindFirstChild("QueteEvenement") -- Guilde des Mineurs (Quetes.server.lua)
+	if quete and quete:IsA("BindableEvent") then
+		quete:Fire("forger", joueur, res.type)
+	end
 	print(string.format("[Forge] %s forge %s (%s %d, %d %s)", joueur.Name, res.nom, res.stat, res.valeur, res.prix, CONFIG.MONNAIE))
 	return reponse(p, true, res.nom .. " forgé" .. (ACCORD[res.type] or "") .. " !", objet)
 end

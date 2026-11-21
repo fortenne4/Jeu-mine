@@ -82,6 +82,10 @@ local function partir(siege: Seat, humain: Humanoid, sens: string)
 		if not vivant(personnage, humain, racine) then return end
 		ejecter(humain)
 		personnage:PivotTo(arrivee)
+		local quete = ServerStorage:FindFirstChild("QueteEvenement") -- Guilde des Mineurs (Quetes.server.lua)
+		if quete and quete:IsA("BindableEvent") then
+			quete:Fire("wagon", joueur, sens)
+		end
 		if not attente.recu then return end
 		racine.Anchored = true
 		ancre = true

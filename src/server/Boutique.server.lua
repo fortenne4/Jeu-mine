@@ -118,6 +118,10 @@ action.OnServerInvoke = function(joueur: Player, demande: any): Reponse
 		sac[def.id] = true
 		equiper(joueur, def.id)
 		print(string.format("[Boutique] %s achète %s (%d %s)", joueur.Name, def.id, def.prix, CONFIG.MONNAIE))
+		local quete = ServerStorage:FindFirstChild("QueteEvenement") -- Guilde des Mineurs (Quetes.server.lua)
+		if quete and quete:IsA("BindableEvent") then
+			quete:Fire("pioche", joueur, def.id)
+		end
 		return reponse(joueur, true, def.nom .. " achetée !")
 	end
 	return reponse(joueur, false, "Requête invalide")

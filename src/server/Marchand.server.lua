@@ -85,7 +85,9 @@ local function encaisser(joueur: Player, p: Donnees.Profil, pieces: IntValue, id
 	if not Donnees.ajouterMinerai(joueur, id, -n) then
 		return nil
 	end
-	local gain = prix * n
+	-- Bonus de rang de la Guilde des Mineurs (attribut posé par Quetes.server.lua, en %), arrondi à l'inférieur
+	local bonus = math.clamp(tonumber(joueur:GetAttribute("BonusGuilde")) or 0, 0, 100)
+	local gain = math.floor(prix * n * (1 + bonus / 100))
 	pieces.Value += gain
 	return gain
 end

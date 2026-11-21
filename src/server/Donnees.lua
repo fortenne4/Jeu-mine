@@ -4,7 +4,7 @@
 -- si le joueur rejoint un autre serveur avant la fin de la sauvegarde, rien n'est dupliqué ni perdu.
 --
 -- Ce qui est sauvegardé : les Pièces (leaderstats), les pioches achetées, la pioche équipée,
--- le sac de minerais, les objets forgés chez Brom et l'équipement porté (schéma v3).
+-- le sac de minerais, les objets forgés chez Brom, l'équipement porté et les quêtes de la Guilde (schéma v4).
 -- Les autres scripts ne touchent jamais au DataStore : ils lisent/modifient le profil en mémoire.
 --   local Donnees = require(script.Parent.Donnees)
 --   local profil = Donnees.attendre(joueur)   -- nil si le joueur est parti avant le chargement
@@ -33,7 +33,7 @@ local CONFIG = {
 	-- Cette partie de test n'est alors pas sauvegardée, pour ne pas gonfler la vraie sauvegarde.
 	ARGENT_TEST_STUDIO = 5_000_000,
 }
-local VERSION = 3
+local VERSION = 4
 local MAX_OBJETS = 200
 
 -- Objet forgé chez Brom (Forge.server.lua) ; couleur en hexadécimal, composition {{idMinerai, quantite}},
@@ -49,6 +49,7 @@ export type Profil = {
 	objets: {Objet},
 	prochainId: number,
 	equipement: {[string]: string}, -- emplacement (type d'objet forgé) → id de l'objet porté
+	quetes: {[string]: any}, -- Guilde des Mineurs (Quetes.server.lua valide le contenu au chargement)
 	inconnus: {minerais: {[any]: any}, objets: {any}, equipement: {[any]: any}},
 }
 
@@ -67,7 +68,7 @@ local enAttente: {[Player]: {thread}} = {}
 
 local function profilVide(): Profil
 	return {version = VERSION, pieces = 0, pioches = {[Pioches.DEPART] = true}, equipee = Pioches.DEPART,
-		minerais = {}, objets = {}, prochainId = 1, equipement = {}, inconnus = {minerais = {}, objets = {}, equipement = {}}}
+		minerais = {}, objets = {}, prochainId = 1, equipement = {}, quetes = {}, inconnus = {minerais = {}, objets = {}, equipement = {}}}
 end
 
 -- MIGRATIONS[v] transforme une sauvegarde de la version v en v + 1
@@ -78,6 +79,10 @@ local MIGRATIONS: {[number]: (any) -> any} = {
 	end,
 	[2] = function(b)
 		b.equipement = b.equipement or {}
+		return b
+	end,
+	[3] = function(b)
+		b.quetes = b.quetes or {}
 		return b
 	end,
 }
@@ -172,6 +177,7 @@ local function lire(brut: any): Profil
 			end
 		end
 	end
+	p.quetes = if type(brut.quetes) == "table" then brut.quetes else {}
 	p.prochainId = math.max(entier(brut.prochainId, 1e12) or 1, #p.objets + 1)
 	-- Équipement : l'objet doit exister et être du bon type, sinon gardé dans « inconnus »
 	for _, source in {brut.equipement, inconnus.equipement} do
@@ -199,7 +205,7 @@ local function serialiser(p: Profil, verrou: any): any
 	end
 	return {version = VERSION, pieces = p.pieces, pioches = pioches, equipee = p.equipee,
 		minerais = table.clone(p.minerais), objets = table.clone(p.objets), prochainId = p.prochainId,
-		equipement = table.clone(p.equipement), verrou = verrou,
+		equipement = table.clone(p.equipement), quetes = table.clone(p.quetes), verrou = verrou,
 		inconnus = if next(p.inconnus.minerais) or #p.inconnus.objets > 0 or next(p.inconnus.equipement) then p.inconnus else nil}
 end
 

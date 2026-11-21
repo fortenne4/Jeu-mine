@@ -188,9 +188,31 @@ Le comptoir se ferme si on s'éloigne (Q ou ✕ pour le fermer).
 
 Test en Studio : la partie de test donne 50 de chaque minerai (`TEST_STUDIO` dans `Forge.server.lua`) : de quoi vendre tout de suite.
 
+## Guilde des Mineurs (quêtes de Margot)
+
+Approche-toi de Margot (taverne) et appuie sur **E** : le tableau de la Guilde s'ouvre. Un « ! » au-dessus d'elle signale
+une nouvelle quête, un « ? » une quête à rendre. Les quêtes en cours sont suivies à droite de l'écran (clic sur l'en-tête pour replier).
+
+- **Histoire « La Veine d'Étoile »** : 16 quêtes en 4 chapitres, données par Margot, Gaspard, Liesel et Brom (miner, livrer des minerais,
+  forger, acheter une pioche, prendre le wagonnet). Les minerais à livrer sont retirés du sac quand on rend la quête.
+- **Contrats du jour** : 3 contrats par jour (identiques sur tous les serveurs, renouvelés à minuit UTC), plus difficiles et mieux payés
+  avec le rang. Les 3 rendus le même jour ouvrent le **coffre de la Guilde** (+50 % des pièces des contrats).
+- **Rangs** : la renommée gagnée monte le rang (Apprenti → Légende de la Guilde) et donne un bonus permanent de +3 % à +25 %
+  sur les pièces gagnées en vendant ses minerais à Gaspard.
+
+| Fichier | Rôle |
+|---|---|
+| `src/partage/Quetes.lua` | Catalogue : histoire, rangs, générateur des contrats. Modifier ici pour équilibrer (récompenses, quantités). |
+| `src/server/Quetes.server.lua` | Progression, livraisons, récompenses et rangs, validés par le serveur (distance de Margot, anti-spam). |
+| `src/client/Quetes.client.lua` | Tableau de la Guilde, suivi à l'écran, bannières, marqueur au-dessus de Margot. |
+
+Forge, boutique et wagonnet préviennent la Guilde par `ServerStorage.QueteEvenement` ; le minage par `MineraiCasse`.
+Test en Studio (partie non sauvegardée) : `game.ServerStorage.QuetesAPI:Invoke("finir", game.Players.TonNom)`
+(autres commandes : `"renommee", 500` · `"histoire", 5` · `"reset"`).
+
 ## Sauvegarde
 
-`src/server/Donnees.lua` sauvegarde les **Pièces**, les **pioches achetées** et la **pioche équipée**
+`src/server/Donnees.lua` sauvegarde les **Pièces**, les **pioches achetées**, la **pioche équipée** et la **progression de la Guilde**
 (DataStore `JeuMine`, une clé par joueur). Sauvegarde automatique toutes les 60 s, au départ du joueur
 et à la fermeture du serveur. Le profil est verrouillé par le serveur qui l'utilise : impossible de
 dupliquer des pièces en changeant vite de serveur. Si la sauvegarde ne se charge pas, le joueur est
