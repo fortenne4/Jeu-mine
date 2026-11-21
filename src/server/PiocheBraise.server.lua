@@ -24,6 +24,11 @@ local AurasPioches = require(ReplicatedStorage:WaitForChild("Partage"):WaitForCh
 local AuraPioche = require(script.Parent:WaitForChild("AuraPioche"))
 -- Modèles 3D Blender des pioches
 local PiochesModeles = require(script.Parent:WaitForChild("PiochesModeles"))
+-- Mines privées : creusage des blocs (tag "BlocMine") dans la mine du joueur uniquement
+local MinePrivee = require(ServerStorage:WaitForChild("Monde"):WaitForChild("MinePrivee"))
+-- Sac du joueur : les minerais extraits de la mine privée y vont (vendus ensuite au marchand)
+local Donnees = require(script.Parent:WaitForChild("Donnees"))
+local SON_COLLECTE = "rbxasset://sounds/electronicpingshort.wav"
 
 local CONFIG = {
 	DEGATS_COUP = 12, -- dégâts directs du coup (PNJ hostiles)
@@ -57,6 +62,21 @@ fxEvent.Parent = ReplicatedStorage
 local coupEvent = Instance.new("RemoteEvent")
 coupEvent.Name = "CoupPioche"
 coupEvent.Parent = ReplicatedStorage
+
+-- Point visé par le viseur du client (ViseurPioche.client) : seule exception au « clients muets ».
+-- Un Vector3 par coup, limité en cadence, validé ici (type, distance) puis utilisé pour creuser.
+local viseEvent = Instance.new("RemoteEvent")
+viseEvent.Name = "VisePioche"
+viseEvent.Parent = ReplicatedStorage
+local VISEE_PORTEE = 8 -- studs max entre la tête et le point visé
+local visees: {[Player]: {point: Vector3, t: number}} = {}
+viseEvent.OnServerEvent:Connect(function(joueur, point)
+	if typeof(point) ~= "Vector3" or point ~= point then return end
+	local precedente = visees[joueur]
+	if precedente and os.clock() - precedente.t < 0.08 then return end
+	visees[joueur] = {point = point, t = os.clock()}
+end)
+Players.PlayerRemoving:Connect(function(joueur) visees[joueur] = nil end)
 
 -- Pour ton propre code (récompenses, inventaire…) : MineraiCasse.Event:Connect(function(joueur, bloc) ... end)
 local mineraiCasse = Instance.new("BindableEvent")
@@ -357,6 +377,15 @@ local function creerPioche(def: Pioches.Pioche): Tool
 		local touches = workspace:GetPartBoundsInBox(zone, Vector3.new(4, 6, CONFIG.PORTEE), params)
 
 		local joueur = Players:GetPlayerFromCharacter(perso)
+		-- Visée du client : consommée à chaque coup, valable 0,35 s et à portée de la tête
+		local visee = joueur and visees[joueur]
+		if joueur then visees[joueur] = nil end
+		local tete = perso:FindFirstChild("Head")
+		local cible, origine = nil, nil
+		if visee and tete and tete:IsA("BasePart") and os.clock() - visee.t < 0.35
+			and (visee.point - tete.Position).Magnitude <= VISEE_PORTEE then
+			cible, origine = visee.point, tete.Position
+		end
 		local cibles = {}
 		local minerai, distMin = nil, math.huge
 		for _, partie in touches do
@@ -381,6 +410,25 @@ local function creerPioche(def: Pioches.Pioche): Tool
 					local r = modele:FindFirstChild("HumanoidRootPart")
 					point = r and r.Position or nil
 				end
+			end
+		end
+
+		if not aTouche and joueur and Donnees.profil(joueur) then
+			-- Dans sa mine privée : la zone de coup retire quelques blocs exposés (devant / en bas)
+			local bloc, recolte = MinePrivee.creuser(joueur, racine, cible, origine)
+			if bloc then
+				eclats(bloc, COULEUR)
+				local collecte = false
+				for id, n in recolte or {} do
+					collecte = Donnees.ajouterMinerai(joueur, id, n) or collecte
+				end
+				if collecte then
+					Donnees.notifier(joueur)
+					son(racine, SON_COLLECTE, 0.5, 1.1)
+					impact(bloc.Position, 0.6, BLANC)
+				end
+				bloc:Destroy()
+				return
 			end
 		end
 

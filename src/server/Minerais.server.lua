@@ -1,7 +1,8 @@
 -- Minerais · SCRIPT SERVEUR
 -- Où : ServerScriptService > Script
 -- 4 minerais : Charbon (Commun), Bronze (Peu commun), Fer (Rare), Gold (Légendaire).
--- Ils marchent avec les pioches (tag "Minerai") et donnent des Pièces quand on les casse.
+-- Ils marchent avec les pioches (tag "Minerai") et vont dans le sac quand on les casse ;
+-- on les vend ensuite à Gaspard (Marchand.server.lua) au prix de Partage › PrixMinerais.
 -- Chaque minerai : grappe de rochers, amas de cristaux, veines lumineuses, cailloux au sol,
 -- et des fissures qui s'allument à chaque coup.
 -- Va avec le SCRIPT CLIENT des minerais (éclats en orbite, tourbillons, arcs, rayons, cercle).
@@ -24,6 +25,9 @@ local CONFIG = {
 	DEMO_POSITION = Vector3.new(0, 0, -25),
 	DEMO_ECART = 9,
 	MONNAIE = "Pièces",
+	-- false : le minerai cassé va seulement au sac (on le vend chez Gaspard).
+	-- true : ancien comportement, les Pièces tombent tout de suite en plus du minerai.
+	GAIN_DIRECT = false,
 }
 
 local TEX_ETINCELLE = "rbxasset://textures/particles/sparkles_main.dds"
@@ -32,11 +36,14 @@ local TEX_FUMEE = "rbxasset://textures/particles/smoke_main.dds"
 -- Géométrie et couleurs (taille, couleur, cristaux, veines...) : Partage › MineraisModeles, partagé avec les icônes 3D du client
 local MineraisModeles = require(game:GetService("ReplicatedStorage"):WaitForChild("Partage"):WaitForChild("MineraisModeles"))
 
+local PrixMinerais = require(game:GetService("ReplicatedStorage"):WaitForChild("Partage"):WaitForChild("PrixMinerais"))
+
+-- valeur = prix de vente (source unique : Partage › PrixMinerais)
 local MINERAIS = {
-	Charbon = {couleurRarete = Color3.fromRGB(184, 188, 198), chance = 60, pv = 2, valeur = 1, lumiere = nil},
-	Bronze = {couleurRarete = Color3.fromRGB(255, 154, 60), chance = 25, pv = 3, valeur = 3, lumiere = Color3.fromRGB(255, 130, 50)},
-	Fer = {couleurRarete = Color3.fromRGB(79, 141, 255), chance = 12, pv = 5, valeur = 8, lumiere = Color3.fromRGB(140, 190, 255)},
-	Gold = {couleurRarete = Color3.fromRGB(179, 92, 255), chance = 3, pv = 8, valeur = 25, lumiere = Color3.fromRGB(255, 200, 60)},
+	Charbon = {couleurRarete = Color3.fromRGB(184, 188, 198), chance = 60, pv = 2, valeur = PrixMinerais.PRIX.Charbon, lumiere = nil},
+	Bronze = {couleurRarete = Color3.fromRGB(255, 154, 60), chance = 25, pv = 3, valeur = PrixMinerais.PRIX.Bronze, lumiere = Color3.fromRGB(255, 130, 50)},
+	Fer = {couleurRarete = Color3.fromRGB(79, 141, 255), chance = 12, pv = 5, valeur = PrixMinerais.PRIX.Fer, lumiere = Color3.fromRGB(140, 190, 255)},
+	Gold = {couleurRarete = Color3.fromRGB(179, 92, 255), chance = 3, pv = 8, valeur = PrixMinerais.PRIX.Gold, lumiere = Color3.fromRGB(255, 200, 60)},
 }
 for nom, v in MineraisModeles.VISUEL do
 	for cle, valeur in v do
@@ -321,12 +328,14 @@ task.spawn(function()
 		local def = nom and MINERAIS[nom]
 		if not joueur or not def then return end
 		if not joueur:GetAttribute("DonneesChargees") then return end -- sinon le chargement écraserait ce gain
-		local stats = joueur:FindFirstChild("leaderstats")
-		local v = stats and stats:FindFirstChild(CONFIG.MONNAIE)
-		if v then
-			v.Value += def.valeur
+		if CONFIG.GAIN_DIRECT then
+			local stats = joueur:FindFirstChild("leaderstats")
+			local v = stats and stats:FindFirstChild(CONFIG.MONNAIE)
+			if v then
+				v.Value += def.valeur
+			end
 		end
-		Donnees.ajouterMinerai(joueur, nom, 1) -- au sac : pour forger chez Brom
+		Donnees.ajouterMinerai(joueur, nom, 1) -- au sac : à vendre chez Gaspard ou à forger chez Brom
 	end)
 end)
 

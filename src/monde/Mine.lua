@@ -3,6 +3,7 @@
 local D = require(script.Parent.Disposition)
 local O = require(script.Parent.Outils)
 local B = require(script.Parent.Batiments)
+local Cercle = require(script.Parent.CercleLumineux)
 local M, C = O.M, O.C
 
 local Mine = {}
@@ -47,9 +48,9 @@ end
 
 -- ================= Gare du village =================
 
-local function preparerDepart(m)
+-- Cartes figées : retire l'ancien guichet et l'ancien levier de départ (le départ est automatique).
+local function nettoyerGare(m)
 	local g = vers(Vector3.new(14, 0, -114), Vector3.new(0, 0, -114))
-	-- Nettoie uniquement les pièces de l'ancien guichet sur les cartes figées.
 	local anciennesPieces = {
 		Socle = g * CFrame.new(0, 0.5, 0),
 		Cabane = g * CFrame.new(0, 4.5, 0.3),
@@ -63,60 +64,19 @@ local function preparerDepart(m)
 			if (ancien and (piece.Position - ancien.Position).Magnitude < 0.2) or toitGuichet then piece:Destroy() end
 		end
 	end
-	local precedent = m:FindFirstChild("LevierDepart")
-	if precedent and precedent:GetAttribute("Version") == 5 then return end
-	if precedent then precedent:Destroy() end
-	local cf = CFrame.new(11.6, 2, -125) * CFrame.Angles(0, math.pi / 2, 0)
-	local levier = O.modele(m, "LevierDepart")
-	levier:SetAttribute("Version", 5)
-	O.bloc(levier, Vector3.new(1.2, 6, 1.2), cf * CFrame.new(0, 3, 0), C.BoisFonce, M.Bois, "Poteau")
-	local panneau = O.bloc(levier, Vector3.new(4.2, 1.7, 0.35), cf * CFrame.new(0, 6.8, -0.25), C.BoisFonce, M.Planches, "Panneau")
-	O.texte(panneau, Enum.NormalId.Front, "DÉPART")
-	O.bloc(levier, Vector3.new(1.2, 1.5, 0.2), cf * CFrame.new(1.55, 6.8, -0.53), C.Fer, M.Metal, "Platine")
-	O.decor(O.bloc(levier, Vector3.new(0.2, 1.1, 0.2), cf * CFrame.new(1.55, 7, -0.79) * CFrame.Angles(math.rad(-30), 0, 0), C.Fer, M.Metal, "Manche"))
-	O.decor(O.ellipsoide(levier, Vector3.new(0.45, 0.45, 0.45), cf * CFrame.new(1.55, 7.45, -1.05), Color3.fromRGB(142, 43, 34), M.Metal, "Poignee"))
-	-- Le repère invisible conserve la position précédente de l'invite d'interaction.
-	local repere = O.decor(O.bloc(levier, Vector3.new(0.1, 0.1, 0.1), cf * CFrame.new(0, 5.15, -1.24), C.Fer, M.Metal, "RepereInteraction"))
-	repere.Transparency = 1
-	repere.CanQuery = false
-	repere.CanTouch = false
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "ActionnerDepart"
-	prompt.ActionText = "Actionner"
-	prompt.ObjectText = "Départ"
-	prompt.KeyboardKeyCode = Enum.KeyCode.F
-	prompt.HoldDuration = 0
-	prompt.MaxActivationDistance = 25
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = repere
+	local levier = m:FindFirstChild("LevierDepart")
+	if levier then levier:Destroy() end
 end
 
--- Commande de retour placée au bord du quai, utilisable depuis le wagon arrêté.
-local function preparerRetour(caverne)
-	local precedent = caverne:FindFirstChild("LevierRetour")
-	if precedent and precedent:GetAttribute("Version") == 3 then return end
-	if precedent then precedent:Destroy() end
-	local cf = CFrame.new(-9.7, D.CAVERNE_SOL, -395) * CFrame.Angles(0, -math.pi / 2, 0)
-	local levier = O.modele(caverne, "LevierRetour")
-	levier:SetAttribute("Version", 3)
-	O.bloc(levier, Vector3.new(1.2, 4.5, 1.2), cf * CFrame.new(0, 2.25, 0), C.BoisFonce, M.Bois, "Poteau")
-	local panneau = O.bloc(levier, Vector3.new(4.2, 1.7, 0.35), cf * CFrame.new(0, 5.3, -0.25), C.BoisFonce, M.Planches, "Panneau")
-	O.texte(panneau, Enum.NormalId.Front, "RETOUR")
-	O.bloc(levier, Vector3.new(1.2, 1.5, 0.2), cf * CFrame.new(1.55, 5.3, -0.53), C.Fer, M.Metal, "Platine")
-	O.decor(O.bloc(levier, Vector3.new(0.2, 1.1, 0.2), cf * CFrame.new(1.55, 5.5, -0.79) * CFrame.Angles(math.rad(-30), 0, 0), C.Fer, M.Metal, "Manche"))
-	O.decor(O.ellipsoide(levier, Vector3.new(0.45, 0.45, 0.45), cf * CFrame.new(1.55, 5.95, -1.05), Color3.fromRGB(142, 43, 34), M.Metal, "Poignee"))
-	local repere = O.decor(O.bloc(levier, Vector3.new(0.1, 0.1, 0.1), cf * CFrame.new(0, 3.65, -1.24), C.Fer, M.Metal, "RepereInteraction"))
-	repere.Transparency = 1
-	repere.CanQuery = false
-	repere.CanTouch = false
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "ActionnerRetour"
-	prompt.ActionText = "Actionner"
-	prompt.ObjectText = "Retour à la gare"
-	prompt.KeyboardKeyCode = Enum.KeyCode.F
-	prompt.MaxActivationDistance = 25
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = repere
+-- Wagon du retour posé au terminus, tourné vers la gare ; remplace l'ancien levier sur les cartes figées.
+local function preparerWagonRetour(caverne)
+	local levier = caverne:FindFirstChild("LevierRetour")
+	if levier then levier:Destroy() end
+	for _, objet in caverne:GetChildren() do
+		if objet:GetAttribute("WagonRetour") then return end
+	end
+	local wagon = B.wagonnet(caverne, CFrame.new(D.QUAI_BAS + Vector3.new(0, 2, 4)) * CFrame.Angles(0, math.pi, 0))
+	wagon:SetAttribute("WagonRetour", true)
 end
 
 local function gare(f, rng)
@@ -145,9 +105,6 @@ local function gare(f, rng)
 	B.caisse(m, CFrame.new(-21.5, 2.2, -144))
 	B.caisse(m, CFrame.new(-21.3, 4.8, -144) * CFrame.Angles(0, 0.4, 0), 2)
 	B.tonneau(m, CFrame.new(-21.8, 2.2, -104))
-
-	-- Levier autonome en bordure de voie.
-	preparerDepart(m)
 
 	-- Butoir et wagonnets qui attendent
 	B.butoir(m, CFrame.new(0, 2, -100.5))
@@ -245,13 +202,20 @@ local function preparerEnseigne(mine)
 	end
 end
 
+local preparerPortes, preparerCristal -- définies avec la caverne, plus bas
+
 -- Actualise la voie des cartes déjà enregistrées sans reconstruire la mine.
 function Mine.preparerVoie(mine)
 	preparerEnseigne(mine)
 	local gareExistante = mine:FindFirstChild("Gare")
-	if gareExistante then preparerDepart(gareExistante) end
+	if gareExistante then nettoyerGare(gareExistante) end
 	local caverneExistante = mine:FindFirstChild("Caverne")
-	if caverneExistante then preparerRetour(caverneExistante) end
+	if caverneExistante then
+		preparerWagonRetour(caverneExistante)
+		preparerCristal(caverneExistante)
+	end
+	local ok, erreur = pcall(preparerPortes, mine)
+	if not ok then warn("[Mine] Portes non mises à jour : " .. tostring(erreur)) end
 	degagerDescente(mine)
 	local ancienne = mine:FindFirstChild("Voie")
 	if not ancienne or ancienne:GetAttribute("VersionVoie") == 1 then return end
@@ -335,29 +299,75 @@ end
 
 -- ================= Grande caverne =================
 
+-- Portes encastrées dans la paroi. Le terrain (voxels de 4 studs) est trop grossier pour une ouverture
+-- nette : on dégage l'air devant, on rebouche derrière, puis une façade de roche en Parts et une
+-- embrasure sombre (murs, plafond, fond noir) donnent une ouverture propre. Devant : parvis et cercle.
+local VERSION_PORTES = 3
+local ROCHE_PAROI = Color3.fromRGB(112, 104, 98) -- couleur du matériau Rock du terrain
+local EMBRASURE = Color3.fromRGB(28, 25, 24)
 local function portes(f)
 	local m = O.modele(f, "PortesTunnels")
 	for i, pos in D.PORTES do
-		local cf = vers(pos, D.CAVERNE_CENTRE) -- -Z vers le centre ; l'alcôve est derrière (+Z)
-		terrain:FillBlock(cf * CFrame.new(0, 8, 11), Vector3.new(12, 16, 22), Enum.Material.Air)
+		local base = vers(pos, D.CAVERNE_CENTRE) -- -Z vers le centre ; la paroi est derrière (+Z)
+		local cf = base * CFrame.new(0, 0, D.PORTES_ENFONCEMENT) -- plan du cadre, contre la paroi
+		terrain:FillBlock(cf * CFrame.new(0, 13, 10), Vector3.new(24, 34, 16), Enum.Material.Rock)
+		terrain:FillBlock(cf * CFrame.new(0, 12.5, -2), Vector3.new(24, 24, 6), Enum.Material.Air)
+		terrain:FillBlock(cf * CFrame.new(0, 9, 6), Vector3.new(14, 18, 10), Enum.Material.Air)
 		local g = O.modele(m, "Porte" .. i)
+		-- Façade de roche (Parts) autour de l'ouverture : face avant à z = +1
+		for _, s in {-1, 1} do
+			O.bloc(g, Vector3.new(7, 22, 2), cf * CFrame.new(s * 8.2, 11, 2), ROCHE_PAROI, M.Roche, "Facade")
+		end
+		O.bloc(g, Vector3.new(9.4, 8, 2), cf * CFrame.new(0, 18, 2), ROCHE_PAROI, M.Roche, "Facade")
+		-- Embrasure : galerie sombre jusqu'au fond noir
+		for _, s in {-1, 1} do
+			O.bloc(g, Vector3.new(1, 14, 9), cf * CFrame.new(s * 5.2, 7, 5.5), EMBRASURE, M.Ardoise, "Embrasure")
+		end
+		O.bloc(g, Vector3.new(11.4, 1, 9), cf * CFrame.new(0, 14.5, 5.5), EMBRASURE, M.Ardoise, "Embrasure")
+		O.bloc(g, Vector3.new(9.4, 0.3, 9), cf * CFrame.new(0, 0.15, 5.5), EMBRASURE, M.Ardoise, "Embrasure")
+		O.decor(O.bloc(g, Vector3.new(11, 15, 0.4), cf * CFrame.new(0, 7.3, 9.8), Color3.fromRGB(6, 6, 8), M.Lisse, "Obscurite"))
+		-- Cadre de bois et lanternes collés à la façade
 		for _, x in {-5.6, 5.6} do
 			O.bloc(g, Vector3.new(1.8, 14, 1.8), cf * CFrame.new(x, 7, 0), C.BoisFonce, M.Bois, "Poteau")
-			B.applique(g, cf * CFrame.new(x, 9, -0.9))
+			B.applique(g, cf * CFrame.new(x * 1.4, 9, 1))
 		end
 		O.bloc(g, Vector3.new(13.4, 2, 2), cf * CFrame.new(0, 15, 0), C.BoisFonce, M.Bois, "Linteau")
 		O.decor(O.bloc(g, Vector3.new(9, 0.35, 0.2), cf * CFrame.new(0, 15, -1.05), C.Cristal, M.Neon, "Runes"))
-		local panneau = O.bloc(g, Vector3.new(6, 2.4, 0.4), cf * CFrame.new(0, 17.6, 0), C.Bois, M.Planches, "Panneau")
-		O.texte(panneau, Enum.NormalId.Front, "Tunnel " .. (ROMAINS[i] or tostring(i)))
-		O.decor(O.bloc(g, Vector3.new(11, 14, 0.4), cf * CFrame.new(0, 7, 14), Color3.fromRGB(6, 6, 8), M.Lisse, "Obscurite"))
-		-- Zone d'entrée : servira à envoyer le joueur dans SON tunnel privé
-		local entree = O.decor(O.bloc(g, Vector3.new(10, 13, 2), cf * CFrame.new(0, 6.5, 3), Color3.new(1, 1, 1), M.Lisse, "Entree"))
-		entree.Transparency = 1
-		entree.CanTouch = true
-		entree:SetAttribute("Numero", i)
-		O.tag(entree, "PorteTunnel")
-		O.brume(entree, Color3.fromRGB(120, 130, 170), 2)
+		local panneau = O.bloc(g, Vector3.new(8, 2.6, 0.4), cf * CFrame.new(0, 17.7, 0.6), C.BoisFonce, M.Planches, "Panneau")
+		O.texte(panneau, Enum.NormalId.Front, "Tunnel " .. (ROMAINS[i] or tostring(i)), {lumiere = 0})
+		-- Parvis en planches entre le cercle et le cadre
+		for k = 0, 3 do
+			local teinte = if k % 2 == 0 then C.Bois else C.BoisFonce:Lerp(C.Bois, 0.5)
+			O.bloc(g, Vector3.new(9.4, 0.25, 1), cf * CFrame.new(0, 0.125, -1.1 - k * 1.05), teinte, M.Planches, "Planche")
+		end
+		local cercle = Cercle.construire(g, base * CFrame.new(0, 0, -D.CERCLES_AVANCE), "CercleTunnel")
+		cercle:SetAttribute("Numero", i)
+		O.tag(cercle, "CercleTunnel")
 	end
+	m:SetAttribute("VersionPortes", VERSION_PORTES) -- seulement après succès
+end
+
+-- Cartes figées : remplace les anciennes portes (cadre en avant de la paroi) par les portes encastrées.
+function preparerPortes(mine)
+	local existantes = mine:FindFirstChild("PortesTunnels")
+	if existantes and existantes:GetAttribute("VersionPortes") == VERSION_PORTES then return end
+	if existantes then existantes:Destroy() end
+	portes(mine)
+end
+
+-- Cartes figées : déplace le grand cristal (rocher, cristal, satellites) vers D.CRISTAL_CAVERNE.
+local ANCIEN_CRISTAL = Vector3.new(-30, D.CAVERNE_SOL, -445)
+function preparerCristal(caverne)
+	if caverne:GetAttribute("VersionCristal") == 2 then return end
+	local decalage = D.CRISTAL_CAVERNE - ANCIEN_CRISTAL
+	for _, objet in caverne:GetChildren() do
+		if objet:IsA("Model") and (objet.Name == "Cristal" or objet.Name:match("^Rocher")) then
+			local p = objet:GetPivot().Position
+			local ecart = Vector3.new(p.X - ANCIEN_CRISTAL.X, 0, p.Z - ANCIEN_CRISTAL.Z).Magnitude
+			if ecart < 16 and p.Y < D.CAVERNE_SOL + 25 then objet:PivotTo(objet:GetPivot() + decalage) end
+		end
+	end
+	caverne:SetAttribute("VersionCristal", 2) -- seulement après succès
 end
 
 local function caverne(f, rng)
@@ -376,11 +386,12 @@ local function caverne(f, rng)
 	end
 	local enseigne = O.bloc(m, Vector3.new(11, 2.6, 0.4), CFrame.new(-12, y + 10, -376.5), C.BoisFonce, M.Planches, "Enseigne")
 	O.texte(enseigne, Enum.NormalId.Back, "QUAI DES PROFONDEURS")
-	preparerRetour(m)
+	preparerWagonRetour(m)
 
-	-- Grand amas de cristaux violets
-	local amas = CFrame.new(-30, y - 0.5, -445)
-	B.rocher(m, Vector3.new(-30, y - 1.5, -445), 7, rng)
+	-- Grand amas de cristaux violets (lobe ouest, loin des portes)
+	m:SetAttribute("VersionCristal", 2)
+	local amas = CFrame.new(D.CRISTAL_CAVERNE + Vector3.new(0, -0.5, 0))
+	B.rocher(m, D.CRISTAL_CAVERNE + Vector3.new(0, -1.5, 0), 7, rng)
 	local _, coeur = B.cristal(m, amas, 26, C.CristalViolet, rng, 60)
 	local lumiere = coeur:FindFirstChildOfClass("PointLight")
 	if lumiere then

@@ -30,7 +30,10 @@ if carte then
 			require(monde:WaitForChild("DecorFontaine")).preparer(village)
 		end
 		local mine = carte:FindFirstChild("Mine")
-		if mine then require(monde:WaitForChild("Mine")).preparerVoie(mine) end
+		if mine then
+			local ok, erreur = pcall(require(monde:WaitForChild("Mine")).preparerVoie, mine)
+			if not ok then warn("[Monde] Mise à jour de la mine interrompue : " .. tostring(erreur)) end
+		end
 		if not carte:FindFirstChild("HorizonMine") then require(monde:WaitForChild("HorizonMine")).construire(carte) end
 		if not carte:FindFirstChild("DecorVillage") then require(monde:WaitForChild("DecorVillage")).construire(carte) end
 		require(monde:WaitForChild("MineursDecor")).construire(carte)
