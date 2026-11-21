@@ -3,9 +3,14 @@
 -- de 2 studs (20 de large, 200 de long, 172 de haut) dont la face descend en pente (~35°) : on creuse en descendant.
 -- Grille virtuelle côté serveur : le massif est plein par défaut, on ne stocke que les cases CREUSÉES ;
 -- seules les cases pleines EXPOSÉES (voisines de l'air) existent en Parts (tag « BlocMine », attributs
--- Colonne / Ligne / Couche, et Minerai pour les blocs de minerai) ; creuser fait apparaître les voisines.
+-- Colonne / Ligne / Couche) ; creuser fait apparaître les voisines.
+-- Minerais : nœuds enfouis (le même modèle que la mine publique, Partage › MineraisModeles), créés seulement
+-- quand une case voisine est à l'air ; la roche ne paie rien, on casse le nœud à la pioche (tag « Minerai »).
 -- Repère local : sol de la galerie à Y = 0, le joueur regarde vers -Z.
 local CollectionService = game:GetService("CollectionService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+local MineraisModeles = require(game:GetService("ReplicatedStorage"):WaitForChild("Partage"):WaitForChild("MineraisModeles"))
 local D = require(script.Parent.Disposition)
 local O = require(script.Parent.Outils)
 local B = require(script.Parent.Batiments)
@@ -37,13 +42,16 @@ local NY = (HAUTEUR - Y_BAS) // T         -- 86
 local NZ = LONGUEUR_MASSIF // T           -- 100
 MinePrivee.COLONNES, MinePrivee.LIGNES, MinePrivee.COUCHES = NX, NY, NZ
 
--- Minerais dans la roche, par profondeur sous le sol de la galerie (studs). Ajouter Bronze / Fer / Gold
--- plus bas en ajoutant des lignes (id = identifiant de Forge.MINERAIS). Seuil : plus haut = plus rare.
+-- Nœuds de minerai enfouis, par profondeur sous le sol de la galerie (studs). Le massif est découpé en paquets
+-- de 3 × 3 × 3 cases : chaque paquet abrite au plus UN nœud, avec la probabilité « chance » (tirage déterministe
+-- nouveau à chaque visite). id = clé de MineraisModeles.VISUEL et de Forge.MINERAIS ; pv = comme la mine publique
+-- (Minerais.server). Les modèles Bronze / Fer / Gold existent : il suffit de décommenter (plus rare en premier).
 MinePrivee.MINERAIS = {
-	{id = "Charbon", profMin = -10, profMax = 60, seuil = 0.42, echelle = 0.33,
-		couleur = Color3.fromRGB(62, 60, 62), tache = Color3.fromRGB(16, 16, 18)},
-	-- {id = "Bronze", profMin = 40, profMax = 110, seuil = 0.48, echelle = 0.3, couleur = ..., tache = ...},
+	{id = "Charbon", profMin = -10, profMax = 60, chance = 0.22, pv = 2},
+	-- {id = "Bronze", profMin = 40, profMax = 110, chance = 0.12, pv = 3},
 }
+local PAQUET = 3
+local ECHELLE_NOEUD = 0.8 -- le rocher (≈ 3 studs) tient dans sa case de 2 et mord un peu dans la roche autour
 
 local PIERRE = Color3.fromRGB(116, 113, 110)
 local PAROI = Color3.fromRGB(70, 66, 64)
@@ -51,6 +59,7 @@ local FLAMME = Color3.fromRGB(255, 170, 80)
 
 local mines = {}   -- [joueur] = {modele, apparition, centreRetour, retour}
 local occupes = {} -- [index d'emplacement] = true
+local visites = 0  -- mines construites sur ce serveur (mélangé à la graine des nœuds)
 local dossier
 
 local function emplacement(i)
@@ -214,53 +223,107 @@ local function expose(mine, i, j, k)
 	return false
 end
 
--- Minerai de la case : bruit déterministe (graine du joueur) → filons cohérents avec la grille
-local function minerai(mine, i, j, k)
-	local prof = -centreCase(i, j, k).Y
-	for _, def in MinePrivee.MINERAIS do
-		if prof >= def.profMin and prof <= def.profMax then
-			local e = def.echelle
-			if math.noise(i * e + mine.graine, j * e + 0.37, k * e + mine.graine * 0.5) > def.seuil then return def end
+-- Nœud du paquet (I, J, K) : case et minerai tirés une fois (mémorisés) ; décalage 1 ou 2 dans le paquet,
+-- donc deux nœuds ne sont jamais collés
+local function noeudDuPaquet(mine, I, J, K)
+	local cle = I + J * 8 + K * 256
+	local n = mine.paquets[cle]
+	if n == nil then
+		n = false
+		local r = Random.new(mine.germe + cle)
+		local i, j, k = I * PAQUET + r:NextInteger(1, 2), J * PAQUET + r:NextInteger(1, 2), K * PAQUET + r:NextInteger(1, 2)
+		local tirage = r:NextNumber()
+		if dansGrille(i, j, k) then
+			local prof = -centreCase(i, j, k).Y
+			for _, def in MinePrivee.MINERAIS do
+				if prof >= def.profMin and prof <= def.profMax then
+					if tirage < def.chance then n = {indice = indice(i, j, k), def = def}; break end
+					tirage -= def.chance
+				end
+			end
 		end
+		mine.paquets[cle] = n
 	end
-	return nil
+	return n
 end
 
-local TACHES = {Vector3.new(0.5, 0.3, 1), Vector3.new(-0.45, -0.4, 1), Vector3.new(1, 0.4, -0.3), Vector3.new(-1, -0.2, 0.45),
-	Vector3.new(0.2, 1, -0.4), Vector3.new(-0.3, -1, 0.3)}
+local function minerai(mine, i, j, k)
+	local n = noeudDuPaquet(mine, (i - 1) // PAQUET, (j - 1) // PAQUET, (k - 1) // PAQUET)
+	return if n and n.indice == indice(i, j, k) then n.def else nil
+end
+
+local noeuds = {} -- [cœur] = {mine, n, i, j, k} : nœuds visibles, toutes mines confondues
+
+-- Nœud enfoui : le rocher de la mine publique (même construction), réduit ; PV / Type comme là-bas
+local function creerNoeud(mine, n, def, cf, i, j, k)
+	local visuel = MineraisModeles.VISUEL[def.id]
+	local modele, coeur = MineraisModeles.construire(def.id, cf * CFrame.new(0, -1.25 * visuel.taille, 0), Random.new(mine.germe + n), true)
+	modele:ScaleTo(ECHELLE_NOEUD)
+	for _, p in modele:GetChildren() do
+		if p:IsA("BasePart") then p.CanQuery = p == coeur end -- la visée ne touche que le cœur
+	end
+	coeur:SetAttribute("Type", def.id)
+	coeur:SetAttribute("Taille", visuel.taille * ECHELLE_NOEUD)
+	coeur:SetAttribute("PV", def.pv)
+	coeur:SetAttribute("PVMax", def.pv)
+	coeur:SetAttribute("Proprietaire", mine.proprietaire)
+	modele.Parent = mine.massif
+	CollectionService:AddTag(coeur, "Minerai")
+	noeuds[coeur] = {mine = mine, n = n, i = i, j = j, k = k}
+	return modele
+end
 
 local function creerBloc(mine, i, j, k)
 	local n = indice(i, j, k)
 	if mine.blocs[n] then return end
-	local def = minerai(mine, i, j, k)
-	local teinte
-	if def then
-		teinte = def.couleur
-	else
-		local bruit = math.noise(i * 0.31, j * 0.27, k * 0.33) + 0.5
-		teinte = PIERRE:Lerp(PAROI, math.clamp(bruit * 0.5 + (NY - j) * 0.006, 0, 0.8))
-	end
 	local cf = mine.base * CFrame.new(centreCase(i, j, k))
+	local def = minerai(mine, i, j, k)
+	if def then
+		mine.blocs[n] = creerNoeud(mine, n, def, cf, i, j, k)
+		return
+	end
+	local bruit = math.noise(i * 0.31, j * 0.27, k * 0.33) + 0.5
+	local teinte = PIERRE:Lerp(PAROI, math.clamp(bruit * 0.5 + (NY - j) * 0.006, 0, 0.8))
 	local bloc = O.bloc(mine.massif, Vector3.new(T, T, T), cf, teinte, M.Ardoise, "BlocMine")
 	bloc:SetAttribute("Colonne", i)
 	bloc:SetAttribute("Ligne", j)
 	bloc:SetAttribute("Couche", k)
-	if def then
-		bloc:SetAttribute("Minerai", def.id)
-		for _, t in TACHES do -- taches sombres sur les faces (enfants du bloc : détruites avec lui)
-			O.decor(O.bloc(bloc, Vector3.new(0.55, 0.55, 0.55), cf * CFrame.new(t * (T / 2 - 0.2)), def.tache, M.Roche, "Tache"))
-		end
-	end
 	CollectionService:AddTag(bloc, "BlocMine")
 	mine.blocs[n] = bloc
 end
+
+-- Nœud cassé par la pioche (PiocheBraise retire le tag à PV 0 ; la récompense passe par MineraiCasse) :
+-- le rocher s'efface, la case devient creusée pour de bon, les voisines apparaissent
+CollectionService:GetInstanceRemovedSignal("Minerai"):Connect(function(coeur)
+	local info = noeuds[coeur]
+	if not info then return end
+	noeuds[coeur] = nil
+	local mine = info.mine
+	if not mine.modele.Parent or not coeur:GetAttribute("Casse") then return end
+	local modele = mine.blocs[info.n]
+	mine.blocs[info.n] = nil
+	mine.creuses[info.n] = true
+	if modele then
+		for _, d in modele:GetDescendants() do
+			if d:IsA("BasePart") and d ~= coeur then
+				d.CanCollide = false
+				TweenService:Create(d, TweenInfo.new(0.35), {Transparency = 1, Size = d.Size * 0.5}):Play()
+			end
+		end
+		Debris:AddItem(modele, 1.2)
+	end
+	for _, v in VOISINS do
+		local i, j, k = info.i + v.X, info.j + v.Y, info.k + v.Z
+		if dansGrille(i, j, k) and estPleine(mine, i, j, k) then creerBloc(mine, i, j, k) end
+	end
+end)
 
 local function massif(mine)
 	local f = Instance.new("Folder")
 	f.Name = "MurDeBlocs"
 	f.Parent = mine.modele
 	mine.massif = f
-	mine.creuses, mine.blocs = {}, {}
+	mine.creuses, mine.blocs, mine.paquets = {}, {}, {}
 	-- Seules les cases autour de la descente ouverte (et la face côté galerie) peuvent être exposées
 	for k = 1, K_OUVERT + 1 do
 		for j = 1, NY do
@@ -278,7 +341,7 @@ end
 
 -- Retire les cases pleines dont le centre est dans la boîte orientée (repère local), s'il y a au moins
 -- un bloc visible dedans ; fait apparaître les voisins devenus exposés. Au plus MAX_PAR_COUP cases.
--- Renvoie le premier bloc retiré et les minerais récoltés {[id] = nombre}.
+-- Les cases de minerai restent (le nœud se casse à la pioche). Renvoie le premier bloc retiré.
 local MAX_PAR_COUP = 40
 local function retirer(mine, boite: CFrame, taille: Vector3)
 	local demi = taille / 2
@@ -294,9 +357,8 @@ local function retirer(mine, boite: CFrame, taille: Vector3)
 				if #cases < MAX_PAR_COUP and estPleine(mine, i, j, k) then
 					local q = boite:PointToObjectSpace(centreCase(i, j, k))
 					local aPart = mine.blocs[indice(i, j, k)] ~= nil
-					-- Un minerai caché reste en place : il se mine quand il devient visible
 					if math.abs(q.X) <= demi.X and math.abs(q.Y) <= demi.Y and math.abs(q.Z) <= demi.Z
-						and (aPart or not minerai(mine, i, j, k)) then
+						and not minerai(mine, i, j, k) then
 						table.insert(cases, Vector3.new(i, j, k))
 						visible = visible or aPart
 					end
@@ -305,11 +367,9 @@ local function retirer(mine, boite: CFrame, taille: Vector3)
 		end
 	end
 	if not visible then return nil end
-	local premier, recolte = nil, {}
+	local premier = nil
 	for _, c in cases do
 		local n = indice(c.X, c.Y, c.Z)
-		local def = minerai(mine, c.X, c.Y, c.Z)
-		if def then recolte[def.id] = (recolte[def.id] or 0) + 1 end
 		mine.creuses[n] = true
 		local bloc = mine.blocs[n]
 		mine.blocs[n] = nil
@@ -323,14 +383,13 @@ local function retirer(mine, boite: CFrame, taille: Vector3)
 			if dansGrille(i, j, k) and estPleine(mine, i, j, k) then creerBloc(mine, i, j, k) end
 		end
 	end
-	return premier, recolte
+	return premier
 end
 
 -- Coup de pioche du joueur dans SA mine (serveur autoritaire). Zone ≈ taille du joueur
 -- (ZONE_COUP : largeur × hauteur × profondeur), orientée selon son regard ; essaie devant,
 -- puis devant-bas (boîte inclinée en descente), puis sous ses pieds.
--- Renvoie le premier bloc retiré (sorti du jeu : l'appelant le détruit après les éclats) et les minerais
--- récoltés {[id] = nombre}, ou nil.
+-- Renvoie le premier bloc retiré (sorti du jeu : l'appelant le détruit après les éclats), ou nil.
 function MinePrivee.creuser(joueur, racine: BasePart, vise: Vector3?, origine: Vector3?)
 	local mine = mines[joueur]
 	if not mine or not mine.modele.Parent then return nil end
@@ -358,8 +417,8 @@ function MinePrivee.creuser(joueur, racine: BasePart, vise: Vector3?, origine: V
 			dir = dir.Unit
 			local haut = if math.abs(dir.Y) > 0.95 then regard else Vector3.yAxis
 			local centre = b + dir * (Z.Z / 2 - 0.5) -- la zone mord dans la roche derrière le point visé
-			local bloc, recolte = retirer(mine, CFrame.lookAt(centre, centre + dir, haut), Z)
-			if bloc then return bloc, recolte end
+			local bloc = retirer(mine, CFrame.lookAt(centre, centre + dir, haut), Z)
+			if bloc then return bloc end
 		end
 	end
 	local face = CFrame.lookAt(l, l + regard) -- -Z = regard, Y = haut
@@ -369,8 +428,8 @@ function MinePrivee.creuser(joueur, racine: BasePart, vise: Vector3?, origine: V
 		{face * CFrame.new(0, -3 - Z.Z / 2, 0), Vector3.new(Z.X, Z.Z, Z.X)},
 	}
 	for _, essai in essais do
-		local bloc, recolte = retirer(mine, essai[1], essai[2])
-		if bloc then return bloc, recolte end
+		local bloc = retirer(mine, essai[1], essai[2])
+		if bloc then return bloc end
 	end
 	return nil
 end
@@ -393,7 +452,10 @@ local function construire(joueur, index)
 	etais(m, base)
 	rail(m, base, rng)
 	details(m, base, joueur)
-	local mine = {modele = m, base = base, graine = (joueur.UserId % 997) * 0.731 + 0.5}
+	-- Graine des NŒUDS (la roche ne dépend pas d'elle) : change à chaque visite, sinon on refarme les mêmes nœuds
+	visites += 1
+	local visite = (os.time() + visites) % 1000
+	local mine = {modele = m, base = base, germe = ((joueur.UserId % 1000003) + visite * 1000003) * 131072, proprietaire = joueur.UserId}
 	massif(mine)
 	local retour = Cercle.construire(m, base * CFrame.new(0, 0, Z_RETOUR), "CercleRetour", {texte = "Sortie"})
 	m.Parent = dossier

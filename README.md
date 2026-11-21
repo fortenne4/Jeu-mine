@@ -319,9 +319,12 @@ en descendant : blocs de 2 studs, 10 × 86 × 100 cases (20 de large, 172 de hau
 la galerie), face de départ en pente (35°, 16 premiers studs ouverts). Grille virtuelle côté serveur : le massif est
 plein par défaut, seules les cases creusées sont mémorisées, et seuls les blocs exposés à l'air existent en Parts
 (tag `BlocMine`, attributs `Colonne`, `Ligne` = 1 en bas, `Couche` = 1 côté galerie, dans `MurDeBlocs`). Les bords et
-le fond sont indestructibles. **Minerais** : table `MinePrivee.MINERAIS` par profondeur (charbon près de la surface pour
-l'instant, filons déterministes par joueur) ; bloc sombre tacheté, attribut `Minerai`. Casser un bloc de minerai
-l'ajoute au sac (`Donnees.ajouterMinerai`), à vendre au marchand.
+le fond sont indestructibles. **Minerais** : la roche ne rapporte rien. Table `MinePrivee.MINERAIS` par profondeur
+(charbon près de la surface pour l'instant) : le massif est découpé en paquets de 3 × 3 × 3 cases, chacun abrite au
+plus un **nœud de minerai enfoui** (tirage nouveau à chaque visite : pas de farm des mêmes nœuds). C'est le même rocher 3D que dans la mine publique
+(`Partage › MineraisModeles.construire`, réduit à 80 %), créé seulement quand une case voisine est creusée. On le
+frappe en le visant (rayon serveur tête → point visé ; tag `Minerai`, `PV` ; seul le propriétaire de la mine peut le casser) ; cassé, il va
+au sac (`MineraiCasse` → `Minerais.server` → `Donnees.ajouterMinerai`) et sa case reste creusée.
 
 **Creuser** : un viseur (rond + point blanc) est toujours affiché au centre de l'écran
 (`src/client/ViseurPioche.client.lua`). À chaque coup, le client envoie le point visé (RemoteEvent `VisePioche`) ;

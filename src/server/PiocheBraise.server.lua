@@ -257,6 +257,7 @@ local function frapperMinerai(bloc: BasePart, joueur: Player?, degats: number, c
 	lueur.OutlineTransparency = 1 - 0.8 * usure
 
 	if pv <= 0 then
+		bloc:SetAttribute("Casse", true) -- lu par MinePrivee (case creusée pour de bon)
 		CollectionService:RemoveTag(bloc, CONFIG.TAG_MINERAI)
 		eclats(bloc, couleur)
 		mineraiCasse:Fire(joueur, bloc)
@@ -265,7 +266,9 @@ local function frapperMinerai(bloc: BasePart, joueur: Player?, degats: number, c
 		bloc.CanQuery = false
 		lueur:Destroy()
 		Debris:AddItem(bloc, 1)
+		return true
 	end
+	return false
 end
 
 local function toucherCible(cible: Humanoid, modele: Model, degats: number): boolean
@@ -401,6 +404,31 @@ local function creerPioche(def: Pioches.Pioche): Tool
 			end
 		end
 
+		-- Mine privée : un nœud ne se frappe que s'il est touché par le rayon serveur tête → point visé
+		-- (≤ VISEE_PORTEE, comme le creusage) ; roche visée = on creuse. Mine publique : inchangée.
+		local noeudVise = nil
+		if cible and origine then
+			local rp = RaycastParams.new()
+			rp.FilterType = Enum.RaycastFilterType.Exclude
+			rp.FilterDescendantsInstances = {perso}
+			local trajet = cible - origine
+			local hit = if trajet.Magnitude > 0.1 then workspace:Raycast(origine, trajet.Unit * (trajet.Magnitude + 0.6), rp) else nil
+			local touche = hit and hit.Instance
+			if touche and not CollectionService:HasTag(touche, CONFIG.TAG_MINERAI) then
+				-- pièce d'un rocher (facette…) : on remonte à son cœur
+				local m = touche.Parent
+				local coeur = m and m:IsA("Model") and m.PrimaryPart
+				if coeur and CollectionService:HasTag(coeur, CONFIG.TAG_MINERAI) then touche = coeur end
+			end
+			if touche and CollectionService:HasTag(touche, CONFIG.TAG_MINERAI) and touche:GetAttribute("Proprietaire") then
+				noeudVise = touche
+			end
+		end
+		if minerai and minerai:GetAttribute("Proprietaire") then minerai = nil end -- nœud privé : jamais via la zone
+		if noeudVise and joueur and noeudVise:GetAttribute("Proprietaire") == joueur.UserId then
+			minerai = noeudVise -- seul le propriétaire de la mine peut le casser
+		end
+
 		local aTouche = minerai ~= nil
 		local point = minerai and (minerai.Position + Vector3.new(0, minerai.Size.Y / 2, 0)) or nil
 		for cible, modele in cibles do
@@ -414,19 +442,11 @@ local function creerPioche(def: Pioches.Pioche): Tool
 		end
 
 		if not aTouche and joueur and Donnees.profil(joueur) then
-			-- Dans sa mine privée : la zone de coup retire quelques blocs exposés (devant / en bas)
-			local bloc, recolte = MinePrivee.creuser(joueur, racine, cible, origine)
+			-- Dans sa mine privée : la zone de coup retire quelques blocs de roche exposés (0 gain ; les
+			-- nœuds de minerai restent et se cassent comme dans la mine publique)
+			local bloc = MinePrivee.creuser(joueur, racine, cible, origine)
 			if bloc then
 				eclats(bloc, COULEUR)
-				local collecte = false
-				for id, n in recolte or {} do
-					collecte = Donnees.ajouterMinerai(joueur, id, n) or collecte
-				end
-				if collecte then
-					Donnees.notifier(joueur)
-					son(racine, SON_COLLECTE, 0.5, 1.1)
-					impact(bloc.Position, 0.6, BLANC)
-				end
 				bloc:Destroy()
 				return
 			end
@@ -449,7 +469,11 @@ local function creerPioche(def: Pioches.Pioche): Tool
 
 		impact(point or (racine.Position + racine.CFrame.LookVector * 3), 1, COULEUR)
 		if minerai then
-			frapperMinerai(minerai, joueur, CONFIG.DEGATS_MINERAI * def.puissance, COULEUR)
+			local prive = minerai:GetAttribute("Proprietaire") ~= nil
+			-- Récompense : MineraiCasse → Minerais.server → Donnees.ajouterMinerai (sac)
+			if frapperMinerai(minerai, joueur, CONFIG.DEGATS_MINERAI * def.puissance, COULEUR) and prive then
+				son(racine, SON_COLLECTE, 0.5, 1.1)
+			end
 		end
 	end
 

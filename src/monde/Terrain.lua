@@ -257,6 +257,8 @@ local function mine()
 	for _, lobe in D.CAVERNE_LOBES do
 		terrain:FillBall(lobe[1], lobe[2], AIR)
 	end
+	-- Raccord descente → caverne : arrondit le rebord du plafond (sinon une dalle de roche barre la vue depuis le quai)
+	terrain:FillBall(Vector3.new(0, D.CAVERNE_SOL + 30, B.Z - 20), 30, AIR)
 	-- Sol plat de la caverne
 	local sol = D.CAVERNE_SOL
 	terrain:FillBlock(CFrame.new(D.CAVERNE_CENTRE.X, sol - 25, D.CAVERNE_CENTRE.Z), Vector3.new(200, 50, 200), ARDOISE)
@@ -275,9 +277,12 @@ function Terrain.construire()
 	terrain:SetMaterialColor(HERBE_HAUTE, Color3.fromRGB(110, 118, 58))
 	terrain:SetMaterialColor(TERRE, Color3.fromRGB(104, 84, 64))
 	-- palette chaude et variée (avant : gris uniforme) ; tons accordés au crépuscule de DIRECTION_ARTISTIQUE.md
-	terrain:SetMaterialColor(ROCHE, Color3.fromRGB(150, 130, 114))
-	terrain:SetMaterialColor(ARDOISE, Color3.fromRGB(112, 102, 122))
-	terrain:SetMaterialColor(BASALTE, Color3.fromRGB(76, 68, 78))
+	-- ROCHE, ARDOISE et BASALTE forment aussi la grande caverne (parois, sol, veines) : SetMaterialColor est global,
+	-- on garde donc leurs teintes d'origine (sinon la mine vire à l'orange sous les torches ; cf. ROCHE_PAROI de Mine.lua).
+	-- La variété des falaises vient du grès, du calcaire, de la boue et de la mousse ci-dessous.
+	terrain:SetMaterialColor(ROCHE, Color3.fromRGB(112, 104, 98))
+	terrain:SetMaterialColor(ARDOISE, Color3.fromRGB(78, 76, 80))
+	terrain:SetMaterialColor(BASALTE, Color3.fromRGB(58, 54, 60))
 	terrain:SetMaterialColor(CALCAIRE, Color3.fromRGB(200, 176, 138))
 	terrain:SetMaterialColor(GRES, Color3.fromRGB(190, 128, 94))
 	terrain:SetMaterialColor(BOUE, Color3.fromRGB(80, 66, 54))
