@@ -2167,6 +2167,68 @@ function B.sechoirPoissons(parent, cf, numero)
 	return m
 end
 
+--[[ Nain mineur en blocs qui pioche (enseigne de la Grande Mine). cf : aux pieds, regard vers -Z ; s : échelle.
+	Le bras droit et la pioche forment le modèle « BrasPioche » (pivot à l'épaule, pose de frappe) ; le client
+	(PiocheurEnseigne.client) le fait lever puis frapper, et fait jaillir les étincelles de la pièce « Impact ». ]]
+function B.nainPiocheur(parent, cf, s)
+	s = s or 1
+	local m = O.modele(parent, "NainPiocheur")
+	local function a(x, y, z) return cf * CFrame.new(x * s, y * s, z * s) end
+	local function bloc(g, taille, c, couleur, mat, nom) return O.decor(O.bloc(g, taille * s, c, couleur, mat, nom)) end
+	local PEAU, BARBE, TUNIQUE = Color3.fromRGB(226, 172, 138), Color3.fromRGB(196, 98, 42), Color3.fromRGB(58, 88, 96)
+	local CUIR, BOTTE, PANTALON = Color3.fromRGB(96, 62, 38), Color3.fromRGB(56, 38, 28), Color3.fromRGB(74, 60, 50)
+	for _, x in {-0.32, 0.32} do
+		bloc(m, Vector3.new(0.55, 0.5, 0.8), a(x, 0.25, -0.08), BOTTE, M.Cuir, "Botte")
+		bloc(m, Vector3.new(0.5, 0.85, 0.55), a(x, 0.92, 0), PANTALON, M.Tissu, "Jambe")
+	end
+	bloc(m, Vector3.new(1.55, 1.25, 1.05), a(0, 2, 0), TUNIQUE, M.Tissu, "Tunique")
+	bloc(m, Vector3.new(1.6, 0.28, 1.1), a(0, 1.48, 0), CUIR, M.Cuir, "Ceinture")
+	bloc(m, Vector3.new(0.35, 0.3, 0.1), a(0, 1.48, -0.56), C.Or, M.Metal, "Boucle")
+	bloc(m, Vector3.new(1, 0.95, 0.95), a(0, 3.08, 0), PEAU, M.Lisse, "Tete")
+	bloc(m, Vector3.new(0.3, 0.32, 0.25), a(0, 3.02, -0.58), PEAU:Lerp(Color3.fromRGB(200, 90, 70), 0.25), M.Lisse, "Nez")
+	for _, x in {-0.24, 0.24} do
+		bloc(m, Vector3.new(0.14, 0.14, 0.06), a(x, 3.24, -0.49), Color3.fromRGB(30, 24, 22), M.Lisse, "Oeil")
+	end
+	bloc(m, Vector3.new(1.12, 1.05, 0.38), a(0, 2.42, -0.55), BARBE, M.Tissu, "Barbe")
+	bloc(m, Vector3.new(0.62, 0.55, 0.3), a(0, 1.7, -0.6), BARBE, M.Tissu, "BarbePointe")
+	bloc(m, Vector3.new(0.95, 0.2, 0.22), a(0, 2.86, -0.54), BARBE:Lerp(Color3.new(), 0.15), M.Tissu, "Moustache")
+	bloc(m, Vector3.new(1.18, 0.5, 1.12), a(0, 3.7, 0), Color3.fromRGB(176, 140, 60), M.Metal, "Casque")
+	bloc(m, Vector3.new(1.34, 0.12, 1.28), a(0, 3.47, 0), Color3.fromRGB(150, 118, 50), M.Metal, "Bord")
+	local frontale = bloc(m, Vector3.new(0.36, 0.3, 0.16), a(0, 3.66, -0.6), Color3.fromRGB(255, 230, 160), M.Neon, "Frontale")
+	O.lumiere(frontale, Color3.fromRGB(255, 220, 150), 1, 12)
+	bloc(m, Vector3.new(0.42, 1.1, 0.46), a(-0.98, 2.05, -0.15) * CFrame.Angles(math.rad(20), 0, math.rad(-8)), TUNIQUE, M.Tissu, "BrasG")
+	bloc(m, Vector3.new(0.38, 0.36, 0.38), a(-1.02, 1.45, -0.35), PEAU, M.Lisse, "MainG")
+
+	-- bras droit + pioche, en pose de frappe (horizontal vers l'avant) ; pivot à l'épaule
+	local bras = O.modele(m, "BrasPioche")
+	local epaule = a(0.98, 2.45, 0)
+	local function b(x, y, z) return epaule * CFrame.new(x * s, y * s, z * s) end
+	bloc(bras, Vector3.new(0.44, 0.44, 1.2), b(0, 0, -0.5), TUNIQUE, M.Tissu, "Bras")
+	bloc(bras, Vector3.new(0.4, 0.4, 0.4), b(0, 0, -1.2), PEAU, M.Lisse, "MainD")
+	bloc(bras, Vector3.new(0.17, 0.17, 2.4), b(0, 0, -2.3), Color3.fromRGB(120, 84, 52), M.Bois, "Manche")
+	bloc(bras, Vector3.new(0.24, 1.9, 0.3), b(0, -0.2, -3.45) * CFrame.Angles(math.rad(-12), 0, 0), Color3.fromRGB(120, 124, 132), M.Metal, "FerPioche")
+	bloc(bras, Vector3.new(0.3, 0.3, 0.36), b(0, 0, -3.45), C.Fer, M.Metal, "Douille")
+	bras.WorldPivot = epaule
+	-- point d'impact (pointe basse de la pioche, pose de frappe) : étincelles et éclats de cristal
+	local impact = bloc(m, Vector3.new(0.2, 0.2, 0.2), epaule * CFrame.Angles(math.rad(-22), 0, 0) * CFrame.new(0, -1.15 * s, -3.3 * s), Color3.new(), M.Lisse, "Impact")
+	impact.Transparency = 1
+	local e = Instance.new("ParticleEmitter")
+	e.Name = "Etincelles"
+	e.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	e.Color = ColorSequence.new(Color3.fromRGB(255, 226, 140), Color3.fromRGB(200, 140, 255))
+	e.LightEmission = 1
+	e.Size = NumberSequence.new(0.5 * s, 0)
+	e.Lifetime = NumberRange.new(0.3, 0.6)
+	e.Speed = NumberRange.new(8, 16)
+	e.SpreadAngle = Vector2.new(70, 70)
+	e.Acceleration = Vector3.new(0, -30, 0)
+	e.Rate = 0
+	e.Parent = impact
+	m:SetAttribute("Echelle", s)
+	O.tag(m, "Piocheur")
+	return m
+end
+
 function B.tableTaverne(parent, cf)
 	local m = O.modele(parent, "Table")
 	m:SetAttribute("VersionTableTaverne", 2)

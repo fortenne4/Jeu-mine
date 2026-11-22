@@ -1338,6 +1338,28 @@ function Village.preparerCheminMoulin(village)
 			tonneau:PivotTo(tonneau:GetPivot() + Vector3.new(0, 0, cible - p.Position.Z))
 		end
 	end
+
+	-- Coin des pêcheurs : un second pin, copie de celui qui se dresse près du puits du pont
+	local bosquets = village:FindFirstChild("Bosquets")
+	if bosquets and not bosquets:FindFirstChild("PinCoinPeche") then
+		local modele, meilleure = nil, 4
+		for _, arbre in bosquets:GetDescendants() do
+			if arbre:IsA("Model") and arbre.Name == "Pin" then
+				local p = arbre:GetPivot().Position
+				local d = (Vector2.new(p.X, p.Z) - Vector2.new(-8.8, 51)).Magnitude
+				if d < meilleure then modele, meilleure = arbre, d end
+			end
+		end
+		if modele then
+			local copie = modele:Clone()
+			copie.Name = "PinCoinPeche"
+			local depart = modele:GetPivot().Position
+			local cible = Vector3.new(PONTON_X + 18, 0, 60)
+			local dy = solVisible(cible.X, cible.Z) - solVisible(depart.X, depart.Z)
+			copie:PivotTo(modele:GetPivot() + Vector3.new(cible.X - depart.X, dy, cible.Z - depart.Z))
+			copie.Parent = bosquets
+		end
+	end
 end
 
 local function riviere(v, rng)

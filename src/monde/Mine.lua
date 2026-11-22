@@ -206,13 +206,26 @@ local function voie(f)
 	B.butoir(m, CFrame.new(D.QUAI_BAS + hauteurSol + Vector3.new(0, 0, -0.5)) * CFrame.Angles(0, math.pi, 0))
 end
 
--- Inscription « LA GRANDE MINE » en pierres taillées lumineuses, incrustée dans la falaise au-dessus du portail
--- (remplace l'ancien grand panneau en bois). Modèle : blender/inscription.py → assets/Inscription.fbx.
--- Texte de 170 studs de large (capitales d'environ 13) : la même taille que le texte de l'ancien panneau, lisible depuis la place.
--- Sans le modèle 3D : lettres gravées en lumière dans des blocs de pierre (aucun panneau non plus).
+-- Inscription « LA GRANDE MINE » en éclats de cristaux bleus et roses jaillissant de la falaise au-dessus du portail,
+-- avec un nain mineur sur son échafaudage qui pioche le dernier E. Texte de 170 studs de large (capitales de 13),
+-- lisible depuis la place.
 local INSCRIPTION_BASE_Y = D.PORTAIL_HAUTEUR + 33 -- au-dessus du couronnement rocheux de la façade
 local INSCRIPTION_LARGEUR = 170
 local INSCRIPTION_HAUTEUR = 13
+local INSCRIPTION_TEXTE = "LA GRANDE MINE"
+-- Traits des lettres en cristal, sur une grille de 4 × 6 (x vers la droite, y vers le haut)
+local POLICE_CRISTAL = {
+	L = {{{0, 0}, {0, 6}}, {{0, 0}, {3.6, 0}}},
+	A = {{{0, 0}, {2, 6}}, {{2, 6}, {4, 0}}, {{0.9, 2.4}, {3.1, 2.4}}},
+	G = {{{4, 5}, {3, 6}}, {{3, 6}, {1, 6}}, {{1, 6}, {0, 5}}, {{0, 5}, {0, 1}}, {{0, 1}, {1, 0}}, {{1, 0}, {3, 0}},
+		{{3, 0}, {4, 1}}, {{4, 1}, {4, 2.8}}, {{4, 2.8}, {2.2, 2.8}}},
+	R = {{{0, 0}, {0, 6}}, {{0, 6}, {3, 6}}, {{3, 6}, {4, 5}}, {{4, 5}, {4, 4}}, {{4, 4}, {3, 3}}, {{3, 3}, {0, 3}}, {{2, 3}, {4, 0}}},
+	N = {{{0, 0}, {0, 6}}, {{0, 6}, {4, 0}}, {{4, 0}, {4, 6}}},
+	D = {{{0, 0}, {0, 6}}, {{0, 6}, {2.4, 6}}, {{2.4, 6}, {4, 4.4}}, {{4, 4.4}, {4, 1.6}}, {{4, 1.6}, {2.4, 0}}, {{2.4, 0}, {0, 0}}},
+	E = {{{0, 0}, {0, 6}}, {{0, 6}, {3.8, 6}}, {{0, 3}, {3, 3}}, {{0, 0}, {3.8, 0}}},
+	M = {{{0, 0}, {0, 6}}, {{0, 6}, {2, 2.6}}, {{2, 2.6}, {4, 6}}, {{4, 6}, {4, 0}}},
+	I = {{{2, 0}, {2, 6}}},
+}
 local function surfaceFalaise(): number
 	-- point le plus avancé de la paroi sur toute la largeur du texte (seulement le terrain)
 	local p = RaycastParams.new()
@@ -234,65 +247,118 @@ local function preparerEnseigne(mine)
 	local portail = mine:FindFirstChild("Portail")
 	if not portail then return end
 	local existante = portail:FindFirstChild("EnseigneGrandeMine")
-	if existante and existante:GetAttribute("Version") == 6 then return end
+	if existante and existante:GetAttribute("Version") == 13 then return end
 	if existante then existante:Destroy() end
 	local ancienne = portail:FindFirstChild("Enseigne")
 	if ancienne and ancienne:IsA("BasePart") then ancienne:Destroy() end
 	local cadre = O.modele(portail, "EnseigneGrandeMine")
-	cadre:SetAttribute("Version", 6)
+	cadre:SetAttribute("Version", 13)
 
 	-- les lettres sont posées juste devant la roche la plus avancée ; derrière, une assise de roche sombre comble
 	-- les creux de la paroi (incrustées, jamais en l'air), et devant, le terrain est dégagé (rien ne les recouvre)
 	local z = surfaceFalaise() + 1.5
 	local y = INSCRIPTION_BASE_Y
 	local centreY = y + INSCRIPTION_HAUTEUR / 2
-	terrain:FillBlock(CFrame.new(0, centreY, z - 8), Vector3.new(INSCRIPTION_LARGEUR + 8, INSCRIPTION_HAUTEUR + 6, 12), Enum.Material.Slate)
+	-- la bande derrière le texte prend la roche de la montagne (basalte sombre veiné de grès) et des bosses
+	-- irrégulières, toutes en retrait du plan des lettres (qui semblent légèrement enfoncées dans la roche)
+	local rngRoche = Random.new(77)
+	terrain:FillBlock(CFrame.new(0, centreY, z - 8), Vector3.new(INSCRIPTION_LARGEUR + 8, INSCRIPTION_HAUTEUR + 6, 12), Enum.Material.Basalt)
+	for _ = 1, 40 do
+		local p = Vector3.new(rngRoche:NextNumber(-INSCRIPTION_LARGEUR / 2, INSCRIPTION_LARGEUR / 2), centreY + rngRoche:NextNumber(-10, 10), z - 4.5)
+		terrain:FillBall(p, rngRoche:NextNumber(2.5, 4), if rngRoche:NextNumber() < 0.3 then Enum.Material.Sandstone else Enum.Material.Basalt)
+	end
 	terrain:FillBlock(CFrame.new(0, centreY, z + 3), Vector3.new(INSCRIPTION_LARGEUR + 8, INSCRIPTION_HAUTEUR + 4, 8), Enum.Material.Air)
 
-	local pieces = M3.pieces("Inscription")
-	if pieces then
-		local mn, mx = M3.boite(pieces)
-		local S = CFrame.new((mn.X + mx.X) / 2, mn.Y, (mn.Z + mx.Z) / 2)
-		local k = INSCRIPTION_LARGEUR / (mx.X - mn.X) -- par la largeur : le texte entier tient au-dessus du portail
-		local TEINTES = {
-			Pierre = {Color3.fromRGB(168, 156, 140), M.Calcaire},
-			Lueur = {Color3.fromRGB(255, 190, 96), M.Neon},
-			Gorge = {Color3.fromRGB(30, 24, 26), M.Ardoise},
-		}
-		-- la face du modèle (-Z) regarde le village (+Z du monde) : demi-tour
-		M3.poser(pieces, S, CFrame.new(0, y, z) * CFrame.Angles(0, math.pi, 0), k, cadre, function(c, teinte)
-			local t = TEINTES[teinte]
-			if t then
-				c.Color, c.Material = t[1], t[2]
-			end
-			O.decor(c)
-			c.CastShadow = teinte ~= "Lueur"
-		end)
-	else
-		-- secours : une pierre taillée par lettre, la lettre gravée en lumière sur sa face
-		local texte = "LA GRANDE MINE"
-		local n = #texte
-		local pas = INSCRIPTION_LARGEUR / n
-		for i = 1, n do
-			local lettre = texte:sub(i, i)
-			if lettre ~= " " then
-				local x = -INSCRIPTION_LARGEUR / 2 + (i - 0.5) * pas
-				local bloc = O.decor(O.bloc(cadre, Vector3.new(pas * 0.92, INSCRIPTION_HAUTEUR, 1.6), CFrame.new(x, y + INSCRIPTION_HAUTEUR / 2, z + 0.4),
-					Color3.fromRGB(150, 140, 128), M.Calcaire, "PierreLettre"))
-				local g = O.texte(bloc, Enum.NormalId.Back, lettre, {ppp = 12, police = Enum.Font.Fondamento, couleur = Color3.fromRGB(255, 196, 96), lumiere = 0})
-				local label = g:FindFirstChild("Label")
-				if label and label:IsA("TextLabel") then
-					label.Size, label.Position = UDim2.fromScale(0.96, 0.96), UDim2.fromScale(0.02, 0.02)
-				end
+	-- Lettres en cristal facetté bleu-violet : chaque trait est une barre de cristal (section en losange, gaine de
+	-- verre + cœur néon), les jointures sont couvertes par de petites pointes ; dégradé bleu → violet le long du texte.
+	local rng = Random.new(2024)
+	local BLEU, ROSE = Color3.fromRGB(70, 150, 255), Color3.fromRGB(176, 96, 255)
+	local uy = INSCRIPTION_HAUTEUR / 6
+	local ux = 2.05
+	local pas = INSCRIPTION_LARGEUR / #INSCRIPTION_TEXTE
+	local EPAISSEUR = 1.9
+	local function barre(parent, a, b, couleur)
+		local dir, longueur = (b - a).Unit, (b - a).Magnitude
+		-- cristal brut : le trait est fait de 2 ou 3 blocs irréguliers (épaisseur, rotation et léger décalage variables)
+		local n = if longueur > 9 then 3 elseif longueur > 4 then 2 else 1
+		for k = 1, n do
+			local t0, t1 = (k - 1) / n, k / n
+			local milieu = a + dir * (longueur * (t0 + t1) / 2) + Vector3.new(rng:NextNumber(-0.15, 0.15), rng:NextNumber(-0.15, 0.15), rng:NextNumber(-0.1, 0.25))
+			local e = EPAISSEUR * rng:NextNumber(0.88, 1.12)
+			local cf = CFrame.lookAt(milieu, milieu + dir, Vector3.zAxis) * CFrame.Angles(math.rad(rng:NextNumber(-3, 3)), math.rad(rng:NextNumber(-3, 3)), math.rad(45 + rng:NextNumber(-14, 14)))
+			local seg = longueur / n + EPAISSEUR * (if k == 1 or k == n then 0.25 else 0.4)
+			local gaine = O.decor(O.bloc(parent, Vector3.new(e, e * rng:NextNumber(0.85, 1.05), seg), cf, couleur, M.Verre, "Cristal"))
+			gaine.Transparency = 0.15
+			gaine.Reflectance = 0.35
+			gaine.CastShadow = false
+			local reflet = O.decor(O.bloc(parent, Vector3.new(e * 0.55, e * 1.06, seg * 0.92), cf * CFrame.Angles(0, 0, math.rad(45)),
+				couleur:Lerp(Color3.new(1, 1, 1), 0.28), M.Verre, "Facette"))
+			reflet.Transparency = 0.4
+			reflet.CastShadow = false
+			O.decor(O.bloc(parent, Vector3.new(e * 0.55, e * 0.55, seg * 0.95), cf, couleur:Lerp(Color3.new(1, 1, 1), 0.12), M.Neon, "Coeur")).CastShadow = false
+		end
+		-- petites pointes qui dépassent du trait
+		for _ = 1, rng:NextInteger(0, if longueur > 6 then 2 else 1) do
+			local p = a + dir * longueur * rng:NextNumber(0.15, 0.85)
+			local h = rng:NextNumber(0.9, 1.6)
+			local cf = CFrame.new(p) * CFrame.Angles(math.rad(rng:NextNumber(20, 70)), 0, math.rad(rng:NextNumber(-60, 60)))
+			local pointe = O.decor(O.bloc(parent, Vector3.new(0.55, h, 0.55), cf * CFrame.new(0, h / 2 + 0.4, 0) * CFrame.Angles(0, math.rad(45), 0), couleur, M.Verre, "Pointe"))
+			pointe.Transparency = 0.15
+			pointe.CastShadow = false
+			O.decor(O.bloc(parent, Vector3.new(0.4, 0.4, 0.4), cf * CFrame.new(0, h + 0.4, 0) * CFrame.Angles(math.rad(45), math.rad(45), 0), couleur:Lerp(Color3.new(1, 1, 1), 0.3), M.Neon, "Bout")).CastShadow = false
+		end
+	end
+	local function noeud(parent, p, couleur)
+		local d = O.decor(O.bloc(parent, Vector3.one * EPAISSEUR * rng:NextNumber(1.05, 1.3), CFrame.new(p) * CFrame.Angles(math.rad(45 + rng:NextNumber(-15, 15)), math.rad(45 + rng:NextNumber(-15, 15)), 0), couleur, M.Verre, "Noeud"))
+		d.Transparency = 0.2
+		d.Reflectance = 0.3
+		d.CastShadow = false
+	end
+	for i = 1, #INSCRIPTION_TEXTE do
+		local traits = POLICE_CRISTAL[INSCRIPTION_TEXTE:sub(i, i)]
+		if traits then
+			local groupe = O.modele(cadre, "Lettre" .. i)
+			local x0 = -INSCRIPTION_LARGEUR / 2 + (i - 0.5) * pas - 2 * ux
+			local function point(q) return Vector3.new(x0 + q[1] * ux, y + q[2] * uy + EPAISSEUR / 2, z - 0.3) end
+			for _, t in traits do
+				local couleur = BLEU:Lerp(ROSE, math.clamp((i - 1) / (#INSCRIPTION_TEXTE - 1) * 0.7 + rng:NextNumber(0, 0.3), 0, 1))
+				local a, b = point(t[1]), point(t[2])
+				barre(groupe, a, b, couleur)
+				noeud(groupe, a, couleur)
+				noeud(groupe, b, couleur)
 			end
 		end
 	end
-	-- lueur chaude qui baigne l'inscription
-	for _, x in {-50, 0, 50} do
-		local p = O.decor(O.bloc(cadre, Vector3.one, CFrame.new(x, y + INSCRIPTION_HAUTEUR / 2, z + 6), Color3.new(), M.Lisse, "Halo"))
-		p.Transparency = 1
-		O.lumiere(p, Color3.fromRGB(255, 180, 96), 1.4, 30)
+	-- grappes de cristaux sur la roche autour du texte (avec leur lumière)
+	for _, g in {{-93, -1, 0}, {-88, 2, 1}, {-60, 17, 1}, {-14, 16, 0}, {30, 17, 1}, {66, 16, 0}, {-36, -2, 1}, {10, -2, 0}, {48, -2, 1}, {-80, 15, 0}} do
+		local p = Vector3.new(g[1], y + g[2], z - 1)
+		B.cristal(cadre, CFrame.new(p) * CFrame.Angles(math.rad(12), 0, math.rad(rng:NextNumber(-20, 20))), rng:NextNumber(3.5, 5.5),
+			if g[3] == 0 then BLEU else ROSE, rng, 22)
 	end
+	-- lueurs bleues et roses qui baignent l'inscription
+	for k, x in {-60, 0, 60} do
+		local p = O.decor(O.bloc(cadre, Vector3.one, CFrame.new(x, y + INSCRIPTION_HAUTEUR / 2, z + 8), Color3.new(), M.Lisse, "Halo"))
+		p.Transparency = 1
+		O.lumiere(p, if k == 2 then ROSE else BLEU, 0.55, 22)
+	end
+
+	-- Nain mineur sur son échafaudage, qui pioche le dernier E (animé par PiocheurEnseigne.client)
+	local xE = -INSCRIPTION_LARGEUR / 2 + (#INSCRIPTION_TEXTE - 0.5) * pas + 1.8 * ux + EPAISSEUR
+	local plancher = CFrame.new(xE + 7.6, y - 0.4, z + 2)
+	local echafaudage = O.modele(cadre, "Echafaudage")
+	O.decor(O.bloc(echafaudage, Vector3.new(9.5, 0.6, 6), plancher, C.Bois, M.Planches, "Plancher"))
+	for _, dx in {-4.5, 4.5} do
+		for _, dz in {-2.7, 2.7} do
+			O.decor(O.bloc(echafaudage, Vector3.new(0.6, 14, 0.6), plancher * CFrame.new(dx, -7.2, dz), C.BoisFonce, M.Bois, "Montant"))
+		end
+		O.decor(O.bloc(echafaudage, Vector3.new(0.35, 0.35, 7.8), plancher * CFrame.new(dx, -6, 0) * CFrame.Angles(math.rad(40), 0, 0), C.BoisFonce, M.Bois, "Croix"))
+		O.decor(O.bloc(echafaudage, Vector3.new(0.35, 2, 0.35), plancher * CFrame.new(dx, 1.2, 2.7), C.BoisFonce, M.Bois, "GardeCorps"))
+	end
+	O.decor(O.bloc(echafaudage, Vector3.new(9.5, 0.3, 0.3), plancher * CFrame.new(0, 2.1, 2.7), C.BoisFonce, M.Bois, "Lisse"))
+	local lampe = O.decor(O.bloc(echafaudage, Vector3.new(0.3, 3, 0.3), plancher * CFrame.new(4.5, 1.8, -2.7), C.Fer, M.Metal, "PoteauLampe"))
+	B.suspension(echafaudage, lampe.Position + Vector3.new(0, 1.1, 0), 0.4, C.Lumiere, 18)
+	B.caisse(echafaudage, plancher * CFrame.new(3, 0.3, 1.2), 2)
+	B.nainPiocheur(cadre, plancher * CFrame.new(-0.6, 0.3, -0.9) * CFrame.Angles(0, math.rad(90), 0), 2.6)
 end
 
 local preparerPortes, preparerCristal -- définies avec la caverne, plus bas
@@ -372,7 +438,7 @@ local function portail(f, rng)
 	preparerEnseigne(f)
 
 	-- Cristaux géants qui sortent de la falaise
-	for _, c in {{-48, 36, 24, C.Cristal}, {-30, 58, 20, C.CristalViolet}, {42, 30, 26, C.CristalViolet}, {26, 62, 18, C.Cristal}, {62, 18, 16, C.Cristal}} do
+	for _, c in {{-48, 36, 24, C.Cristal}, {-30, 50, 20, C.CristalViolet}, {42, 30, 26, C.CristalViolet}, {26, 62, 18, C.Cristal}, {62, 18, 16, C.Cristal}} do
 		local s = if c[1] < 0 then -1 else 1
 		B.cristal(m, CFrame.new(c[1], c[2], -188) * CFrame.Angles(math.rad(50), 0, math.rad(-s * 15)), c[3], c[4], rng, 50)
 	end
