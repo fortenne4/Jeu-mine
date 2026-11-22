@@ -466,6 +466,16 @@ gisements ni à l'arrivée) :
   derrière la géode du temple, sous un champignon géant, sous un rideau de mousse, au fond d'une alcôve) ; chaque
   joueur peut ramasser chaque rouleau une fois et reçoit un fragment qu'il n'a pas encore (+15 pièces). Carte
   complète : +300 pièces. Sauvegardé dans le profil (`fragments`, attribut joueur `FragmentsCarte`).
+- **Énigme runique** (`GrotteLueurs` section 17, `src/server/SecretsGrotte.server.lua`) : une porte naine scellée,
+  creusée dans la roche pleine derrière la paroi d'une salle, montre 3 runes de couleur (cyan, magenta, ambre) dans
+  un ordre tiré au hasard (`OrdreRunes`, lu de gauche à droite). Il faut activer les 3 **pierres runiques** de la
+  grotte dans cet ordre ; une erreur éteint tout. Réussi : la porte s'enfonce dans le sol et ouvre une **salle
+  secrète** (2 Fer, 1 Or, une géode, un fragment de carte en plus des 5 cachettes).
+- **Cristaux de lueur** : un amas de cristal minable au pied d'une veine par salle (8 max ; nœud « Minerai » de type
+  `Lueur`, cassé par `PiocheBraise` comme les minerais de la grotte) : +4 pièces et 12 % de chance d'un fragment.
+- **Musique et sons** (`src/client/SonsGrotte.client.lua`) : nappe de grotte en continu et musique en fondu selon
+  la zone (galeries « Stone Cocoon », forêt « Indoor Forest », lacs « Mercury Lake », temple « Rhythm Drone »,
+  camp avec feu qui crépite) ; sons de la bibliothèque audio de Studio.
 - Le contrôle « chemin bouché » du générateur ne régénère plus la grotte pour une simple bosse du sol (rayons à 3,
   6 et 9 studs : bouché seulement si les trois touchent) : la grotte n'est plus générée trois fois de suite.
 
@@ -481,6 +491,8 @@ gisements ni à l'arrivée) :
 | `src/client/FeuxFollets.client.lua` | Feux follets guides, lucioles, pas lumineux et lueur des méduses (palier 1). |
 | `src/server/Sanctuaire.lua` + `src/client/Sanctuaire.client.lua` | Éveil du sanctuaire (cinématique), vague de gardiens, coffre du temple (palier 1). |
 | `src/partage/CarteNaine.lua` + `src/server/CarteNaine.lua` + `src/client/CarteNaine.client.lua` | Fragments de la carte naine : cachettes, récompenses, sauvegarde, parchemin. |
+| `src/server/SecretsGrotte.server.lua` | Énigme des pierres runiques, porte de la salle secrète, récompense des cristaux de lueur (palier 1). |
+| `src/client/SonsGrotte.client.lua` | Ambiance sonore et musique par zone de la grotte −50 m. |
 | `src/server/MobsGrotte.lua` + `src/client/MobsGrotte.client.lua` | IA des mobs, coups d'épée, renforts, boss ; animations et barres de vie. |
 | `src/client/InterfaceGrottes.client.lua` | Choix de profondeur (barre, minerais du palier en silhouettes / couleurs), groupe, invitations. |
 

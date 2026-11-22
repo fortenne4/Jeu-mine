@@ -17,6 +17,7 @@
 	Tout est décoratif (aucune collision) ; rien dans la zone d'arrivée, sur les gisements ni sur le chemin. ]]
 local CollectionService = game:GetService("CollectionService")
 local CarteNaine = require(game:GetService("ReplicatedStorage"):WaitForChild("Partage"):WaitForChild("CarteNaine"))
+local MineraisModeles = require(game:GetService("ReplicatedStorage"):WaitForChild("Partage"):WaitForChild("MineraisModeles"))
 local O = require(script.Parent.Outils)
 local M3 = require(script.Parent.Modeles3D)
 local B = require(script.Parent.Batiments)
@@ -1120,9 +1121,47 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 		end
 		return premier
 	end
+	-- cristaux de lueur minables au pied de certaines veines (tag « Minerai », type « Lueur » : PiocheBraise les
+	-- casse comme un minerai de la grotte ; la récompense est donnée par VeinesLueur.server.lua)
+	local nCristaux = 0
+	local function cristalMinable(hit, couleur: Color3)
+		if nCristaux >= 8 or not ctx.proprietaire then
+			return
+		end
+		local n = hit.Normal
+		local base = outils.axeVers(hit.Position - n * 0.35, n)
+		local m = Instance.new("Model")
+		m.Name = "CristalLueur"
+		local coeur = O.bloc(m, Vector3.new(1.2, 1.2, 1.2), base * CFrame.new(0, 0.35, 0) * CFrame.Angles(0, math.rad(45), math.rad(45)), couleur, M.Neon, "Coeur")
+		coeur.CanCollide, coeur.CanTouch, coeur.CastShadow = false, false, false
+		coeur.Transparency = 0.1
+		for k = 1, 4 do
+			local h = rng:NextNumber(1.2, 2.4)
+			local cf = base * CFrame.Angles(rng:NextNumber(-0.6, 0.6), k * math.pi / 2 + rng:NextNumber(-0.4, 0.4), rng:NextNumber(-0.6, 0.6)) * CFrame.new(0, h / 2, 0)
+			local e = O.decor(O.bloc(m, Vector3.new(0.45, h, 0.45), cf, couleur:Lerp(Color3.new(1, 1, 1), 0.25), M.Neon, "Eclat"))
+			e.CastShadow = false
+		end
+		m.PrimaryPart = coeur
+		emetteur(coeur, {Name = "Scintille", Texture = TEX_ETINCELLE, LightEmission = 1, LightInfluence = 0, Color = ColorSequence.new(couleur, Color3.new(1, 1, 1)),
+			Size = NumberSequence.new({kp(0, 0), kp(0.3, 0.3), kp(1, 0)}), Lifetime = NumberRange.new(0.6, 1.2), Rate = 5,
+			Speed = NumberRange.new(0.5, 1.2), SpreadAngle = Vector2.new(180, 180)})
+		coeur:SetAttribute("Type", "Lueur")
+		coeur:SetAttribute("PV", 2)
+		coeur:SetAttribute("PVMax", 2)
+		coeur:SetAttribute("Taille", 1.2)
+		coeur:SetAttribute("Proprietaire", ctx.proprietaire)
+		if ctx.invite then
+			coeur:SetAttribute("Invite", ctx.invite)
+		end
+		coeur:SetAttribute("VeineLueur", true)
+		m.Parent = decor
+		O.tag(coeur, "Minerai")
+		nCristaux += 1
+	end
 	local nVeines = 0
 	for _, s in salles do
 		local nb = if s.boss then 10 elseif s.depart then 3 else math.floor(s.r / 3.5)
+		local cristalPose = false
 		for _ = 1, nb do
 			local a = rng:NextNumber(0, 2 * math.pi)
 			local hit = outils.paroi(s.p, Vector3.new(math.cos(a), 0, math.sin(a)), rng:NextNumber(0.5, 5), s.r * 1.7)
@@ -1132,6 +1171,10 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 					else COULEURS_VEINE[rng:NextInteger(1, #COULEURS_VEINE)]
 				veine(hit, rng:NextInteger(6, 11), c, rng:NextNumber(0.3, 0.5), 2)
 				nVeines += 1
+				if not cristalPose and not s.depart and not s.boss and hit.Position.Y - s.p.Y < 5 then
+					cristalMinable(hit, c)
+					cristalPose = true
+				end
 			end
 		end
 	end
@@ -1226,8 +1269,8 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 	-- cachettes : fond du grand lac, derrière la géode du temple, sous un champignon géant, sous un rideau de
 	-- mousse, au fond d'une alcôve ; chaque joueur peut ramasser chaque cachette une fois (CarteNaine.lua)
 	local caches = {}
-	local function cachette(sol, ou: string)
-		if not sol or #caches >= CarteNaine.CACHES_PAR_GROTTE then
+	local function cachette(sol, ou: string, force: boolean?)
+		if not sol or (not force and #caches >= CarteNaine.CACHES_PAR_GROTTE) then
 			return
 		end
 		local pos = sol.Position
@@ -1235,7 +1278,7 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 			return
 		end
 		for _, c in caches do
-			if (c - pos).Magnitude < 22 then
+			if not force and (c - pos).Magnitude < 22 then
 				return
 			end
 		end
@@ -1296,6 +1339,191 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 		end
 	end
 	modele:SetAttribute("Cachettes", #caches)
+
+	-- ===== 17. Énigme runique : 3 pierres de couleur à activer dans l'ordre gravé sur une porte naine scellée =====
+	-- La porte ferme une salle secrète creusée dans la roche pleine derrière la paroi d'une salle (Fer, Or, un
+	-- fragment de carte). Activations et ouverture : EnigmeRunique.server.lua (attributs OrdreRunes, RunesProgres).
+	local RUNES = {
+		{nom = "cyan", c = P.cyan},
+		{nom = "magenta", c = P.magenta},
+		{nom = "ambre", c = P.ambre},
+	}
+	local function eteinte(c: Color3): Color3
+		return c:Lerp(Color3.fromRGB(20, 22, 30), 0.82)
+	end
+	local secret = nil
+	local sallesEnigme = {}
+	for _, s in salles do
+		if not s.depart and not s.boss then
+			table.insert(sallesEnigme, s)
+		end
+	end
+	table.sort(sallesEnigme, function(a, b)
+		return a.r > b.r
+	end)
+	for _, s in sallesEnigme do
+		if secret then
+			break
+		end
+		if roles[s] ~= "lac" then
+			local a0 = rng:NextNumber(0, math.pi * 2)
+			for k = 0, 11 do
+				local dir = Vector3.new(math.cos(a0 + k * math.pi / 6), 0, math.sin(a0 + k * math.pi / 6))
+				local hit = outils.paroi(s.p, dir, 3, s.r * 1.8)
+				if hit and math.abs(hit.Normal.Y) < 0.4 then
+					local n = unite(plat(hit.Normal), -dir)
+					local sol = solEn(hit.Position + n * 3)
+					if sol and not surChemin(sol.Position, 7) and libre(sol.Position, 5) and (sol.Position - depart.p).Magnitude > 40 then
+						local fondY = sol.Position.Y
+						local centre = Vector3.new(hit.Position.X, fondY + 3, hit.Position.Z) - n * 10
+						-- roche (presque) pleine autour de la future salle : on ne perce ni une galerie ni une salle voisine
+						local region = Region3.new(centre - Vector3.new(6, 3, 6), centre + Vector3.new(6, 7, 6)):ExpandToGrid(4)
+						local _, occs = terrain:ReadVoxels(region, 4)
+						local creux = 0
+						for x = 1, #occs do
+							for y = 1, #occs[x] do
+								for z = 1, #occs[x][y] do
+									if occs[x][y][z] < 0.99 then
+										creux += 1
+									end
+								end
+							end
+						end
+						if creux <= 4 then
+							secret = {s = s, hit = hit, n = n, fondY = fondY, centre = centre}
+							break
+						end
+					end
+				end
+			end
+		end
+	end
+	if secret and ctx.proprietaire then
+		local n, fondY, centre = secret.n, secret.fondY, secret.centre
+		local bouche = Vector3.new(secret.hit.Position.X, fondY, secret.hit.Position.Z)
+		-- salle secrète : sphère d'air, couloir jusqu'à la paroi, sol plat
+		terrain:FillBall(centre, 7, AIR)
+		local milieu = bouche - n * 4.5 + Vector3.new(0, 3.5, 0)
+		terrain:FillBlock(CFrame.lookAt(milieu, milieu - n), Vector3.new(5, 7, 10), AIR)
+		terrain:FillBlock(CFrame.new(centre.X, fondY - 2, centre.Z), Vector3.new(16, 4, 16), ctx.matPart)
+		-- le terrain écrit n'est touché par les rayons qu'après un pas physique : on attend le sol de la salle
+		local attente = os.clock()
+		repeat
+			task.wait()
+		until trace(centre + Vector3.new(0, 2, 0), Vector3.new(0, -14, 0)) or os.clock() - attente > 2
+		local function solSalle(p: Vector3): Vector3
+			local h = trace(Vector3.new(p.X, centre.Y + 2, p.Z), Vector3.new(0, -14, 0))
+			return if h then h.Position else Vector3.new(p.X, fondY, p.Z)
+		end
+		-- porte : battant qui bloque (il s'enfonce dans le sol à l'ouverture), cadre de pierre, 3 runes dans l'ordre
+		local ordre = {1, 2, 3}
+		for i = 3, 2, -1 do
+			local j = rng:NextInteger(1, i)
+			ordre[i], ordre[j] = ordre[j], ordre[i]
+		end
+		local pm = O.modele(decor, "PorteSecrete")
+		local face = CFrame.lookAt(bouche + n * 0.4 + Vector3.new(0, 3.9, 0), bouche + n * 5 + Vector3.new(0, 3.9, 0))
+		local battant = O.bloc(pm, Vector3.new(6, 8, 1.4), face, P.pierre, Enum.Material.Slate, "Battant")
+		battant.CanCollide, battant.CanQuery = true, false
+		battant:SetAttribute("Ferme", face)
+		for _, x in {-3.6, 3.6} do
+			O.decor(O.bloc(pm, Vector3.new(1.4, 9.4, 2.2), face * CFrame.new(x, 0.6, 0.3), P.roche, Enum.Material.Slate, "Cadre"))
+		end
+		O.decor(O.bloc(pm, Vector3.new(8.6, 2.4, 2.4), face * CFrame.new(0, 5.2, 0.3), P.roche, Enum.Material.Slate, "Linteau"))
+		-- runes gravées sur le linteau (fixe : elles restent en place quand le battant s'enfonce)
+		for i, idx in ordre do
+			local r = RUNES[idx]
+			local cf = face * CFrame.new((2 - i) * 1.9, 5.05, -0.98) -- la face regarde la salle : rang 1 à gauche pour qui la lit
+			local glyphe = O.decor(O.bloc(pm, Vector3.new(0.8, 1.2, 0.12), cf, eteinte(r.c), M.Neon, "SlotRune"))
+			glyphe:SetAttribute("Rang", i)
+			glyphe:SetAttribute("Couleur", r.c)
+			O.decor(O.bloc(pm, Vector3.new(1.1, 0.16, 0.12), cf * CFrame.new(0, 0.85, 0), r.c, M.Neon, "Repere")) -- trait de couleur : l'indice
+		end
+		modele:SetAttribute("OrdreRunes", table.concat(ordre, ","))
+		modele:SetAttribute("RunesProgres", 0)
+		-- contenu : Fer, Or, géodes, lumière violette, fragment de carte
+		local graine = ctx.graine or 1
+		local tresors = {{"Fer", 8}, {"Fer", 8}, {"Gold", 12}}
+		for i, t in tresors do
+			local a = (i / #tresors) * math.pi * 2 + 0.5
+			local pos = solSalle(centre + Vector3.new(math.cos(a) * 3.8, 0, math.sin(a) * 3.8))
+			local s = MineraisModeles.VISUEL[t[1]].taille
+			-- comme les gisements du générateur : centre du rocher à la surface (construire() le remonte de 1,25 × s)
+			local mm, coeur = MineraisModeles.construire(t[1], CFrame.new(pos - Vector3.new(0, 1.25 * s - 0.1, 0)), Random.new(graine + i), true)
+			for _, p in mm:GetChildren() do
+				if p:IsA("BasePart") then
+					p.CanQuery = p == coeur
+				end
+			end
+			coeur:SetAttribute("Type", t[1])
+			coeur:SetAttribute("Taille", MineraisModeles.VISUEL[t[1]].taille)
+			coeur:SetAttribute("PV", t[2])
+			coeur:SetAttribute("PVMax", t[2])
+			coeur:SetAttribute("Proprietaire", ctx.proprietaire)
+			if ctx.invite then
+				coeur:SetAttribute("Invite", ctx.invite)
+			end
+			coeur:SetAttribute("Secret", true)
+			mm.Parent = decor
+			O.tag(coeur, "Minerai")
+		end
+		if modeles then
+			local pg = solSalle(centre - n * 5)
+			poser(ctx, "^Geode%d+$", CFrame.lookAt(pg - Vector3.new(0, 0.4, 0), pg - n * 4), 1.1)
+		end
+		local lueur = volume(decor, Vector3.one, CFrame.new(centre + Vector3.new(0, 2, 0)), "LueurSecrete")
+		remplir(lueur, P.violet:Lerp(P.lune, 0.3), 0.9, 22)
+		cachette({Position = solSalle(centre + n * 1.5)}, "secret", true)
+		-- pierres runiques dans 3 autres salles (une seule par salle)
+		local poses = 0
+		for _, s in sallesEnigme do
+			if poses >= 3 then
+				break
+			end
+			if s ~= secret.s then
+				local sol = nil
+				local a0 = rng:NextNumber(0, math.pi * 2)
+				for _, dr in {0.55, 0.4, 0.68} do
+					for k = 0, 11 do
+						if not sol then
+							local a = a0 + k * math.pi / 6
+							local essai = solEn(s.p + Vector3.new(math.cos(a), 0, math.sin(a)) * s.r * dr)
+							if essai and libre(essai.Position, 3) and not surChemin(essai.Position, 4) then
+								sol = essai
+							end
+						end
+					end
+				end
+				if sol then
+					poses += 1
+					local r = RUNES[poses]
+					local vers = versCentre(s, sol.Position)
+					local base = CFrame.lookAt(sol.Position, sol.Position + vers)
+					local pr = O.modele(decor, "PierreRunique")
+					O.decor(O.bloc(pr, Vector3.new(3, 0.8, 2.2), base * CFrame.new(0, 0.2, 0), P.roche, Enum.Material.Slate, "Socle"))
+					local stele = O.decor(O.bloc(pr, Vector3.new(2.2, 5.5, 1.1), base * CFrame.new(0, 3.2, 0) * CFrame.Angles(math.rad(-6), 0, math.rad(rng:NextNumber(-4, 4))),
+						P.pierre, Enum.Material.Slate, "Stele"))
+					for _, b in {{0, 1.2, 0.2, 1.8, 0}, {0, 0.1, 1.2, 0.2, 0}, {0.35, -0.9, 0.2, 1.2, 25}, {-0.35, -0.9, 0.2, 1.2, -25}} do
+						local g = O.decor(O.bloc(pr, Vector3.new(b[3], b[4], 0.12), stele.CFrame * CFrame.new(b[1], b[2], -0.58) * CFrame.Angles(0, 0, math.rad(b[5])),
+							eteinte(r.c), M.Neon, "Glyphe"))
+						g.CastShadow = false
+					end
+					local invite = Instance.new("ProximityPrompt")
+					invite.ActionText, invite.ObjectText = "Activer", "Pierre runique " .. r.nom
+					invite.HoldDuration, invite.MaxActivationDistance, invite.RequiresLineOfSight = 1, 9, false
+					invite:SetAttribute("PierreRunique", poses)
+					invite.Parent = stele
+					pr:SetAttribute("Rune", poses)
+					pr:SetAttribute("Couleur", r.c)
+				end
+			end
+		end
+		modele:SetAttribute("PierresRunes", poses)
+		if poses < 3 then -- pas la place pour les 3 pierres : la salle secrète reste simplement ouverte
+			battant:Destroy()
+			modele:SetAttribute("PorteOuverte", true)
+		end
+	end
 
 	-- ===== 14. Mise en eau des lacs (en dernier : les rayons du décor ignorent l'eau, ceux du générateur non) =====
 	-- même sphère que la cuvette, remplie d'eau ; tout ce qui est au-dessus de la surface est remis à l'identique

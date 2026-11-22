@@ -98,7 +98,9 @@ local function montrer(id: string, pieces: number, complete: boolean, origine: s
 	local trouves = Carte.lire(joueur:GetAttribute("FragmentsCarte"))
 	trouves[id] = true
 	local n = Carte.compter(trouves)
-	entete.Text = if origine == "coffre" then "FRAGMENT TROUVÉ DANS LE COFFRE" else "FRAGMENT DE CARTE N° " .. f.numero
+	entete.Text = if origine == "coffre" then "FRAGMENT TROUVÉ DANS LE COFFRE"
+		elseif origine == "cristal" then "UN FRAGMENT ÉTAIT CACHÉ DANS LE CRISTAL"
+		else "FRAGMENT DE CARTE N° " .. f.numero
 	titre.Text = f.titre
 	corps.Text = "« " .. f.texte .. " »"
 	compte.Text = "Carte du royaume : " .. n .. " / " .. #Carte.FRAGMENTS .. " fragments"
@@ -142,5 +144,18 @@ remote.OnClientEvent:Connect(function(genre, d)
 		montrer(d.id, d.pieces or 0, d.complete == true, d.origine)
 	elseif genre == "Doublon" then
 		toast("Carte déjà complète : +" .. tostring(d.pieces or 0) .. " pièces", true)
+	elseif genre == "Cristal" then
+		toast("Cristal de lueur : +" .. tostring(d.pieces or 0) .. " pièces", true)
+	elseif genre == "Rune" then
+		if d.ok then
+			toast("Rune " .. tostring(d.n) .. " / " .. tostring(d.total) .. " : la pierre s'illumine", true)
+			UI.jouer("metal", 0.7 + (d.n or 0) * 0.15)
+		else
+			toast("Mauvais ordre… toutes les runes s'éteignent", false)
+			UI.jouer("metal", 0.5)
+		end
+	elseif genre == "Porte" then
+		toast("Un grondement… une porte secrète s'est ouverte !", true)
+		UI.celebrer(gui, Color3.fromRGB(165, 90, 255), "PORTE OUVERTE")
 	end
 end)
