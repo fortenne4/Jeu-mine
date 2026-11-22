@@ -461,14 +461,16 @@ end
 
 -- Construit la pièce à l'origine (Racine.CFrame = CFrame.identity) ; déplacer avec Model:PivotTo.
 -- tailleTete (casques) : taille visuelle de la tête porteuse, pour mettre le casque à l'échelle.
-function ArmuresVoxels.construire(id: string, teinte: Color3?, tailleTete: Vector3?): Model
+function ArmuresVoxels.construire(id: string, teinte: Color3?, tailleTete: Vector3?, forcerLisse: boolean?): Model
 	local d = ArmuresVoxels.donnees(id)
-	local ok, mesh = pcall(construireMesh, id, d)
-	if ok and mesh then
-		echelle(mesh, tailleTete)
-		return mesh
-	elseif not ok then
-		warn("[ArmuresVoxels] casque mesh illisible, version lisse :", id, mesh)
+	if not forcerLisse then
+		local ok, mesh = pcall(construireMesh, id, d)
+		if ok and mesh then
+			echelle(mesh, tailleTete)
+			return mesh
+		elseif not ok then
+			warn("[ArmuresVoxels] casque mesh illisible, version lisse :", id, mesh)
+		end
 	end
 	if (d :: any).Format == "Lisse" then
 		local g = gabaritLisse(id, d)

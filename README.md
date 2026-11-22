@@ -260,6 +260,8 @@ Minerai **dominant** = celui en plus grande quantité ; à égalité, le minerai
 L'ordre des minerais ne compte pas pour les autres paires (Fer + Charbon = EpeeCharbonFer).
 Les casques suivent la même logique (`Forge.ECHELLES.Casque`, 10 rangs, Défense).
 
+Une exposition derrière la forge présente les dix casques et l'armure générique sur des supports en bois. Les plastrons et jambières exposés réutilisent les modèles génériques du jeu, teintés pour accompagner chaque casque. Les réglages de placement, d'éclairage et d'affichage des plaques sont en tête de `src/server/ExpositionArmures.server.lua`. Si les meshes importés sont inaccessibles, l'exposition utilise les casques lisses existants du projet.
+
 Après une forge réussie, le serveur lance la **cinématique de forge** (`ForgeCinematique`, voir `src/client/ForgeCinematique.client.lua`) ;
 la fenêtre de Brom se cache pendant et affiche le résultat après.
 
