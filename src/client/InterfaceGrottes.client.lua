@@ -15,6 +15,7 @@ local Debris = game:GetService("Debris")
 
 local Grottes = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("Grottes"))
 local MineraisModeles = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("MineraisModeles"))
+local PiochesVoxels = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("PiochesVoxels"))
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
 local Icones = require(script.Parent:WaitForChild("IconesObjets"))
 local T, creer, coin, trait, texte, jouer = UI.T, UI.creer, UI.coin, UI.trait, UI.texte, UI.jouer
@@ -27,7 +28,7 @@ end
 local evOuvrir, evFermer, evChoisir, evQuitter = remote("Ouvrir"), remote("Fermer"), remote("Choisir"), remote("Quitter")
 local evInviter, evInvitation, evRepondre, evMessage = remote("Inviter"), remote("Invitation"), remote("Repondre"), remote("Message")
 
-local LARGEUR, HAUTEUR = 760, 500 -- taille de conception (mise à l'échelle par UIScale)
+local LARGEUR, HAUTEUR = 640, 500 -- taille de conception (mise à l'échelle par UIScale) ; le panneau « Groupe » est collé à droite
 local CRISTAL = Color3.fromRGB(120, 210, 255)
 local BOUTON_BLEU = Color3.fromRGB(56, 140, 205)
 local DUREE_INVITATION = 20
@@ -155,19 +156,19 @@ local function boutonSimple(props: {[string]: any}, libelle: string, couleur: Co
 	return b, l
 end
 
--- Bouton fermer rond (✕)
+-- Bouton fermer rond : croix « X » dessinée avec deux barres (pas de glyphe de police), toujours droite ;
+-- au survol elle grossit seulement (UIScale), aucune rotation
 local function boutonFermer(props: {[string]: any}): TextButton
-	props.Text, props.Font, props.TextScaled, props.TextColor3 = "X", Enum.Font.GothamBlack, true, T.Parchemin
-	props.BackgroundColor3, props.AutoButtonColor = Color3.fromRGB(140, 46, 34), false
-	local b = creer("TextButton", props, {coin(0.5), trait(T.Fer, 3), UI.degrade(BLANC, Color3.fromRGB(150, 150, 150)),
-		creer("UIPadding", {PaddingTop = UDim.new(0.24, 0), PaddingBottom = UDim.new(0.24, 0)})})
-	UI.reactif(b, 1.1)
-	b.MouseEnter:Connect(function()
-		TweenService:Create(b, FAST, {Rotation = 90}):Play()
-	end)
-	b.MouseLeave:Connect(function()
-		TweenService:Create(b, FAST, {Rotation = 0}):Play()
-	end)
+	props.Text, props.Rotation = "", 0
+	props.BackgroundColor3, props.AutoButtonColor = Color3.fromRGB(150, 44, 32), false
+	local z = (props.ZIndex or 1) + 1
+	local b = creer("TextButton", props, {coin(0.5), trait(Color3.fromRGB(60, 16, 10), 3), UI.degrade(BLANC, Color3.fromRGB(150, 150, 150))})
+	for _, angle in {45, -45} do
+		creer("Frame", {Name = "Croix", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.52, 0.12),
+			Rotation = angle, BackgroundColor3 = T.Parchemin, BorderSizePixel = 0, ZIndex = z, Parent = b},
+			{coin(0.5), trait(Color3.fromRGB(60, 16, 10), 1.5, 0.3)})
+	end
+	UI.reactif(b, 1.12)
 	return b
 end
 
@@ -202,128 +203,240 @@ local voile = creer("TextButton", {Name = "Voile", Text = "", AutoButtonColor = 
 	{creer("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.3),
 		NumberSequenceKeypoint.new(0.5, 0.55), NumberSequenceKeypoint.new(1, 0.1)})})})
 
--- ================= Fond d'écran : galerie de mine (derrière la fenêtre) =================
--- Paroi rocheuse et veines de minerai, coffrage en bois ferré, lanternes suspendues, rails qui s'enfoncent,
--- wagonnet chargé, pioche contre un poteau, cristaux. Tout en Frames (aucune image à importer).
-local decorMine = creer("CanvasGroup", {Name = "DecorMine", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(104, 86, 76),
-	GroupTransparency = 1, BorderSizePixel = 0, Parent = voile},
-	{creer("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 240, 226)),
-		ColorSequenceKeypoint.new(0.6, Color3.fromRGB(205, 186, 176)), ColorSequenceKeypoint.new(1, Color3.fromRGB(130, 108, 116))})})})
-do
-	local BOIS, BOIS_SOMBRE, FER = Color3.fromRGB(112, 74, 44), Color3.fromRGB(58, 36, 22), Color3.fromRGB(92, 94, 104)
-	local rng = Random.new(31)
-	local function bloc(props: {[string]: any}, enfants: {Instance}?): Frame
-		props.BorderSizePixel = 0
-		props.Parent = props.Parent or decorMine
-		return creer("Frame", props, enfants)
-	end
-	-- Paroi : blocs de roche irréguliers et strates
-	for _ = 1, 70 do
-		local s = rng:NextNumber(0.05, 0.16)
-		local teinte = Color3.fromRGB(70, 58, 54):Lerp(Color3.fromRGB(120, 104, 96), rng:NextNumber())
-		bloc({AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(rng:NextNumber(), rng:NextNumber(0, 0.78)),
-			Size = UDim2.fromScale(s * rng:NextNumber(1, 1.8), s), SizeConstraint = Enum.SizeConstraint.RelativeYY, Rotation = rng:NextNumber(-25, 25),
-			BackgroundColor3 = teinte, BackgroundTransparency = rng:NextNumber(0.55, 0.8), ZIndex = 1}, {coin(rng:NextNumber(0.15, 0.4))})
-	end
-	for k = 1, 6 do
-		bloc({AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.1 + k * 0.11), Size = UDim2.new(1.3, 0, 0, 3),
-			Rotation = rng:NextNumber(-6, 6), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.82, ZIndex = 2})
-	end
-	-- Veines de minerai (charbon, cuivre, or, cristal) qui brillent un peu
-	local veines = {Color3.fromRGB(28, 28, 32), Color3.fromRGB(205, 120, 60), Color3.fromRGB(255, 205, 70), CRISTAL}
-	for _ = 1, 34 do
-		local c = veines[rng:NextInteger(1, #veines)]
-		local x = if rng:NextNumber() < 0.5 then rng:NextNumber(0.02, 0.26) else rng:NextNumber(0.74, 0.98)
-		local p = bloc({AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(x, rng:NextNumber(0.12, 0.7)),
-			Size = UDim2.fromScale(rng:NextNumber(0.012, 0.024), rng:NextNumber(0.012, 0.024)), SizeConstraint = Enum.SizeConstraint.RelativeYY,
-			Rotation = 45, BackgroundColor3 = c, ZIndex = 3}, {coin(0.25), trait(Color3.new(0, 0, 0), 1, 0.4), UI.degrade(BLANC, Color3.fromRGB(140, 140, 140), 45)})
-		if c ~= veines[1] then
-			UI.boucle(p, TweenInfo.new(rng:NextNumber(1.2, 2.4), Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true, rng:NextNumber(0, 1)),
-				{BackgroundTransparency = 0.45}, boucles)
-		end
-	end
-	-- Sol de terre battue
-	bloc({AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.fromScale(1, 0.24), BackgroundColor3 = Color3.fromRGB(58, 42, 34), ZIndex = 4},
-		{creer("UIGradient", {Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(160, 130, 110), Color3.fromRGB(70, 56, 50))})})
-	-- Rails qui fuient vers le centre (point de fuite derrière la fenêtre)
-	local fuite = Vector2.new(0.5, 0.74)
-	for _, bas in {0.3, 0.7} do
-		local dx, dy = bas - fuite.X, 1.02 - fuite.Y
-		local longueur = math.sqrt(dx * dx * 2.2 + dy * dy) -- écran ≈ 16/9 : x compte plus
-		bloc({AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale((bas + fuite.X) / 2, (1.02 + fuite.Y) / 2), Size = UDim2.new(0, 7, longueur, 0),
-			Rotation = math.deg(math.atan2(-dx * 1.6, dy)), BackgroundColor3 = Color3.fromRGB(150, 150, 160), ZIndex = 6},
-			{trait(Color3.fromRGB(30, 26, 26), 1.5), UI.degrade(BLANC, Color3.fromRGB(90, 90, 100), 0)})
-	end
-	for k = 0, 7 do
-		local t = (k / 8) ^ 1.6
-		local y = 1 - t * (1 - fuite.Y)
-		local demi = (0.7 - 0.5) * (1 - t) + 0.02
-		bloc({AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, y), Size = UDim2.new(demi * 2.6, 0, 0, math.max(4, 16 * (1 - t))),
-			BackgroundColor3 = BOIS_SOMBRE, ZIndex = 5}, {trait(Color3.new(0, 0, 0), 1, 0.4)})
-	end
-	-- Coffrage : deux poteaux, une poutre, des jambes de force, ferrures rivetées
-	for _, x in {0.035, 0.965} do
-		bloc({AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(x, 0), Size = UDim2.new(0.055, 0, 1, 0), BackgroundColor3 = BOIS, ZIndex = 7},
-			{trait(BOIS_SOMBRE, 3), creer("UIGradient", {Rotation = 0, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(150, 140, 130)),
-				ColorSequenceKeypoint.new(0.35, BLANC), ColorSequenceKeypoint.new(1, Color3.fromRGB(120, 110, 100))})})})
-		for _, y in {0.3, 0.62} do
-			local f = bloc({AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(x, y), Size = UDim2.new(0.062, 0, 0, 22), BackgroundColor3 = FER, ZIndex = 8},
-				{trait(Color3.fromRGB(30, 30, 34), 2), UI.degrade(BLANC, Color3.fromRGB(110, 110, 120), 90)})
-			UI.rivet(f, UDim2.fromScale(0.2, 0.5), 0.5)
-			UI.rivet(f, UDim2.fromScale(0.8, 0.5), 0.5)
-		end
-	end
-	bloc({Position = UDim2.fromScale(0, 0.02), Size = UDim2.new(1, 0, 0.075, 0), BackgroundColor3 = BOIS, ZIndex = 9},
-		{trait(BOIS_SOMBRE, 3), creer("UIGradient", {Rotation = 90, Color = ColorSequence.new(BLANC, Color3.fromRGB(120, 105, 95))})})
-	for _, s in {-1, 1} do
-		local x = if s < 0 then 0.1 else 0.9
-		bloc({AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(x, 0.15), Size = UDim2.new(0.03, 0, 0.26, 0), Rotation = s * 45,
-			BackgroundColor3 = BOIS, ZIndex = 8}, {trait(BOIS_SOMBRE, 2.5), UI.degrade(BLANC, Color3.fromRGB(130, 115, 100), 0)})
-	end
-	-- Lanternes suspendues à la poutre (lueur qui vacille)
-	for i, x in {0.12, 0.31, 0.69, 0.88} do
-		local h = if i % 2 == 0 then 0.1 else 0.06
-		bloc({AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(x, 0.09), Size = UDim2.new(0, 3, h, 0), BackgroundColor3 = Color3.fromRGB(40, 40, 46), ZIndex = 9})
-		local lueur = bloc({AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(x, 0.11 + h), Size = UDim2.fromScale(0.26, 0.26),
-			SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = Color3.fromRGB(255, 180, 80), BackgroundTransparency = 0.72, ZIndex = 3}, {coin(0.5)})
-		UI.boucle(lueur, TweenInfo.new(0.9 + i * 0.17, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-			{BackgroundTransparency = 0.8, Size = UDim2.fromScale(0.23, 0.23)}, boucles)
-		local cage = bloc({AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(x, 0.09 + h), Size = UDim2.fromScale(0.03, 0.045),
-			SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = Color3.fromRGB(255, 200, 90), ZIndex = 10},
-			{arrondi(4), trait(Color3.fromRGB(30, 26, 24), 3), UI.degrade(Color3.fromRGB(255, 240, 190), Color3.fromRGB(255, 140, 40), 90)})
-		bloc({AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromScale(1.3, 0.22), BackgroundColor3 = Color3.fromRGB(40, 40, 46),
-			ZIndex = 11, Parent = cage}, {arrondi(3)})
-	end
-	-- Wagonnet chargé sur les rails (bas gauche)
-	local wagon = bloc({AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.17, 0.93), Size = UDim2.fromScale(0.2, 0.12),
-		SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = Color3.fromRGB(96, 70, 52), ZIndex = 12},
-		{arrondi(6), trait(Color3.fromRGB(26, 20, 18), 3), UI.degrade(BLANC, Color3.fromRGB(110, 100, 95), 90)})
-	for _, y in {0.25, 0.7} do
-		bloc({Position = UDim2.fromScale(-0.03, y), Size = UDim2.new(1.06, 0, 0, 5), BackgroundColor3 = FER, ZIndex = 13, Parent = wagon})
-	end
-	for _, x in {0.22, 0.78} do
-		bloc({AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(x, 1), Size = UDim2.fromScale(0.26, 0.4), SizeConstraint = Enum.SizeConstraint.RelativeXX,
-			BackgroundColor3 = Color3.fromRGB(46, 46, 52), ZIndex = 13, Parent = wagon}, {coin(0.5), trait(Color3.fromRGB(20, 20, 22), 2)})
-	end
-	for k = 1, 7 do
-		local c = if k % 3 == 0 then Color3.fromRGB(255, 205, 70) else Color3.fromRGB(34, 34, 38)
-		bloc({AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.08 + k * 0.12, 0.08), Size = UDim2.fromScale(0.2, 0.2),
-			SizeConstraint = Enum.SizeConstraint.RelativeXX, Rotation = k * 23, BackgroundColor3 = c, ZIndex = 11, Parent = wagon},
-			{coin(0.3), trait(Color3.new(0, 0, 0), 1.5, 0.3)})
-	end
-	-- Pioche appuyée contre le poteau droit
-	local manche = bloc({AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.91, 0.8), Size = UDim2.fromScale(0.014, 0.3), Rotation = -14,
-		BackgroundColor3 = BOIS, ZIndex = 12}, {arrondi(3), trait(BOIS_SOMBRE, 2)})
-	bloc({AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.02), Size = UDim2.new(9, 0, 0.05, 0), Rotation = 8,
-		BackgroundColor3 = FER, ZIndex = 13, Parent = manche}, {coin(0.5), trait(Color3.fromRGB(26, 26, 30), 2), UI.degrade(BLANC, Color3.fromRGB(100, 100, 110), 90)})
-	-- Cristaux dans les coins
-	cristaux(decorMine, UDim2.fromScale(0.8, 0.98), 1.3, Color3.fromRGB(190, 120, 255), 14, 5)
-	cristaux(decorMine, UDim2.fromScale(0.27, 0.99), 0.9, CRISTAL, 14, 11)
-	-- Vignettage : bords plus sombres pour faire ressortir la fenêtre
-	bloc({Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), ZIndex = 20},
-		{creer("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.55), NumberSequenceKeypoint.new(0.22, 0.95),
-			NumberSequenceKeypoint.new(0.78, 0.95), NumberSequenceKeypoint.new(1, 0.55)})})})
+-- ================= Fond d'écran : galerie de mine en 3D (derrière la fenêtre) =================
+-- Une seule ViewportFrame plein écran, construite une fois : galerie qui s'enfonce (paroi de roche Slate/Rock/Basalt,
+-- cadres de soutènement en bois avec chapeau, jambes de force et ferrures, voie ferrée sur traverses, wagonnet),
+-- les VRAIS minerais du jeu (MineraisModeles) incrustés dans la paroi, les VRAIES pioches (ReplicatedStorage ›
+-- ModelesPioches, sinon Partage › PiochesVoxels, comme IconesObjets) appuyées aux poteaux, lanternes.
+-- Brouillard simulé (couleurs assombries avec la profondeur, pas de lumière dans un viewport), caméra qui oscille
+-- très lentement (parallaxe) : la boucle est dans « boucles », donc arrêtée quand le menu est fermé.
+local decorMine = creer("Frame", {Name = "DecorMine", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = voile})
+type Fondu = {objet: Instance, prop: string, base: number}
+local fondus: {Fondu} = {}
+local function fondu(objet: Instance, prop: string, base: number)
+	table.insert(fondus, {objet = objet, prop = prop, base = base})
+	;(objet :: any)[prop] = 1
 end
+local function fondreDecor(visible: boolean, info: TweenInfo)
+	for _, f in fondus do
+		TweenService:Create(f.objet, info, {[f.prop] = if visible then f.base else 1}):Play()
+	end
+end
+
+local vueMine = creer("ViewportFrame", {Name = "Galerie", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(12, 9, 8),
+	Ambient = Color3.fromRGB(96, 80, 68), LightColor = Color3.fromRGB(255, 200, 150), LightDirection = Vector3.new(0.35, -1, -0.45),
+	BorderSizePixel = 0, ZIndex = 1, Parent = decorMine})
+fondu(vueMine, "ImageTransparency", 0)
+fondu(vueMine, "BackgroundTransparency", 0)
+do
+	local scene = Instance.new("Model")
+	scene.Name = "Galerie"
+	local rng = Random.new(31)
+	local SOMBRE = Color3.fromRGB(10, 8, 7)
+	local BOIS, BOIS_SOMBRE = Color3.fromRGB(118, 84, 54), Color3.fromRGB(70, 48, 30)
+	local FER, ROUILLE = Color3.fromRGB(78, 78, 82), Color3.fromRGB(104, 70, 50)
+	local ROCHES = {Color3.fromRGB(98, 86, 76), Color3.fromRGB(84, 74, 68), Color3.fromRGB(112, 98, 86), Color3.fromRGB(72, 64, 60)}
+	local MATS_ROCHE = {Enum.Material.Slate, Enum.Material.Rock, Enum.Material.Slate, Enum.Material.Basalt}
+	local FOND_Z = -72
+
+	-- « brouillard » : plus c'est loin, plus c'est sombre
+	local function brume(c: Color3, z: number): Color3
+		return c:Lerp(SOMBRE, math.clamp((-z - 1) / 58, 0, 0.9))
+	end
+	local function piece(taille: Vector3, cf: CFrame, couleur: Color3, mat: Enum.Material, forme: Enum.PartType?): Part
+		local p = Instance.new("Part")
+		p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = true, false, false, false, false
+		p.Size, p.CFrame, p.Material = taille, cf, mat
+		p.Color = brume(couleur, cf.Position.Z)
+		p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
+		if forme then
+			p.Shape = forme
+		end
+		p.Parent = scene
+		return p
+	end
+	local function varie(c: Color3, f: number): Color3
+		return c:Lerp(if rng:NextNumber() < 0.5 then SOMBRE else Color3.fromRGB(190, 170, 150), rng:NextNumber(0, f))
+	end
+	local function rot(a: number): CFrame
+		return CFrame.Angles(rng:NextNumber(-a, a), rng:NextNumber(-a, a), rng:NextNumber(-a, a))
+	end
+	-- modèle cloné (minerai, pioche) : nettoyé, ancré, assombri selon la profondeur, néons adoucis (pas de fluo)
+	local function preparer(m: Model)
+		for _, d in m:GetDescendants() do
+			if d:IsA("ParticleEmitter") or d:IsA("Light") or d:IsA("BillboardGui") or d:IsA("LuaSourceContainer") or d:IsA("Beam") or d:IsA("Trail") then
+				d:Destroy()
+			elseif d:IsA("BasePart") then
+				d.Anchored, d.CastShadow = true, false
+				if d.Material == Enum.Material.Neon then
+					d.Material, d.Reflectance = Enum.Material.SmoothPlastic, 0.15
+					d.Color = d.Color:Lerp(SOMBRE, 0.25)
+				end
+				d.Color = brume(d.Color, d.Position.Z)
+			end
+		end
+		m.Parent = scene
+	end
+
+	-- Sol de terre battue + ballast de la voie (par tronçons, pour le dégradé de profondeur)
+	for z = 6, FOND_Z, -4 do
+		piece(Vector3.new(15, 1, 4.05), CFrame.new(0, -0.5, z - 2), Color3.fromRGB(80, 64, 50), Enum.Material.Ground)
+		piece(Vector3.new(4.2, 0.2, 4.05), CFrame.new(0, 0.02, z - 2), Color3.fromRGB(92, 86, 80), Enum.Material.Pebble)
+	end
+	-- Parois et voûte : blocs de roche irréguliers devant un mur continu
+	for z = 7, FOND_Z, -2.5 do
+		for _, cote in {-1, 1} do
+			piece(Vector3.new(1.5, 12, 2.6), CFrame.new(cote * 8.6, 5, z), Color3.fromRGB(58, 50, 46), Enum.Material.Slate)
+			for k = 1, 3 do
+				local i = rng:NextInteger(1, #ROCHES)
+				local t = Vector3.new(rng:NextNumber(1.6, 3), rng:NextNumber(2.2, 3.8), rng:NextNumber(2.2, 3.4))
+				piece(t, CFrame.new(cote * (7.6 + rng:NextNumber(-0.4, 0.5)), (k - 1) * 3.1 + rng:NextNumber(0.4, 1.6), z + rng:NextNumber(-0.9, 0.9)) * rot(0.35),
+					varie(ROCHES[i], 0.25), MATS_ROCHE[i])
+			end
+		end
+		piece(Vector3.new(18, 1.5, 2.6), CFrame.new(0, 11.2, z), Color3.fromRGB(52, 46, 42), Enum.Material.Slate)
+		for _ = 1, 3 do
+			local i = rng:NextInteger(1, #ROCHES)
+			piece(Vector3.new(rng:NextNumber(2.5, 4.5), rng:NextNumber(1, 1.8), rng:NextNumber(2, 3)),
+				CFrame.new(rng:NextNumber(-6, 6), 10.4 + rng:NextNumber(-0.2, 0.3), z + rng:NextNumber(-0.8, 0.8)) * rot(0.25), varie(ROCHES[i], 0.25), MATS_ROCHE[i])
+		end
+	end
+	piece(Vector3.new(18, 13, 1), CFrame.new(0, 5.5, FOND_Z - 2), SOMBRE, Enum.Material.Slate)
+
+	-- Voie : traverses en bois, rails en acier (champignon + patin rouillé)
+	for z = 6.5, FOND_Z, -1.45 do
+		piece(Vector3.new(4.3, 0.28, 0.72), CFrame.new(rng:NextNumber(-0.12, 0.12), 0.26, z) * CFrame.Angles(0, rng:NextNumber(-0.05, 0.05), 0),
+			varie(Color3.fromRGB(86, 62, 42), 0.3), Enum.Material.WoodPlanks)
+	end
+	for z = 6, FOND_Z, -6 do
+		for _, s in {-1, 1} do
+			piece(Vector3.new(0.5, 0.09, 6.02), CFrame.new(s * 1.25, 0.45, z - 3), ROUILLE, Enum.Material.CorrodedMetal)
+			piece(Vector3.new(0.12, 0.2, 6.02), CFrame.new(s * 1.25, 0.6, z - 3), Color3.fromRGB(70, 66, 64), Enum.Material.Metal)
+			local tete = piece(Vector3.new(0.26, 0.14, 6.02), CFrame.new(s * 1.25, 0.76, z - 3), Color3.fromRGB(150, 146, 142), Enum.Material.Metal)
+			tete.Reflectance = 0.12
+		end
+	end
+
+	-- Cadres de soutènement : poteaux sur semelle, chapeau, jambes de force, ferrures, garnissage du plafond
+	local function cadre(z: number)
+		local h, demi = 8.4, 6.3
+		for _, s in {-1, 1} do
+			local x = s * demi
+			piece(Vector3.new(1.15, h, 1.15), CFrame.new(x, h / 2, z) * CFrame.Angles(0, rng:NextNumber(-0.06, 0.06), s * rng:NextNumber(0.01, 0.04)),
+				varie(BOIS, 0.2), Enum.Material.Wood)
+			piece(Vector3.new(1.7, 0.35, 1.7), CFrame.new(x, 0.17, z), varie(BOIS_SOMBRE, 0.2), Enum.Material.WoodPlanks)
+			local a, b = Vector3.new(s * (demi - 0.35), h - 2.5, z), Vector3.new(s * (demi - 2.5), h - 0.2, z)
+			piece(Vector3.new(0.6, 0.6, (b - a).Magnitude), CFrame.lookAt((a + b) / 2, b), varie(BOIS, 0.25), Enum.Material.Wood)
+			for _, y in {h - 0.8, 1.4} do
+				piece(Vector3.new(1.28, 0.22, 1.28), CFrame.new(x, y, z), FER, Enum.Material.CorrodedMetal)
+			end
+		end
+		piece(Vector3.new(demi * 2 + 1.8, 1.2, 1.35), CFrame.new(0, h + 0.6, z) * CFrame.Angles(0, 0, rng:NextNumber(-0.012, 0.012)),
+			varie(BOIS, 0.2), Enum.Material.Wood)
+		for k = -2, 2 do
+			piece(Vector3.new(2.2, 0.28, 3.2), CFrame.new(k * 2.6, h + 1.35, z - 1.3) * CFrame.Angles(0, 0, rng:NextNumber(-0.04, 0.04)),
+				varie(BOIS_SOMBRE, 0.3), Enum.Material.WoodPlanks)
+		end
+	end
+	for z = 1, FOND_Z + 8, -10 do
+		cadre(z)
+	end
+
+	-- Lanternes accrochées au chapeau des deux premiers cadres (verre ambré, cage de fer)
+	for _, l in {{-3.6, 1}, {3.6, 1}, {-3.2, -9}, {3.2, -9}} do
+		local x, z = l[1], l[2]
+		piece(Vector3.new(0.08, 0.9, 0.08), CFrame.new(x, 8.05, z), FER, Enum.Material.Metal)
+		piece(Vector3.new(0.7, 0.16, 0.7), CFrame.new(x, 7.55, z), FER, Enum.Material.Metal)
+		piece(Vector3.new(0.75, 0.12, 0.75), CFrame.new(x, 6.75, z), FER, Enum.Material.Metal)
+		piece(Vector3.new(0.46, 0.62, 0.46), CFrame.new(x, 7.15, z), Color3.fromRGB(236, 160, 82), Enum.Material.Neon)
+		for _, c in {Vector2.new(-1, -1), Vector2.new(1, -1), Vector2.new(-1, 1), Vector2.new(1, 1)} do
+			piece(Vector3.new(0.07, 0.75, 0.07), CFrame.new(x + c.X * 0.29, 7.15, z + c.Y * 0.29), FER, Enum.Material.Metal)
+		end
+	end
+
+	-- Wagonnet en fer rouillé sur la voie, chargé de charbon (vrai modèle de minerai par-dessus)
+	do
+		local z0, y0 = -4, 1.25
+		piece(Vector3.new(2.9, 0.22, 3.6), CFrame.new(0, y0, z0), ROUILLE, Enum.Material.CorrodedMetal)
+		for _, s in {-1, 1} do
+			piece(Vector3.new(0.16, 1.6, 3.6), CFrame.new(s * 1.45, y0 + 0.8, z0) * CFrame.Angles(0, 0, s * -0.1), ROUILLE, Enum.Material.CorrodedMetal)
+			piece(Vector3.new(2.9, 1.6, 0.16), CFrame.new(0, y0 + 0.8, z0 + s * 1.8) * CFrame.Angles(s * 0.1, 0, 0), ROUILLE, Enum.Material.CorrodedMetal)
+			piece(Vector3.new(3.3, 0.16, 0.2), CFrame.new(0, y0 + 1.62, z0 + s * 1.88), FER, Enum.Material.Metal)
+			piece(Vector3.new(0.2, 0.16, 3.9), CFrame.new(s * 1.55, y0 + 1.62, z0), FER, Enum.Material.Metal)
+			for _, w in {-1, 1} do
+				piece(Vector3.new(0.3, 0.95, 0.95), CFrame.new(s * 1.25, 0.95, z0 + w * 1.1), Color3.fromRGB(46, 44, 44), Enum.Material.Metal, Enum.PartType.Cylinder)
+			end
+		end
+		for _ = 1, 14 do
+			local t = rng:NextNumber(0.4, 0.75)
+			piece(Vector3.new(t, t * 0.8, t), CFrame.new(rng:NextNumber(-1, 1), y0 + 1.45 + rng:NextNumber(0, 0.35), z0 + rng:NextNumber(-1.3, 1.3)) * rot(1.5),
+				Color3.fromRGB(34, 34, 38), Enum.Material.Slate)
+		end
+		local charge = MineraisModeles.construire("Charbon", CFrame.new(0.2, y0 + 1.2, z0 - 0.3), Random.new(5), true)
+		charge:ScaleTo(0.55)
+		preparer(charge)
+	end
+
+	-- Vrais minerais du jeu incrustés dans la paroi (l'axe « haut » du rocher pointe vers le centre de la galerie)
+	for i, o in {{"Charbon", -1, 1.2, 3.2}, {"Bronze", 1, 1.6, 2.4}, {"Gold", -1, 6.4, -1.8}, {"Fer", 1, 5.8, -3.5},
+		{"Charbon", 1, 0.9, -7}, {"Fer", -1, 3.6, -6.5}, {"Bronze", -1, 1.2, -13}, {"Gold", 1, 4.5, -15}} do
+		local id, cote, y, z = o[1] :: string, o[2] :: number, o[3] :: number, o[4] :: number
+		if MineraisModeles.VISUEL[id] then
+			local sol = CFrame.new(cote * 7.3, y, z) * CFrame.Angles(0, 0, cote * math.pi / 2) * CFrame.Angles(0, rng:NextNumber(0, 6.28), 0)
+			local m = MineraisModeles.construire(id, sol, Random.new(i * 17 + 3), true)
+			m:ScaleTo(0.72)
+			preparer(m)
+		end
+	end
+
+	-- Vraies pioches du jeu appuyées contre les poteaux du premier cadre
+	local function pioche(id: string, cote: number)
+		local dossier = ReplicatedStorage:FindFirstChild("ModelesPioches")
+		local importe = dossier and dossier:FindFirstChild(id)
+		local m: Model? = if importe and importe:IsA("Model") then importe:Clone() else PiochesVoxels.construire(id)
+		if not m then
+			return
+		end
+		m.WorldPivot = CFrame.identity
+		local cf, taille = m:GetBoundingBox()
+		m.WorldPivot = CFrame.new(cf.Position)
+		m:ScaleTo(4.6 / math.max(taille.X, taille.Y, taille.Z))
+		-- manche le long de Y, pic vers -Z (repère PiochesVoxels) : pic tourné vers le centre, manche penché contre le poteau
+		m:PivotTo(CFrame.new(cote * 5.4, 2.25, 2.1) * CFrame.Angles(0, 0, -cote * 0.26) * CFrame.Angles(0, cote * math.pi / 2, 0))
+		preparer(m)
+	end
+	pioche("Fer", -1)
+	pioche("Cuivre", 1)
+
+	scene.Parent = vueMine
+	local camera = Instance.new("Camera")
+	camera.FieldOfView = 62
+	camera.Parent = vueMine
+	vueMine.CurrentCamera = camera
+	local BASE_CAMERA = CFrame.lookAt(Vector3.new(0, 4.2, 9.5), Vector3.new(0, 3.6, -30))
+	camera.CFrame = BASE_CAMERA
+	-- parallaxe : très lente oscillation de la caméra (jouée seulement menu ouvert)
+	local oscillation = Instance.new("CFrameValue")
+	oscillation.Changed:Connect(function(v: CFrame)
+		camera.CFrame = BASE_CAMERA * v
+	end)
+	UI.boucle(oscillation, TweenInfo.new(7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+		{Value = CFrame.new(0.45, 0.15, 0) * CFrame.Angles(0, math.rad(-1), 0)}, boucles)
+end
+
+-- Ambiance par-dessus la scène : lueur chaude en haut (lanternes), voile sombre léger (lisibilité des niveaux),
+-- vignettage sur les bords
+local lueurHaut = creer("Frame", {Size = UDim2.fromScale(1, 0.45), BackgroundColor3 = Color3.fromRGB(255, 170, 90), BorderSizePixel = 0,
+	ZIndex = 2, Parent = decorMine}, {creer("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.82),
+		NumberSequenceKeypoint.new(1, 1)})})})
+fondu(lueurHaut, "BackgroundTransparency", 0)
+local voileDecor = creer("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(8, 6, 5), BorderSizePixel = 0, ZIndex = 3,
+	Parent = decorMine})
+fondu(voileDecor, "BackgroundTransparency", 0.72)
+local vignette = creer("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = 4, Parent = decorMine},
+	{creer("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(0.2, 0.95),
+		NumberSequenceKeypoint.new(0.8, 0.95), NumberSequenceKeypoint.new(1, 0.4)})})})
+fondu(vignette, "BackgroundTransparency", 0)
 
 local racine = creer("Frame", {Name = "Fenetre", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
 	Size = UDim2.fromOffset(LARGEUR, HAUTEUR), BackgroundTransparency = 1, Active = true, Parent = gui})
@@ -341,16 +454,7 @@ for i = 0, 10 do
 end
 creer("Frame", {Name = "Cadre", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.Bois, ZIndex = 1, Parent = corps},
 	{arrondi(16), trait(Color3.fromRGB(18, 10, 6), 4), creer("UIGradient", {Rotation = 90, Color = ColorSequence.new(grain)})})
-for _, c in {Vector2.new(0, 0), Vector2.new(1, 0), Vector2.new(0, 1), Vector2.new(1, 1)} do
-	local eq = creer("Frame", {AnchorPoint = c, Position = UDim2.fromScale(c.X, c.Y), Size = UDim2.fromOffset(44, 44),
-		BackgroundColor3 = T.Fer, ZIndex = 8, Parent = corps},
-		{arrondi(8), trait(T.FerSombre, 2), creer("UIGradient", {Rotation = 45, Color = ColorSequence.new(Color3.fromRGB(220, 220, 228), Color3.fromRGB(80, 80, 88))})})
-	UI.rivet(eq, UDim2.fromScale(0.5 + (0.5 - c.X) * 0.4, 0.5 + (0.5 - c.Y) * 0.4), 0.28)
-end
-for i = 1, 11 do
-	UI.rivet(corps, UDim2.new((i + 0.5) / 13, 0, 0, 6), 0.012)
-	UI.rivet(corps, UDim2.new((i + 0.5) / 13, 0, 1, -6), 0.012)
-end
+-- (bordure simple : ni équerres de coin ni rivets, comme les fenêtres PNJ)
 
 -- Intérieur : pierre froide en haut, de plus en plus sombre vers le fond
 local interieur = creer("Frame", {Name = "Interieur", Position = UDim2.fromOffset(12, 12), Size = UDim2.fromOffset(LARGEUR - 24, HAUTEUR - 24),
@@ -384,15 +488,19 @@ cristaux(interieur, UDim2.new(0, 14, 1, 8), 0.7, CRISTAL, 2, 9)
 -- En-tête : emblème de cristal + titre
 cristaux(interieur, UDim2.fromOffset(46, 64), 0.85, CRISTAL, 5, 21)
 local titre = texte({Text = "GROTTES PROFONDES", Font = Enum.Font.Fantasy, TextXAlignment = Enum.TextXAlignment.Left,
-	Position = UDim2.fromOffset(86, 12), Size = UDim2.fromOffset(470, 50), ZIndex = 5, Parent = interieur}, 44)
+	Position = UDim2.fromOffset(86, 12), Size = UDim2.fromOffset(450, 50), ZIndex = 5, Parent = interieur}, 44)
 UI.dore(titre, 2.5)
-UI.bandeFer(interieur, UDim2.fromOffset(0, 74), UDim2.new(1, 0, 0, 10), 18)
+-- Séparateur de l'en-tête : bande unie (sans rivets) + liseré doré
+creer("Frame", {Name = "Separateur", Position = UDim2.fromOffset(0, 76), Size = UDim2.new(1, 0, 0, 6), BackgroundColor3 = Color3.fromRGB(26, 17, 11),
+	BorderSizePixel = 0, ZIndex = 5, Parent = interieur})
+creer("Frame", {Position = UDim2.fromOffset(0, 82), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = T.OrFonce, BackgroundTransparency = 0.55,
+	BorderSizePixel = 0, ZIndex = 5, Parent = interieur})
 
 local fermer = boutonFermer({Name = "Fermer", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -16, 0, 16),
 	Size = UDim2.fromOffset(64, 64), ZIndex = 12, Parent = corps})
 
 -- ================= Paliers (colonne de gauche) =================
-local Y0, H_LIGNE, ECART, X_CARTE, L_CARTE = 98, 64, 8, 64, 444
+local Y0, H_LIGNE, ECART, X_CARTE, L_CARTE = 98, 64, 8, 64, 538
 
 -- Puits : corde verticale + nœuds lumineux
 creer("Frame", {Name = "Puits", Position = UDim2.fromOffset(31, Y0 + 8), Size = UDim2.fromOffset(6, 5 * (H_LIGNE + ECART) - ECART - 16),
@@ -559,7 +667,7 @@ local function creerLigne(niveau: any, i: number): Ligne
 	creer("UIStroke", {Thickness = 1.5, Color = ENCRE, Transparency = 0.1, Parent = profondeur})
 
 	-- Barre de danger (remplissage + couleur selon l'équipement) avec crans
-	local barreFond = creer("Frame", {Name = "Barre", Position = UDim2.fromOffset(150, 17), Size = UDim2.fromOffset(172, 15),
+	local barreFond = creer("Frame", {Name = "Barre", Position = UDim2.fromOffset(150, 17), Size = UDim2.fromOffset(236, 15),
 		BackgroundColor3 = Color3.fromRGB(20, 14, 12), ZIndex = 6, Parent = carte}, {coin(0.5), trait(ENCRE, 1.5)})
 	local plein = creer("Frame", {Name = "Plein", Size = UDim2.fromScale(0, 1), BackgroundColor3 = Grottes.couleurDanger(0), BorderSizePixel = 0,
 		ZIndex = 7, Parent = barreFond}, {coin(0.5), UI.degrade(BLANC, Color3.fromRGB(165, 165, 165))})
@@ -573,7 +681,7 @@ local function creerLigne(niveau: any, i: number): Ligne
 	local pastilles, bulle = creerPastilles(carte, niveau)
 	-- Ligne d'info (nom du palier + danger), visible au survol seulement
 	local info = texte({Font = Enum.Font.GothamBold, RichText = true, TextColor3 = T.Parchemin, TextTransparency = 1,
-		TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(150, 38), Size = UDim2.fromOffset(178, 18), ZIndex = 6, Parent = carte}, 15)
+		TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(150, 38), Size = UDim2.fromOffset(240, 18), ZIndex = 6, Parent = carte}, 15)
 	-- Voile (paliers non choisis pendant le départ)
 	local assombri = creer("Frame", {Name = "Assombri", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1,
 		ZIndex = 12, Parent = carte}, {arrondi(12)})
@@ -730,45 +838,98 @@ local function majVerrous()
 	end
 end
 
--- ================= Bloc « Groupe » (colonne de droite) =================
-local groupe = UI.panneau({Name = "Groupe", Position = UDim2.fromOffset(528, Y0), Size = UDim2.fromOffset(192, 5 * (H_LIGNE + ECART) - ECART),
-	BackgroundColor3 = T.BoisSombre, ZIndex = 5, Parent = interieur}, 0.06)
-texte({Text = "GROUPE", Font = Enum.Font.GothamBlack, TextColor3 = T.Gris, TextXAlignment = Enum.TextXAlignment.Left,
-	Position = UDim2.fromOffset(14, 12), Size = UDim2.fromOffset(100, 22), ZIndex = 6, Parent = groupe}, 18)
-local compteur = texte({Text = "1/" .. Grottes.MAX_JOUEURS, Font = Enum.Font.GothamBlack, TextColor3 = T.Or,
-	TextXAlignment = Enum.TextXAlignment.Right, Position = UDim2.fromOffset(100, 6), Size = UDim2.fromOffset(78, 32), ZIndex = 6, Parent = groupe}, 28)
-creer("Frame", {Position = UDim2.fromOffset(12, 44), Size = UDim2.new(1, -24, 0, 2), BackgroundColor3 = T.OrFonce, BackgroundTransparency = 0.4,
-	BorderSizePixel = 0, ZIndex = 6, Parent = groupe})
+-- ================= Panneau « Groupe » (collé à droite de la fenêtre, hors du cadre) =================
+-- Deux ronds empilés : 1 = le chef (couronne), 2 = le partenaire. Chez le chef, le rond 2 vide est un gros « + »
+-- qui pulse (clic = liste d'invitation) ; invité en attente = avatar voilé + arc qui tourne ; partenaire = son avatar.
+-- Enfant de « corps » : il suit l'animation d'ouverture/fermeture et l'échelle de la fenêtre.
+local L_PANNEAU, H_PANNEAU, ECART_PANNEAU, D_ROND = 108, 244, 14, 76
+local Y_ROND1, Y_ROND2 = 22, 138
+creer("Frame", {Name = "OmbreGroupe", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(1, ECART_PANNEAU + 6, 0.5, 10),
+	Size = UDim2.fromOffset(L_PANNEAU, H_PANNEAU), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.5, ZIndex = 0, Parent = corps},
+	{arrondi(16)})
+local panneauGroupe = creer("Frame", {Name = "Groupe", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(1, ECART_PANNEAU, 0.5, 0),
+	Size = UDim2.fromOffset(L_PANNEAU, H_PANNEAU), BackgroundColor3 = T.Bois, ZIndex = 1, Parent = corps},
+	{arrondi(16), trait(Color3.fromRGB(18, 10, 6), 4), creer("UIGradient", {Rotation = 90, Color = ColorSequence.new(grain)})})
+creer("Frame", {Name = "Interieur", Position = UDim2.fromOffset(8, 8), Size = UDim2.new(1, -16, 1, -16), BackgroundColor3 = T.BoisSombre,
+	ZIndex = 2, Parent = panneauGroupe}, {arrondi(10), trait(T.FerSombre, 2),
+	creer("UIGradient", {Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(190, 180, 200), Color3.fromRGB(110, 90, 120))})})
 
-type Place = {bouton: TextButton, cercle: Frame, image: ImageLabel, bord: UIStroke, plus: TextLabel, nom: TextLabel, sous: TextLabel, userId: number?}
-local places: {Place} = {}
-local basculerListe: () -> () = function() end
-for k = 1, Grottes.MAX_JOUEURS do
-	local b = creer("TextButton", {Name = "Place" .. k, Text = "", AutoButtonColor = false, Position = UDim2.fromOffset(8, 54 + (k - 1) * 84),
-		Size = UDim2.fromOffset(176, 76), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.75, ZIndex = 6, Parent = groupe},
-		{arrondi(12)})
-	local cercle, image, bord = medaillon(b, {Position = UDim2.fromOffset(8, 8), Size = UDim2.fromOffset(60, 60)}, T.Gris, 7)
-	local plus = texte({Text = "+", Font = Enum.Font.GothamBlack, TextColor3 = T.Gris, Size = UDim2.fromScale(1, 1), ZIndex = 9, Parent = cercle}, 34)
-	local nom = texte({Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(76, 14),
-		Size = UDim2.fromOffset(94, 24), ZIndex = 7, Parent = b}, 18)
-	local sous = texte({Font = Enum.Font.GothamBlack, TextColor3 = T.Or, TextXAlignment = Enum.TextXAlignment.Left,
-		Position = UDim2.fromOffset(76, 40), Size = UDim2.fromOffset(94, 16), ZIndex = 7, Parent = b}, 13)
-	b.Activated:Connect(function()
-		if estChef and #membres < Grottes.MAX_JOUEURS and k > #membres then
-			jouer("clic")
-			basculerListe()
+
+type Rond = {bouton: TextButton, lueur: Frame, cercle: Frame, image: ImageLabel, bord: UIStroke, plus: TextLabel, appel: Frame,
+	attente: Frame, couronne: Frame, nom: TextLabel, userId: number?}
+
+local function creerRond(y: number): Rond
+	local b = creer("TextButton", {Text = "", AutoButtonColor = false, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, y),
+		Size = UDim2.fromOffset(D_ROND, D_ROND), BackgroundTransparency = 1, Active = false, ZIndex = 3, Parent = panneauGroupe})
+	-- lueur de survol
+	local lueur = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1.3, 1.3),
+		BackgroundColor3 = CRISTAL, BackgroundTransparency = 1, ZIndex = 3, Parent = b}, {coin(0.5)})
+	local cercle, image, bord = medaillon(b, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1)},
+		T.Gris, 4)
+	bord.Thickness = 3
+	local plus = texte({Text = "+", Font = Enum.Font.GothamBlack, TextColor3 = CRISTAL, Size = UDim2.fromScale(1, 1), ZIndex = 6, Parent = cercle}, 54)
+	creer("UIStroke", {Thickness = 2, Color = ENCRE, Transparency = 0.3, Parent = plus})
+	-- « + » immobile (demande du joueur) : il grossit seulement au survol du rond
+	-- onde qui s'élargit autour du rond libre (appel à inviter)
+	local appel = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1, Visible = false, ZIndex = 4, Parent = cercle}, {coin(0.5)})
+	local traitAppel = trait(CRISTAL, 2.5, 0.1)
+	traitAppel.Parent = appel
+	traitAppel.Transparency = 0.55 -- anneau fixe, sans onde animée
+	-- arc lumineux qui tourne autour de l'invité en attente
+	local attente = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1.16, 1.16),
+		BackgroundTransparency = 1, Visible = false, ZIndex = 6, Parent = cercle}, {coin(0.5)})
+	local traitAttente = trait(CRISTAL, 3)
+	traitAttente.Parent = attente
+	local gAttente = creer("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.35, 0.15),
+		NumberSequenceKeypoint.new(0.5, 1), NumberSequenceKeypoint.new(1, 1)}), Parent = traitAttente})
+	UI.boucle(gAttente, TweenInfo.new(1.1, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), {Rotation = 360}, boucles)
+	-- badge couronne « CHEF » à cheval sur le haut du rond
+	local couronne = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.02), Size = UDim2.fromOffset(46, 18),
+		BackgroundColor3 = T.Or, Visible = false, ZIndex = 8, Parent = b}, {coin(0.5), trait(ENCRE, 2),
+		UI.degrade(Color3.fromRGB(255, 244, 200), Color3.fromRGB(196, 120, 36))})
+	for _, x in {0.25, 0.5, 0.75} do
+		creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(x, if x == 0.5 then -0.12 else 0.02),
+			Size = UDim2.fromOffset(8, 8), Rotation = 45, BackgroundColor3 = T.Or, ZIndex = 7, Parent = couronne}, {trait(ENCRE, 1.5)})
+	end
+	texte({Text = "CHEF", Font = Enum.Font.GothamBlack, TextColor3 = ENCRE, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.55),
+		Size = UDim2.fromScale(0.8, 0.7), ZIndex = 9, Parent = couronne}, 12)
+	-- pseudo (tronqué) sous le rond
+	local nom = texte({Font = Enum.Font.GothamBold, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, y + D_ROND + 5),
+		Size = UDim2.fromOffset(L_PANNEAU - 18, 16), ZIndex = 4, Parent = panneauGroupe}, 13)
+	creer("UIStroke", {Thickness = 1.5, Color = ENCRE, Transparency = 0.3, Parent = nom})
+	UI.reactif(b, 1.1)
+	b.MouseEnter:Connect(function()
+		if b.Active then
+			TweenService:Create(lueur, SURVOL, {BackgroundTransparency = 0.72}):Play()
 		end
 	end)
-	table.insert(places, {bouton = b, cercle = cercle, image = image, bord = bord, plus = plus, nom = nom, sous = sous, userId = nil})
+	b.MouseLeave:Connect(function()
+		TweenService:Create(lueur, SURVOL, {BackgroundTransparency = 1}):Play()
+	end)
+	return {bouton = b, lueur = lueur, cercle = cercle, image = image, bord = bord, plus = plus, appel = appel, attente = attente,
+		couronne = couronne, nom = nom, userId = nil}
 end
 
-local inviter = UI.boutonPrincipal({Name = "Inviter", Position = UDim2.fromOffset(14, 262), Size = UDim2.fromOffset(164, 64),
-	BackgroundColor3 = BOUTON_BLEU, ZIndex = 6, Parent = groupe}, boucles)
-inviter.definir("INVITER", BOUTON_BLEU, true)
+local rondChef, rondPartenaire = creerRond(Y_ROND1), creerRond(Y_ROND2)
+local basculerListe: () -> () = function() end
+rondPartenaire.bouton.Activated:Connect(function()
+	if estChef and #membres < Grottes.MAX_JOUEURS then
+		jouer("clic")
+		basculerListe()
+	end
+end)
 
-local attenteChef = texte({Text = "Le chef choisit la profondeur", Font = Enum.Font.GothamBold, TextColor3 = T.Parchemin,
-	Position = UDim2.fromOffset(14, 256), Size = UDim2.fromOffset(164, 56), Visible = false, ZIndex = 6, Parent = groupe}, 17)
-UI.boucle(attenteChef, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {TextTransparency = 0.5}, boucles)
+local function tronquer(s: string, n: number): string
+	local longueur = utf8.len(s)
+	if longueur and longueur > n then
+		local o = utf8.offset(s, n)
+		if o then
+			return s:sub(1, o - 1) .. "…"
+		end
+	end
+	return s
+end
 
 local function premierInvite(): number?
 	for userId in invitesServeur do
@@ -782,48 +943,81 @@ local function premierInvite(): number?
 	return nil
 end
 
+local function afficherMembre(r: Rond, userId: number, nom: string, estLeChef: boolean)
+	r.image.Visible, r.plus.Visible, r.appel.Visible, r.attente.Visible = true, false, false, false
+	r.image.ImageTransparency = 0
+	avatar(userId, r.image)
+	r.couronne.Visible = estLeChef
+	r.bord.Color, r.bord.Transparency = if estLeChef then T.Or else CRISTAL, 0
+	r.nom.Text, r.nom.TextColor3 = tronquer(nom, 9), T.Parchemin
+end
+
 local function majGroupe()
-	compteur.Text = #membres .. "/" .. Grottes.MAX_JOUEURS
-	local enAttente = premierInvite()
-	for k, p in places do
-		local m = membres[k]
-		if m then
-			p.image.Visible, p.plus.Visible = true, false
-			p.image.ImageTransparency = 0
-			avatar(m.userId, p.image)
-			p.nom.Text, p.nom.TextColor3 = m.nom, T.Parchemin
-			p.sous.Text, p.sous.TextColor3 = if m.userId == chefId then "CHEF" else "", T.Or
-			p.bord.Color, p.bord.Transparency = if m.userId == chefId then T.Or else CRISTAL, 0
-			if p.userId ~= m.userId then
-				p.userId = m.userId
-				UI.pop(p.cercle, 0.6)
-			end
-		elseif enAttente and k == #membres + 1 then
-			local cible = Players:GetPlayerByUserId(enAttente)
-			p.image.Visible, p.plus.Visible = true, false
-			p.image.ImageTransparency = 0.55
-			avatar(enAttente, p.image)
-			p.nom.Text, p.nom.TextColor3 = if cible then cible.DisplayName else "…", T.Gris
-			p.sous.Text, p.sous.TextColor3 = "Invité…", T.Gris
-			p.bord.Color, p.bord.Transparency = T.Gris, 0.3
-			p.userId = nil
-		else
-			p.image.Visible, p.plus.Visible = false, true
-			p.plus.TextColor3 = if estChef then T.Parchemin else T.Gris
-			p.nom.Text, p.sous.Text = "", ""
-			p.bord.Color, p.bord.Transparency = T.Gris, 0.5
-			p.userId = nil
+	-- rond 1 = le chef, rond 2 = l'autre membre (chez un non-chef : soi-même)
+	local chef: {userId: number, nom: string}? = nil
+	local autre: {userId: number, nom: string}? = nil
+	for _, m in membres do
+		if m.userId == chefId and not chef then
+			chef = m
+		elseif not autre then
+			autre = m
 		end
+	end
+	if not chef then
+		chef = autre or {userId = joueur.UserId, nom = joueur.DisplayName}
+		autre = if autre and membres[2] then membres[2] else nil
+	end
+	local c = chef :: {userId: number, nom: string}
+	afficherMembre(rondChef, c.userId, c.nom, true)
+	if rondChef.userId ~= c.userId then
+		rondChef.userId = c.userId
+		UI.pop(rondChef.cercle, 0.6)
+	end
+
+	local r = rondPartenaire
+	local enAttente = if estChef then premierInvite() else nil
+	if autre then
+		afficherMembre(r, autre.userId, autre.nom, false)
+		if r.userId ~= autre.userId then
+			r.userId = autre.userId
+			UI.pop(r.cercle, 0.6)
+			if ouverte and estChef then
+				-- le partenaire vient de rejoindre
+				UI.gerbe(panneauGroupe, CRISTAL, 14, Vector2.new(0.5, (Y_ROND2 + D_ROND / 2) / H_PANNEAU))
+				jouer("succes", 1.15)
+			end
+		end
+	elseif enAttente then
+		local cible = Players:GetPlayerByUserId(enAttente)
+		r.image.Visible, r.plus.Visible, r.appel.Visible, r.attente.Visible, r.couronne.Visible = true, false, false, true, false
+		r.image.ImageTransparency = 0.5
+		avatar(enAttente, r.image)
+		r.bord.Color, r.bord.Transparency = CRISTAL, 0.4
+		r.nom.Text, r.nom.TextColor3 = tronquer(if cible then cible.DisplayName else "…", 9), T.Gris
+		r.userId = nil
+	else
+		r.image.Visible, r.attente.Visible, r.couronne.Visible = false, false, false
+		r.plus.Visible, r.appel.Visible = estChef, estChef
+		r.bord.Color, r.bord.Transparency = if estChef then CRISTAL else T.Gris, if estChef then 0.2 else 0.5
+		r.nom.Text = ""
+		r.userId = nil
+	end
+	r.bouton.Active = estChef and #membres < Grottes.MAX_JOUEURS
+	if not r.bouton.Active then
+		TweenService:Create(r.lueur, FAST, {BackgroundTransparency = 1}):Play()
 	end
 end
 
 -- ================= Liste d'invitation =================
-local liste = UI.panneau({Name = "ListeInvitation", Position = UDim2.fromOffset(288, 90), Size = UDim2.fromOffset(436, 366),
-	BackgroundColor3 = T.BoisSombre, Visible = false, ZIndex = 20, Parent = interieur}, 0.04)
+-- (dans « corps », calée contre le bord droit de la fenêtre : elle s'ouvre juste à côté du panneau Groupe)
+local liste = UI.panneau({Name = "ListeInvitation", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0),
+	Size = UDim2.fromOffset(436, 366), BackgroundColor3 = T.BoisSombre, Visible = false, ZIndex = 20, Parent = corps}, 0.04)
 local echelleListe = creer("UIScale", {Parent = liste})
-local titreListe = texte({Text = "INVITER", Font = Enum.Font.Fantasy, TextXAlignment = Enum.TextXAlignment.Left,
-	Position = UDim2.fromOffset(18, 12), Size = UDim2.fromOffset(300, 40), ZIndex = 21, Parent = liste}, 34)
+local titreListe = texte({Text = "INVITER UN MINEUR", Font = Enum.Font.Fantasy, TextXAlignment = Enum.TextXAlignment.Left,
+	Position = UDim2.fromOffset(18, 8), Size = UDim2.fromOffset(330, 36), ZIndex = 21, Parent = liste}, 32)
 UI.dore(titreListe, 2)
+texte({Text = "Choisis ton partenaire pour la descente", Font = Enum.Font.GothamBold, TextColor3 = CRISTAL, TextXAlignment = Enum.TextXAlignment.Left,
+	Position = UDim2.fromOffset(20, 44), Size = UDim2.fromOffset(330, 18), ZIndex = 21, Parent = liste}, 15)
 local fermerListe = boutonFermer({AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 4), Size = UDim2.fromOffset(58, 58),
 	ZIndex = 22, Parent = liste})
 local defilement = creer("ScrollingFrame", {Position = UDim2.fromOffset(10, 70), Size = UDim2.new(1, -20, 1, -80), BackgroundTransparency = 1,
@@ -831,10 +1025,10 @@ local defilement = creer("ScrollingFrame", {Position = UDim2.fromOffset(10, 70),
 	ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 21, Parent = liste},
 	{creer("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}),
 		creer("UIPadding", {PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 2), PaddingLeft = UDim.new(0, 2)})})
-local vide = texte({Text = "Personne d'autre ici", Font = Enum.Font.GothamBold, TextColor3 = T.Gris, Position = UDim2.fromOffset(20, 150),
+local vide = texte({Text = "Personne d'autre dans la mine pour l'instant", Font = Enum.Font.GothamBold, TextColor3 = T.Gris, Position = UDim2.fromOffset(20, 150),
 	Size = UDim2.new(1, -40, 0, 30), Visible = false, ZIndex = 22, Parent = liste}, 20)
 
-type Rangee = {bouton: TextButton, sous: TextLabel, bord: UIStroke, pastille: Frame, etiquette: TextLabel}
+type Rangee = {bouton: TextButton, sous: TextLabel, bord: UIStroke, pastille: Frame, etiquette: TextLabel, attente: Frame, survol: boolean}
 local rangees: {[number]: Rangee} = {}
 
 local function majRangee(userId: number, r: Rangee, joueurCible: Player)
@@ -843,9 +1037,10 @@ local function majRangee(userId: number, r: Rangee, joueurCible: Player)
 	r.sous.Text = if ami then "AMI" else "@" .. joueurCible.Name
 	r.sous.TextColor3 = if ami then T.Or else T.Gris
 	r.sous.Font = if ami then Enum.Font.GothamBlack else Enum.Font.Gotham
-	r.bord.Color = if ami then T.OrFonce else T.FerSombre
-	r.etiquette.Text = if invite then "Invité…" else "Inviter"
+	r.bord.Color = if r.survol and not invite then CRISTAL elseif ami then T.OrFonce else T.FerSombre
+	r.etiquette.Text = if invite then "ENVOYÉE…" else "INVITER"
 	r.pastille.BackgroundColor3 = if invite then T.Inactif else BOUTON_BLEU
+	r.attente.Visible = invite
 	r.bouton.Active = not invite
 end
 
@@ -865,9 +1060,41 @@ local function creerRangee(p: Player): Rangee
 	local pastille = creer("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(106, 44),
 		BackgroundColor3 = BOUTON_BLEU, ZIndex = 23, Parent = b}, {coin(0.5), trait(ENCRE, 2), UI.degrade(BLANC, Color3.fromRGB(150, 150, 150))})
 	local etiquette = texte({Font = Enum.Font.GothamBlack, TextColor3 = BLANC, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromScale(0.82, 0.5), ZIndex = 24, Parent = pastille}, 18)
+		Size = UDim2.fromScale(0.82, 0.5), ZIndex = 25, Parent = pastille}, 18)
+	creer("UIStroke", {Thickness = 1.5, Color = ENCRE, Transparency = 0.3, Parent = etiquette})
+	-- reflet haut de la pastille
+	creer("Frame", {Position = UDim2.fromScale(0.06, 0.1), Size = UDim2.fromScale(0.88, 0.38), BackgroundColor3 = BLANC, BackgroundTransparency = 0.82,
+		BorderSizePixel = 0, ZIndex = 24, Parent = pastille}, {coin(0.5)})
+	-- halo de survol autour de la pastille
+	local halo = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, 10, 1, 10),
+		BackgroundTransparency = 1, ZIndex = 23, Parent = pastille}, {coin(0.5)})
+	local traitHalo = trait(CRISTAL, 2.5, 1)
+	traitHalo.Parent = halo
+	-- invitation envoyée : arc lumineux qui tourne autour de la pastille
+	local attenteP = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, 8, 1, 8),
+		BackgroundTransparency = 1, Visible = false, ZIndex = 24, Parent = pastille}, {coin(0.5)})
+	local traitAttenteP = trait(CRISTAL, 2.5)
+	traitAttenteP.Parent = attenteP
+	local gAttenteP = creer("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.3, 0.2),
+		NumberSequenceKeypoint.new(0.45, 1), NumberSequenceKeypoint.new(1, 1)}), Parent = traitAttenteP})
+	TweenService:Create(gAttenteP, TweenInfo.new(1.1, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), {Rotation = 360}):Play()
 	UI.reactif(b, 1.03)
-	local r: Rangee = {bouton = b, sous = sous, bord = bord, pastille = pastille, etiquette = etiquette}
+	local r: Rangee = {bouton = b, sous = sous, bord = bord, pastille = pastille, etiquette = etiquette, attente = attenteP, survol = false}
+	b.MouseEnter:Connect(function()
+		r.survol = true
+		if b.Active then
+			TweenService:Create(traitHalo, SURVOL, {Transparency = 0.1}):Play()
+			TweenService:Create(bord, SURVOL, {Color = CRISTAL, Thickness = 3}):Play()
+			TweenService:Create(UI.echelle(pastille), SURVOL, {Scale = 1.08}):Play()
+		end
+	end)
+	b.MouseLeave:Connect(function()
+		r.survol = false
+		local ami = cacheAmis[userId] == true
+		TweenService:Create(traitHalo, SURVOL, {Transparency = 1}):Play()
+		TweenService:Create(bord, SURVOL, {Color = if ami then T.OrFonce else T.FerSombre, Thickness = 2}):Play()
+		TweenService:Create(UI.echelle(pastille), SURVOL, {Scale = 1}):Play()
+	end)
 	b.Activated:Connect(function()
 		if not estChef or #membres >= Grottes.MAX_JOUEURS then
 			return
@@ -880,6 +1107,11 @@ local function creerRangee(p: Player): Rangee
 		evInviter:FireServer(userId)
 		jouer("metal")
 		UI.pop(pastille, 0.7)
+		TweenService:Create(traitHalo, FAST, {Transparency = 1}):Play()
+		local flash = creer("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = BLANC, BackgroundTransparency = 0.2, ZIndex = 26,
+			Parent = pastille}, {coin(0.5)})
+		TweenService:Create(flash, TweenInfo.new(0.45, Enum.EasingStyle.Quad), {BackgroundTransparency = 1}):Play()
+		Debris:AddItem(flash, 0.5)
 		majRangee(userId, r, p)
 		majGroupe()
 		-- l'invitation expire : on rafraîchit l'affichage
@@ -964,12 +1196,6 @@ basculerListe = function()
 	rafraichirListe()
 end
 
-inviter.bouton.Activated:Connect(function()
-	if inviter.bouton.Active then
-		jouer("clic")
-		basculerListe()
-	end
-end)
 fermerListe.Activated:Connect(function()
 	jouer("clic", 0.9)
 	cacherListe()
@@ -984,8 +1210,6 @@ end)
 
 local function majRoles()
 	local plein = #membres >= Grottes.MAX_JOUEURS
-	inviter.bouton.Visible = estChef and not plein
-	attenteChef.Visible = not estChef
 	if not estChef or plein then
 		cacherListe()
 	end
@@ -1003,7 +1227,7 @@ local function choisir(l: Ligne)
 			end
 		end
 		UI.secouer(l.conteneur, 5)
-		UI.pop(attenteChef, 0.8)
+		UI.pop(rondChef.cercle, 0.75) -- c'est le chef (couronne) qui choisit
 		return
 	end
 	if TACTILE and selectionTactile ~= l.niveau.id then
@@ -1095,7 +1319,7 @@ local function ouvrirFenetre()
 	local tv = TweenService:Create(voile, UI.DOUX, {BackgroundTransparency = 0.3})
 	tweenVoile = tv
 	tv:Play()
-	TweenService:Create(decorMine, UI.DOUX, {GroupTransparency = 0}):Play()
+	fondreDecor(true, UI.DOUX)
 	jouer("ouvrir", 0.85)
 	-- les paliers descendent en cascade
 	for i, l in lignes do
@@ -1155,7 +1379,7 @@ local function fermerFenetre(prevenirServeur: boolean)
 	local tv = TweenService:Create(voile, FAST, {BackgroundTransparency = 1})
 	tweenVoile = tv
 	tv:Play()
-	TweenService:Create(decorMine, FAST, {GroupTransparency = 1}):Play()
+	fondreDecor(false, FAST)
 	task.delay(0.16, function()
 		if not ouverte then
 			gui.Enabled = false
@@ -1260,9 +1484,6 @@ local function afficherInvitation(chef: number, nomChef: string)
 		UI.degrade(Color3.fromRGB(255, 240, 225), Color3.fromRGB(140, 120, 110))})
 	creer("Frame", {Position = UDim2.fromOffset(6, 10), Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0),
 		BackgroundTransparency = 0.55, ZIndex = 1, Parent = cadre}, {arrondi(14)})
-	for _, c in {Vector2.new(0.025, 0.07), Vector2.new(0.975, 0.07), Vector2.new(0.025, 0.93), Vector2.new(0.975, 0.93)} do
-		UI.rivet(cadre, UDim2.fromScale(c.X, c.Y), 0.07)
-	end
 	local cercle, image = medaillon(cadre, {Position = UDim2.fromOffset(16, 16), Size = UDim2.fromOffset(78, 78)}, CRISTAL, 3)
 	avatar(chef, image)
 	local anneau = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1.1, 1.1),
@@ -1305,7 +1526,11 @@ local connexionCamera: RBXScriptConnection? = nil
 local function ajusterEchelle()
 	local cam = workspace.CurrentCamera
 	local vp = if cam then cam.ViewportSize else Vector2.new(1280, 720)
-	echelleEcran.Scale = math.clamp(math.min(vp.X / (LARGEUR + 40), vp.Y / (HAUTEUR + 30)), 0.5, 1.35)
+	-- largeur totale = fenêtre + panneau Groupe collé à droite : l'ensemble est centré et rétréci s'il manque de place
+	local largeurTotale = LARGEUR + ECART_PANNEAU + L_PANNEAU
+	local e = math.clamp(math.min(vp.X / (largeurTotale + 40), vp.Y / (HAUTEUR + 30)), 0.35, 1.35)
+	echelleEcran.Scale = e
+	racine.Position = UDim2.new(0.5, -(ECART_PANNEAU + L_PANNEAU) / 2 * e, 0.5, 0)
 	local petit = math.clamp(math.min(vp.X / 900, vp.Y / 620), 0.85, 1.2)
 	echelleCartes.Scale, echelleMessage.Scale = petit, petit
 end
