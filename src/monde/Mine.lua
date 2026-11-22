@@ -70,6 +70,27 @@ local function nettoyerGare(m)
 end
 
 -- Wagon du retour posé au terminus, tourné vers la gare ; remplace l'ancien levier sur les cartes figées.
+-- Quai souterrain : le sol de roche de la caverne arrive à la hauteur des planches et les traverse en
+-- scintillant. On surélève le quai et sa rampe de 0.3 et on creuse la roche à l'intérieur de leur volume.
+-- Positions absolues : sans effet si on le refait.
+local QUAI_SOUTERRAIN = {
+	Quai = CFrame.new(-12.2, D.CAVERNE_SOL + 1.3, -390),
+	Rampe = CFrame.new(-12.2, D.CAVERNE_SOL + 1.3, -408),
+}
+local function degagerQuai(caverne)
+	for nom, cf in QUAI_SOUTERRAIN do
+		local piece = caverne:FindFirstChild(nom)
+		if piece and piece:IsA("BasePart") then
+			piece.CFrame = cf * piece.CFrame.Rotation
+			if piece:IsA("WedgePart") then
+				terrain:FillWedge(piece.CFrame, piece.Size, Enum.Material.Air)
+			else
+				terrain:FillBlock(piece.CFrame, piece.Size, Enum.Material.Air)
+			end
+		end
+	end
+end
+
 local function preparerWagonRetour(caverne)
 	local levier = caverne:FindFirstChild("LevierRetour")
 	if levier then levier:Destroy() end
@@ -256,6 +277,7 @@ function Mine.preparerVoie(mine)
 	if caverneExistante then
 		preparerWagonRetour(caverneExistante)
 		preparerCristal(caverneExistante)
+		degagerQuai(caverneExistante)
 	end
 	local ok, erreur = pcall(preparerPortes, mine)
 	if not ok then warn("[Mine] Portes non mises à jour : " .. tostring(erreur)) end
@@ -421,6 +443,7 @@ local function caverne(f, rng)
 	-- Quai souterrain
 	O.bloc(m, Vector3.new(14, 2, 30), CFrame.new(-12.2, y + 1, -390), C.Bois, M.Planches, "Quai")
 	O.coin(m, Vector3.new(14, 2, 6), CFrame.new(-12.2, y + 1, -408), C.Bois, M.Planches, "Rampe")
+	degagerQuai(m)
 	for _, z in {-378, -402} do
 		B.lanterne(m, vers(Vector3.new(-18, y + 2, z), Vector3.new(0, y + 2, z)), 9)
 	end

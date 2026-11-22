@@ -1450,12 +1450,14 @@ end
 -- ================= Accessoires =================
 
 -- Tonneau : corps en bois (la matière « planches » se déforme en rayures sur un cylindre), couvercle, 3 cercles de fer
-function B.tonneau(parent, cf)
+-- diametre (facultatif, 2.4 par défaut) : élargi pour recouvrir un ancien tonneau plus gros
+function B.tonneau(parent, cf, diametre)
+	local d = diametre or 2.4
 	local m = O.modele(parent, "Tonneau")
-	O.cylindre(m, 3.2, 2.4, cf * CFrame.new(0, 1.6, 0), C.Bois, M.Bois, "Corps")
-	O.decor(O.cylindre(m, 0.08, 2.1, cf * CFrame.new(0, 3.22, 0), C.BoisFonce, M.Bois, "Couvercle"))
+	O.cylindre(m, 3.2, d, cf * CFrame.new(0, 1.6, 0), C.Bois, M.Bois, "Corps")
+	O.decor(O.cylindre(m, 0.08, d - 0.3, cf * CFrame.new(0, 3.22, 0), C.BoisFonce, M.Bois, "Couvercle"))
 	for _, y in {0.45, 1.6, 2.75} do
-		O.decor(O.cylindre(m, 0.22, 2.52, cf * CFrame.new(0, y, 0), C.Fer, M.Metal, "Cercle"))
+		O.decor(O.cylindre(m, 0.22, d + 0.12, cf * CFrame.new(0, y, 0), C.Fer, M.Metal, "Cercle"))
 	end
 	return m
 end
@@ -1468,10 +1470,12 @@ function B.degagerTonneaux(racine)
 	-- on ne voyait que leur couvercle (mesh « Colombage ») et leurs cercles (mesh « Fer ») au ras de l'herbe, en
 	-- scintillant. On repère chaque tonneau du mesh (rayons verticaux), on retire le mesh et on pose à sa place
 	-- un vrai tonneau sur l'herbe (il recouvre le couvercle et les cercles restants).
-	local nosTonneaux = {}
+	-- Un tonneau posé à la place d'un tonneau du mesh porte l'attribut « CouvreReste » : il doit rester pile
+	-- au-dessus des restes (couvercle, cercles), sinon un bout de l'ancien tonneau dépasse à côté.
+	local nosTonneaux = {} -- {modele, position}
 	for _, t in racine:GetDescendants() do
 		local corps = t:IsA("Model") and t.Name == "Tonneau" and t:FindFirstChild("Corps")
-		if corps and corps:IsA("BasePart") then table.insert(nosTonneaux, corps.Position) end
+		if corps and corps:IsA("BasePart") then table.insert(nosTonneaux, {t, corps.Position}) end
 	end
 	for _, mesh in racine:GetDescendants() do
 		if mesh:IsA("BasePart") and mesh.Name == "Auberge_Decor_Tonneau" and mesh.Parent then
@@ -1479,7 +1483,7 @@ function B.degagerTonneaux(racine)
 			local seul = RaycastParams.new()
 			seul.FilterType = Enum.RaycastFilterType.Include
 			seul.FilterDescendantsInstances = {mesh}
-			local groupes = {} -- {somme, nombre}
+			local groupes = {} -- {somme, nombre, points}
 			local demi = mesh.Size / 2
 			for x = -demi.X, demi.X, 0.6 do
 				for z = -demi.Z, demi.Z, 0.6 do
@@ -1491,7 +1495,7 @@ function B.degagerTonneaux(racine)
 						for _, e in groupes do
 							if (e[1] / e[2] - q).Magnitude < 1.8 then g = e; break end
 						end
-						if g then g[1] += q; g[2] += 1 else table.insert(groupes, {q, 1}) end
+						if g then g[1] += q; g[2] += 1; table.insert(g[3], q) else table.insert(groupes, {q, 1, {q}}) end
 					end
 				end
 			end
@@ -1501,13 +1505,27 @@ function B.degagerTonneaux(racine)
 			corrige += 1
 			for _, g in groupes do
 				local c = g[1] / g[2]
-				local dejaLa = false
-				for _, p in nosTonneaux do
-					if (p * Vector3.new(1, 0, 1) - c).Magnitude < 2.6 then dejaLa = true; break end
-				end
-				if not dejaLa and g[2] >= 3 then
-					B.tonneau(parent, CFrame.new(c.X, yBasMesh, c.Z)) -- remonté sur l'herbe juste après
-					table.insert(nosTonneaux, c)
+				if g[2] >= 3 then
+					-- largeur de l'ancien tonneau vu d'en haut (+ ses cercles de fer et le pas de la grille)
+					local rayon = 0
+					for _, q in g[3] do rayon = math.max(rayon, (q - c).Magnitude) end
+					local diametre = math.clamp(2 * (rayon + 0.45), 2.4, 3.6)
+					local proche = nil
+					for i, e in nosTonneaux do
+						if (e[2] * Vector3.new(1, 0, 1) - c).Magnitude < 2.6 then proche = i; break end
+					end
+					local y, parentTonneau = yBasMesh, parent
+					if proche then
+						-- un de nos tonneaux est déjà à côté : on le remplace par un tonneau pile sur l'ancien
+						local ancien = nosTonneaux[proche][1]
+						parentTonneau = ancien.Parent
+						y = nosTonneaux[proche][2].Y - 1.6
+						ancien:Destroy()
+						table.remove(nosTonneaux, proche)
+					end
+					local t = B.tonneau(parentTonneau, CFrame.new(c.X, y, c.Z), diametre) -- remonté sur l'herbe juste après
+					t:SetAttribute("CouvreReste", true)
+					table.insert(nosTonneaux, {t, Vector3.new(c.X, y + 1.6, c.Z)})
 				end
 			end
 		end
@@ -1543,7 +1561,7 @@ function B.degagerTonneaux(racine)
 	end
 	for _, tonneau in racine:GetDescendants() do
 		local corps = tonneau.Parent and tonneau:IsA("Model") and tonneau.Name == "Tonneau" and tonneau:FindFirstChild("Corps")
-		if corps and corps:IsA("BasePart") then
+		if corps and corps:IsA("BasePart") and not tonneau:GetAttribute("CouvreReste") then
 			local filtre = OverlapParams.new()
 			filtre.FilterType = Enum.RaycastFilterType.Exclude
 			filtre.FilterDescendantsInstances = {tonneau}
