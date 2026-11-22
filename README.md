@@ -348,6 +348,7 @@ Le cercle « Sortie » derrière le point d'apparition ramène le joueur devant 
 | `src/monde/MinePrivee.lua` | Construit / retrouve / libère la mine privée d'un joueur (galerie + mur de blocs). |
 | `src/server/CerclesTunnels.server.lua` | Détection serveur des cercles (boucle 0,1 s, morts ignorés, délai 2,5 s), streaming puis téléportation aller et retour. |
 | `src/monde/Mine.lua` | Portes encastrées (`portes`, version 2) et grand cristal ; `preparerPortes` / `preparerCristal` mettent à jour une carte figée. |
+| `src/monde/CaverneDecor.lua` | Mise en scène de la caverne (pont suspendu, cascade, rayons, frise, sanctuaire du cristal…), sans collision sur les passages. |
 
 ## Grottes profondes (expéditions à 1 ou 2)
 
@@ -477,6 +478,7 @@ Sans import, le petit château en blocs de `HorizonMine.lua` reste affiché : ri
 - Les toits du village et les auvents des échoppes sont solides et font rebondir le joueur une fois à la réception d’un saut, y compris sur les bords. Depuis le sol, sauter vers un auvent proche donne l’élan pour monter dessus.
 - Avenue nord : gare des wagonnets et voie ferrée vieillie jusqu'à la caverne, avec butoirs rouges et blancs. Le joueur peut monter dans le wagonnet vide avec E et en sortir en sautant.
 - Mine : tunnel étayé, descente de 60 studs, grande caverne de cristal (grand cristal violet dans le lobe ouest) avec les 6 portes de tunnels privés encastrées dans la paroi.
+- Caverne de cristal (`src/monde/CaverneDecor.lua`, modèle `Mine › DecorCaverne`, attribut `Version`) : deux piliers de roche qui encadrent l'arrivée, reliés par un pont suspendu (plateformes, échafaudage avec échelle, treuil, lanternes) ; faille dans la voûte d'où tombent des rayons de lumière et de la poussière sur une le centre ; frise de runes au-dessus des portes des tunnels ; bassin et cascade souterraine dans le lobe est ; cercle de runes, menhirs, halo de pierres et éclats en orbite autour du grand cristal ; champignons lumineux, racines, stalagmites, vieux rails et wagonnets renversés (éclats de cristal, aucun minerai). Parcours en hauteur praticable : échelle (TrussPart invisible) contre le pilier ouest → plateforme → pont suspendu fixe (sol et garde-corps invisibles) → plateforme du pilier est. Lumières douces (PointLight ≤ 1,5, néons assombris). Sur une carte figée, le décor est ajouté par `Mine.preparerVoie` ; changer `VERSION` le reconstruit.
 - Sud : rivière, pont de pierre, moulin à eau (et son puits), rue du sud et ses maisons.
 
 Toutes les coordonnées sont dans `src/monde/Disposition.lua`.

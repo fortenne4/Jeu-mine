@@ -14,7 +14,7 @@ local Forge = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("Fo
 local Donnees = require(script.Parent:WaitForChild("Donnees"))
 
 local NOM_OUTIL = "Épée"
-local CADENCE_MIN = 0.15
+local CADENCE_MIN = 0.45 -- recharge minimale entre deux coups (le client attend RECHARGE = 0.5 s)
 local SON_COUP = "rbxasset://sounds/swordslash.wav"
 local SON_DEGAINER = "rbxasset://sounds/unsheath.wav"
 
@@ -207,10 +207,12 @@ remote.OnServerEvent:Connect(function(joueur: Player, coup: any)
 		return
 	end
 	local t = os.clock()
-	if t - (derniers[joueur] or 0) < CADENCE_MIN then
-		return
+	if coup > 0 then
+		if t - (derniers[joueur] or 0) < CADENCE_MIN then
+			return
+		end
+		derniers[joueur] = t
 	end
-	derniers[joueur] = t
 	if coup > 0 then
 		-- Combo calculé ici (1 → 2 → 3 → 1, remis à 1 après une pause) : la valeur du client est ignorée
 		local c = combos[joueur]

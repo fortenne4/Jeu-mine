@@ -2002,7 +2002,7 @@ end
 local function prisme(parent, cf, h, couleur)
 	local r = h * 0.22
 	local axe = cf * CFrame.Angles(0, math.rad(45), 0)
-	local coeur = O.bloc(parent, Vector3.new(r * 0.5, h * 0.92, r * 0.5), axe * CFrame.new(0, h * 0.46, 0), couleur, M.Neon, "Coeur")
+	local coeur = O.bloc(parent, Vector3.new(r * 0.5, h * 0.92, r * 0.5), axe * CFrame.new(0, h * 0.46, 0), couleur:Lerp(Color3.new(), 0.4), M.Neon, "Coeur") -- néon assombri : lueur douce
 	local gaine = O.bloc(parent, Vector3.new(r, h, r), axe * CFrame.new(0, h / 2, 0), couleur, M.Verre, "Gaine")
 	gaine.Transparency = 0.4
 	gaine.Reflectance = 0.25
@@ -2023,7 +2023,7 @@ function B.cristal(parent, cf, h, couleur, rng, portee)
 		local scf = cf * CFrame.Angles(0, a, 0) * CFrame.new(0, 0, -h * 0.12) * CFrame.Angles(-inclinaison, 0, 0)
 		prisme(m, scf, h * rng:NextNumber(0.35, 0.6), couleur)
 	end
-	O.lumiere(coeur, couleur, 2.2, portee or math.clamp(h * 2.2, 14, 60))
+	O.lumiere(coeur, couleur, 1.3, portee or math.clamp(h * 2.2, 14, 60))
 	m.PrimaryPart = coeur
 	return m, coeur
 end

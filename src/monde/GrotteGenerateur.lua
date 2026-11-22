@@ -349,11 +349,11 @@ local function cristaux(ctx, pos, normale, echelle)
 		local w, h = rng:NextNumber(0.5, 0.9) * echelle, rng:NextNumber(1.5, 3.8) * echelle
 		local depart = pos + Vector3.new(rng:NextNumber(-0.6, 0.6), rng:NextNumber(-0.4, 0.4), rng:NextNumber(-0.6, 0.6)) * echelle
 		local cf = axeVers(depart, dir) * CFrame.new(0, h / 2 - 0.4, 0) * CFrame.Angles(0, math.rad(45), 0)
-		local p = O.decor(O.bloc(ctx.decor, Vector3.new(w, h, w), cf, couleur, if i % 2 == 0 then M.Verre else M.Neon, "Cristal"))
+		local p = O.decor(O.bloc(ctx.decor, Vector3.new(w, h, w), cf, if i % 2 == 0 then couleur else couleur:Lerp(Color3.new(), 0.4), if i % 2 == 0 then M.Verre else M.Neon, "Cristal"))
 		if p.Material == M.Verre then p.Transparency = 0.25 end
 		premier = premier or p
 	end
-	if premier then lumiere(ctx, premier, couleur, 1.2, 18 * echelle) end
+	if premier then lumiere(ctx, premier, couleur, 0.8, 18 * echelle) end
 end
 
 -- Pointe en 3 étages (stalactite : sens = -1, stalagmite : sens = 1)

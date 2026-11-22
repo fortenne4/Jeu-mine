@@ -19,6 +19,7 @@ local MineraisModeles = require(Partage:WaitForChild("MineraisModeles"))
 local PrixMinerais = require(Partage:WaitForChild("PrixMinerais"))
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
 local Icones = require(script.Parent:WaitForChild("IconesObjets"))
+local DecorMarchand = require(script.Parent:WaitForChild("DecorMarchand"))
 local evOuvrir = ReplicatedStorage:WaitForChild("MarchandOuvrir") :: RemoteEvent
 local fnAction = ReplicatedStorage:WaitForChild("MarchandAction") :: RemoteFunction
 
@@ -62,6 +63,11 @@ local F = UI.fenetre(gui, {nom = "Gaspard", role = "MARCHAND DE MINERAIS · LE C
 		"Pesé, compté, payé. Rien ne se perd chez Gaspard.", "Liesel a de belles pioches... encore faut-il pouvoir les payer !",
 		"Plus c'est rare, plus ça brille dans ma balance."}})
 local boucles = F.boucles
+-- Décor d'arrière-plan (trésor, minerais, lingots) : derrière le contenu, s'arrête fenêtre fermée
+local decor = DecorMarchand.creer(F.contenu.Parent :: Frame, boucles)
+F.surFermeture.Event:Connect(function()
+	decor.arreter()
+end)
 local majBourse = UI.bourse(F.droite)
 local message = UI.toast(gui)
 local bourse = F.droite:FindFirstChild("Bourse") :: Frame?
@@ -602,6 +608,7 @@ local function ouvrirComptoir(nouvelEtat: Etat, position: Vector3)
 		return
 	end
 	F.ouvrir()
+	decor.demarrer()
 	echelleApercu.Scale = 0.4
 	TweenService:Create(echelleApercu, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
 end

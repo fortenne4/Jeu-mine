@@ -13,6 +13,7 @@ local Debris = game:GetService("Debris")
 
 local Q = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("Quetes"))
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
+local DecorTaverne = require(script.Parent:WaitForChild("DecorTaverne"))
 local T, creer, coin, trait, texte = UI.T, UI.creer, UI.coin, UI.trait, UI.texte
 
 local joueur = Players.LocalPlayer
@@ -75,6 +76,8 @@ local F = UI.fenetre(gui, {nom = "Margot", role = "AUBERGISTE · GUILDE DES MINE
 	repliques = {"La Guilde paie bien ceux qui creusent profond.", "Une chope, une quête, et au travail !",
 		"On raconte que la Veine d'Étoile brille dans le noir...", "Ton nom finira peut-être au-dessus du comptoir."}})
 local boucles = F.boucles
+-- Décor d'arrière-plan (taverne de la Guilde) : derrière le contenu, s'arrête fenêtre fermée
+local decor = DecorTaverne.creer(F.contenu.Parent :: Frame, boucles)
 local majBourse = UI.bourse(F.droite)
 local message = UI.toast(gui)
 
@@ -853,10 +856,12 @@ evOuvrir.OnClientEvent:Connect(function(nouvelEtat: any, part: any)
 	dernierRecit = ""
 	toutRemplir()
 	F.ouvrir()
+	decor.demarrer()
 	majMarqueur()
 end)
 
 F.surFermeture.Event:Connect(function()
+	decor.arreter()
 	-- réactivée un peu après (comme les autres invites coupées par InterfaceMine) : le E qui ferme ne rouvre pas
 	task.delay(0.25, function()
 		if promptGuilde and not F.estOuverte() then

@@ -177,10 +177,16 @@ end
 -- ================= Combo du joueur local =================
 
 local combo, finPrevue, tampon = 0, -math.huge, false
+local RECHARGE = 0.5 -- s minimum entre deux coups (le serveur refuse en dessous de 0.45 s)
+local dernierCoup = -math.huge
 
 local function lancerLocal(e: Etat)
 	tampon = false
 	local t = os.clock()
+	if t - dernierCoup < RECHARGE then
+		return
+	end
+	dernierCoup = t
 	combo = if t - finPrevue > RESET then 1 else combo % 3 + 1
 	demarrer(e, combo)
 	if e.coup then

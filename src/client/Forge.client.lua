@@ -16,6 +16,7 @@ local MineraisModeles = require(Partage:WaitForChild("MineraisModeles"))
 local ArmesVoxels = require(Partage:WaitForChild("ArmesVoxels"))
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
 local Icones = require(script.Parent:WaitForChild("IconesObjets"))
+local DecorForge = require(script.Parent:WaitForChild("DecorForge"))
 local evOuvrir = ReplicatedStorage:WaitForChild("ForgeOuvrir") :: RemoteEvent
 local fnAction = ReplicatedStorage:WaitForChild("ForgeAction") :: RemoteFunction
 
@@ -77,6 +78,8 @@ local F = UI.fenetre(gui, {nom = "Brom", role = "FORGERON · LA FORGE", service 
 	repliques = {"Le feu est chaud, apporte ton minerai !", "Fer et charbon... ça fait de l'acier, gamin.",
 		"Frappe tant que c'est chaud !", "L'or seul, c'est mou. Mélange-le."}})
 local boucles = F.boucles
+-- Décor d'arrière-plan (enclume, marteau, braises) : derrière le contenu, s'arrête fenêtre fermée
+local decor = DecorForge.creer(F.contenu.Parent :: Frame, boucles)
 local majBourse = UI.bourse(F.droite)
 local message = UI.toast(gui)
 local gauche = creer("Frame", {Name = "Gauche", Size = UDim2.fromScale(0.6, 1), BackgroundTransparency = 1, ZIndex = 3, Parent = F.contenu})
@@ -705,6 +708,7 @@ end)
 
 -- ================= Ouverture / fermeture =================
 F.surFermeture.Event:Connect(function()
+	decor.arreter()
 	fermerChoix()
 	-- réactivée un peu après (comme les autres invites coupées par InterfaceMine) : le E qui ferme ne rouvre pas
 	task.delay(0.25, function()
@@ -743,6 +747,7 @@ local function ouvrirForge(nouvelEtat: Etat, part: BasePart)
 	rafraichirInventaire()
 	rafraichir()
 	F.ouvrir()
+	decor.demarrer()
 end
 
 evOuvrir.OnClientEvent:Connect(function(nouvelEtat: any, part: any)

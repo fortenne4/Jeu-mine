@@ -365,12 +365,8 @@ local function solDuPoint(point: BasePart): CFrame
 	end
 	return CFrame.new(bas)
 end
-if #points == 0 then
-	for i, nom in ORDRE do
-		local x = (i - 2.5) * CONFIG.DEMO_ECART
-		apparaitre(CFrame.new(CONFIG.DEMO_POSITION + Vector3.new(x, 0, 0)), nom)
-	end
-else
+-- Aucun point = aucun minerai (la mine n'en a plus, voir monde/Mine.lua) : plus de minerais de démonstration
+do
 	for _, p in points do
 		if p:IsA("BasePart") then
 			p.Transparency = 1

@@ -5,6 +5,7 @@ local O = require(script.Parent.Outils)
 local B = require(script.Parent.Batiments)
 local Cercle = require(script.Parent.CercleLumineux)
 local M3 = require(script.Parent.Modeles3D)
+local CaverneDecor = require(script.Parent.CaverneDecor)
 local M, C = O.M, O.C
 
 local Mine = {}
@@ -293,6 +294,8 @@ function Mine.preparerVoie(mine)
 		degagerQuai(caverneExistante)
 		preparerQuai(caverneExistante)
 	end
+	local okDecor, erreurDecor = pcall(CaverneDecor.preparer, mine)
+	if not okDecor then warn("[Mine] Décor de la caverne non mis à jour : " .. tostring(erreurDecor)) end
 	local ok, erreur = pcall(preparerPortes, mine)
 	if not ok then warn("[Mine] Portes non mises à jour : " .. tostring(erreur)) end
 	degagerDescente(mine)
@@ -477,7 +480,7 @@ local function caverne(f, rng)
 	local lumiere = coeur:FindFirstChildOfClass("PointLight")
 	if lumiere then
 		lumiere.Shadows = true
-		lumiere.Brightness = 3
+		lumiere.Brightness = 1.5 -- lueur douce (plus d'éblouissement en entrant)
 	end
 	O.lucioles(coeur, C.CristalViolet, 8)
 	for i = 1, 6 do
@@ -491,10 +494,9 @@ local function caverne(f, rng)
 	zone.Transparency = 1
 	O.brume(zone, Color3.fromRGB(150, 160, 200), 5)
 
-	-- Braseros et wagonnet abandonné
+	-- Braseros (le wagonnet du centre a été retiré : centre dégagé)
 	B.brasero(m, CFrame.new(24, y, -396))
 	B.brasero(m, CFrame.new(-44, y, -404))
-	B.wagonnet(m, CFrame.new(16, y, -410) * CFrame.Angles(0, 0.5, 0), Color3.fromRGB(255, 196, 48), rng)
 
 	-- Panneau des tunnels privés
 	local cfP = vers(Vector3.new(0, y, -470), Vector3.new(0, y, -400))
@@ -566,7 +568,9 @@ function Mine.construire(carte)
 	soutenements(f)
 	portes(f)
 	caverne(f, rng)
-	pointsMinerai(f)
+	local okDecor, erreurDecor = pcall(CaverneDecor.preparer, f) -- piliers, pont, cascade, rayons, frise, sanctuaire…
+	if not okDecor then warn("[Mine] Décor de la caverne non construit : " .. tostring(erreurDecor)) end
+	-- pointsMinerai(f) : plus aucun minerai dans la mine (seulement des cristaux) ; les minerais sont dans les grottes
 end
 
 return Mine
