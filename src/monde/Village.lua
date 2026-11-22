@@ -58,8 +58,8 @@ local function place(v)
 		O.bloc(m, Vector3.new(7.2, 0.5, 1), CFrame.Angles(0, i * math.pi / 10, 0) * CFrame.new(0, 0.25, -22),
 			C.PierreFoncee, M.Paves, "Cercle")
 	end
-	for _, a in {35, 145, 215, 325} do
-		B.banc(m, vers(polaire(math.rad(a), 29, 0.4), Vector3.zero))
+	for i, a in {35, 145, 215, 325} do
+		B.bancJardinieres(m, vers(polaire(math.rad(a), 29, 2), Vector3.zero), i)
 	end
 end
 
@@ -162,6 +162,32 @@ function Village.preparerFontaine(village)
 	ancienne:Destroy()
 	nouvelle.Parent = village
 	temporaire:Destroy()
+end
+
+-- Cartes figées : remplace les anciens bancs de la place par le banc à jardinières,
+-- posé sur le sol réellement visible (terrain ou dallage).
+function Village.preparerBancs(village)
+	local place = village:FindFirstChild("Place")
+	if not place then return end
+	local numero = 0
+	for _, ancien in place:GetChildren() do
+		if ancien:IsA("Model") and ancien.Name == "Banc" and ancien:GetAttribute("VersionBanc") ~= 2 then
+			local assise = ancien:FindFirstChild("Assise")
+			if assise and assise:IsA("BasePart") then
+				numero += 1
+				local repere = assise.CFrame * CFrame.new(0, -1.8, 0)
+				local params = RaycastParams.new()
+				params.FilterType = Enum.RaycastFilterType.Exclude
+				params.FilterDescendantsInstances = {ancien}
+				local touche = workspace:Raycast(repere.Position + Vector3.new(0, 8, 0), Vector3.new(0, -20, 0), params)
+				if touche then
+					repere = repere.Rotation + Vector3.new(repere.X, touche.Position.Y, repere.Z)
+				end
+				ancien:Destroy()
+				B.bancJardinieres(place, repere, numero)
+			end
+		end
+	end
 end
 
 -- Pièces de « nom » dans parent dont le centre est à moins de rayon (horizontal) de p
@@ -983,6 +1009,329 @@ end
 
 -- ================= Rivière, pont et moulin =================
 
+-- Moulin de la rive sud (B.moulin, en blocs), dos à la rivière ; la roue tourne dans l'eau
+-- et entraîne le moulin par l'arbre, le rouet et la lanterne.
+local MOULIN_SUD_X, MOULIN_SUD_Z = -54, 104
+local ROUE_SUD_Y, ROUE_SUD_Z = 3.2, 88
+local AXE_ROUE_SUD = CFrame.new(MOULIN_SUD_X, ROUE_SUD_Y, ROUE_SUD_Z) * CFrame.Angles(0, math.pi / 2, 0) -- axe X local = nord-sud
+local function moulinSud(parent)
+	local moulin = B.moulin(parent, CFrame.new(MOULIN_SUD_X, 2, MOULIN_SUD_Z), AXE_ROUE_SUD)
+	moulin:SetAttribute("Accueil", Vector3.new(MOULIN_SUD_X, 0, MOULIN_SUD_Z + 10))
+	return moulin
+end
+
+-- Cartes figées : déplace la roue (et ses remous) sur la rive sud, retire l'ancien axe et son
+-- support, puis construit le moulin et son mécanisme. Une seule fois : le moulin sert de repère.
+function Village.preparerMoulin(village)
+	local r = village:FindFirstChild("Riviere")
+	if not r or r:FindFirstChild("MoulinSud") then return end
+	local roue = r:FindFirstChild("RoueMoulin")
+	if not (roue and roue:IsA("Model")) then return end
+	local ecart = AXE_ROUE_SUD.Position - roue:GetPivot().Position
+	roue:PivotTo(roue:GetPivot() + ecart)
+	for _, nom in {"Axe", "Support"} do
+		local piece = r:FindFirstChild(nom)
+		if piece and piece:IsA("BasePart") then piece:Destroy() end
+	end
+	local remous = r:FindFirstChild("Remous")
+	if remous and remous:IsA("BasePart") then
+		remous.CFrame = remous.CFrame.Rotation + Vector3.new(MOULIN_SUD_X, -4, ROUE_SUD_Z)
+	end
+	moulinSud(r)
+end
+
+-- Cartes figées : l'allée sous l'arche de la rue du sud finissait contre la porte de la Maison9.
+-- On déplace cette maison en face du moulin (porte tournée vers lui), on retire les arbres
+-- qui gênent, puis on pave le chemin de l'arche jusqu'au moulin et à la maison.
+local MAISON_DEPLACEE = "Maison9"
+local MAISON_NOUVELLE_POS = Vector3.new(MOULIN_SUD_X, 0, 134)
+
+local function solVisible(x, z)
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = {workspace.Terrain}
+	local r = workspace:Raycast(Vector3.new(x, 60, z), Vector3.new(0, -120, 0), params)
+	return r and r.Position.Y or 2
+end
+
+-- Allée dans le style des sentiers du village (Village.preparerSentiers) : terre, pavés épars,
+-- trois rangs de dalles régulières et bordures. Utilisée pour les raccords autour du moulin.
+local SENTIER_TERRE = Color3.fromRGB(97, 91, 103)
+local SENTIER_PIERRES = {Color3.fromRGB(103, 98, 112), Color3.fromRGB(117, 111, 124), Color3.fromRGB(90, 88, 102), Color3.fromRGB(108, 102, 115), Color3.fromRGB(99, 98, 109)}
+local SENTIER_BORDURE = Color3.fromRGB(79, 74, 88)
+local function dansReseau(q, reseau, sauf, avant)
+	if not reseau then return false end
+	for k, c in reseau do
+		if k ~= sauf and (not avant or k < sauf) then
+			local d = c.fin - c.debut
+			local t = math.clamp((q - c.debut):Dot(d) / d:Dot(d), 0, 1)
+			if (q - (c.debut + d * t)).Magnitude < c.demi + 0.2 then return true end
+		end
+	end
+	return false
+end
+
+-- reseau / index (facultatifs) : tronçons d'un même chemin. Rien n'est posé deux fois sur un
+-- tronçon déjà tracé, et les bordures s'arrêtent à l'entrée des autres tronçons : le chemin
+-- reste d'un seul tenant, sans couches superposées.
+local function alleeSentier(parent, a, b, largeur, rng, hausse, reseau, index)
+	hausse = hausse or 0 -- au-dessus d'une autre allée qu'elle croise : évite le scintillement
+	local debut, fin = Vector2.new(a.X, a.Z), Vector2.new(b.X, b.Z)
+	local direction = fin - debut
+	if direction.Magnitude < 0.5 then return end
+	local normal = Vector2.new(-direction.Y, direction.X).Unit
+	local function libre(q, bordure)
+		return not dansReseau(q, reseau, index, not bordure)
+	end
+	local function terre(q)
+		if not libre(q) then return end
+		local p = O.decor(O.cylindre(parent, 0.12, largeur * rng:NextNumber(0.94, 1.06), CFrame.new(q.X, solVisible(q.X, q.Y) + 0.05 + hausse + rng:NextNumber(0, 0.004), q.Y), SENTIER_TERRE, M.Paves, "Terre"))
+		p.CastShadow = false
+	end
+	local function pave(q)
+		if not libre(q) then return end
+		local p = O.decor(O.bloc(parent, Vector3.new(rng:NextNumber(0.6, 1.4), 0.11, rng:NextNumber(0.7, 1.55)),
+			CFrame.new(q.X, solVisible(q.X, q.Y) + 0.14 + hausse, q.Y) * CFrame.Angles(0, rng:NextNumber(-0.65, 0.65), 0),
+			SENTIER_PIERRES[rng:NextInteger(1, #SENTIER_PIERRES)], M.Pierre, "Pave"))
+		p.CastShadow = false
+	end
+	local function dalle(q, taille, angle, nom, couleur)
+		if not libre(q, nom == "Bordure") then return end
+		local p = O.decor(O.bloc(parent, Vector3.new(taille.X, 0.1, taille.Y), CFrame.new(q.X, solVisible(q.X, q.Y) + 0.205 + hausse, q.Y) * CFrame.Angles(0, angle, 0), couleur, M.Pierre, nom))
+		p.CastShadow = false
+	end
+	local nombre = math.ceil(direction.Magnitude / 2.8)
+	for i = 0, nombre do
+		local centre = debut:Lerp(fin, i / nombre)
+		terre(centre + normal * rng:NextNumber(-0.65, 0.65))
+		for _ = 1, 2 do
+			pave(centre + normal * rng:NextNumber(-largeur * 0.38, largeur * 0.38) + direction.Unit * rng:NextNumber(-1, 1))
+		end
+	end
+	local rangs = math.ceil(direction.Magnitude / 3)
+	local angle = math.atan2(-direction.X, -direction.Y)
+	for i = 0, rangs do
+		local centre = debut:Lerp(fin, i / rangs)
+		for j = -1, 1 do
+			dalle(centre + normal * j * largeur * 0.3, Vector2.new(largeur * 0.29, direction.Magnitude / rangs - 0.04), angle,
+				"DalleReguliere", SENTIER_PIERRES[(i + j + 1) % #SENTIER_PIERRES + 1])
+		end
+		for _, signe in {-1, 1} do
+			dalle(centre + normal * signe * largeur * 0.49, Vector2.new(0.45, direction.Magnitude / rangs - 0.02), angle, "Bordure", SENTIER_BORDURE)
+		end
+	end
+end
+
+-- Pose un modèle à une nouvelle position (x, z) en le gardant sur le sol visible
+local function deplacerAuSol(modele, x, z)
+	local pivot = modele:GetPivot()
+	local dy = solVisible(x, z) - solVisible(pivot.X, pivot.Z)
+	modele:PivotTo(pivot.Rotation + Vector3.new(x, pivot.Y + dy, z))
+end
+
+function Village.preparerCheminMoulin(village)
+	local riviereM = village:FindFirstChild("Riviere")
+	local moulin = riviereM and riviereM:FindFirstChild("MoulinSud")
+	if not moulin or village:FindFirstChild("CheminMoulin") then return end
+	local maisons = village:FindFirstChild("Maisons")
+	local maison = maisons and maisons:FindFirstChild(MAISON_DEPLACEE)
+	local porteRue = maison and maison:GetAttribute("Accueil")
+	if not (maison and maison:IsA("Model") and typeof(porteRue) == "Vector3") then return end
+
+	-- Nouvelle place de la maison : face au moulin, de l'autre côté du chemin
+	local ancien = maison:GetPivot()
+	local yNouveau = ancien.Y + solVisible(MAISON_NOUVELLE_POS.X, MAISON_NOUVELLE_POS.Z) - solVisible(ancien.X, ancien.Z)
+	local nouvelle = CFrame.lookAt(Vector3.new(MAISON_NOUVELLE_POS.X, yNouveau, MAISON_NOUVELLE_POS.Z),
+		Vector3.new(MAISON_NOUVELLE_POS.X, yNouveau, 0))
+	local _, taille = maison:GetBoundingBox()
+	local relatif = ancien:PointToObjectSpace(porteRue)
+	-- Arbres sur l'emprise de la maison et le long du chemin
+	local zones = {
+		{CFrame.new(MAISON_NOUVELLE_POS.X, 10, MAISON_NOUVELLE_POS.Z), Vector3.new(taille.X + 2, 20, taille.Z + 2)},
+		{CFrame.new((porteRue.X + MOULIN_SUD_X) / 2, 6, porteRue.Z), Vector3.new(math.abs(porteRue.X - MOULIN_SUD_X), 10, 5)},
+	}
+	for _, zone in zones do
+		for _, p in workspace:GetPartBoundsInBox(zone[1], zone[2]) do
+			local a = p
+			while a.Parent and a.Parent ~= village and a.Parent.Parent ~= village do a = a.Parent end
+			local dossier = a.Parent and a.Parent.Name
+			if a:IsA("Model") and a.Parent and (dossier == "Nature" or dossier == "Bosquets") then a:Destroy() end
+		end
+	end
+	maison:PivotTo(nouvelle)
+	local porteMaison = nouvelle:PointToWorldSpace(relatif)
+	porteMaison = Vector3.new(porteMaison.X, 0, porteMaison.Z)
+	maison:SetAttribute("Accueil", porteMaison)
+
+	-- Petit toit en bois (auvent) de la maison voisine, collé au chemin : retiré
+	local voisine = maisons:FindFirstChild("Maison11")
+	if voisine then
+		for _, p in voisine:GetDescendants() do
+			if p:IsA("BasePart") and string.find(p.Name, "Auvent") then p:Destroy() end
+		end
+	end
+
+	-- Raccords dans le style des sentiers. L'allée principale vers le moulin est normalement
+	-- déjà tracée par preparerSentiers (attribut Accueil du moulin) ; sinon on la trace ici.
+	local chemin = O.modele(village, "CheminMoulin")
+	local zChemin = MOULIN_SUD_Z + 10
+	local sentiers = village:FindFirstChild("SentiersFontaine")
+	local rng = Random.new(5117)
+	-- Les pierres d'allées déjà posées sur ce tracé (allée du moulin et ancienne allée de la
+	-- Maison9, qui se superposaient) sont retirées, puis l'allée est tracée une seule fois :
+	-- deux couches au même niveau scintillaient. Les lampadaires (modèles) sont conservés.
+	if sentiers then
+		for _, p in sentiers:GetChildren() do
+			if p:IsA("BasePart") then
+				local q = p.Position
+				if q.X < -4.8 and q.X > MOULIN_SUD_X - 4 and math.abs(q.Z - zChemin) < 2.9 then p:Destroy() end
+			end
+		end
+	end
+	alleeSentier(chemin, Vector3.new(-6.8, 0, zChemin), Vector3.new(MOULIN_SUD_X, 0, zChemin), 4.5, rng)
+	alleeSentier(chemin, Vector3.new(porteMaison.X, 0, zChemin + 2.6), porteMaison, 4.5, rng, 0.04)
+
+	-- Les deux lampadaires de l'allée les plus proches du moulin : légèrement rapprochés de lui
+	if sentiers then
+		for _, l in sentiers:GetChildren() do
+			local p = l:IsA("Model") and l:GetPivot().Position
+			if p and math.abs(p.Z - zChemin) < 5 and p.X < -18 and p.X > MOULIN_SUD_X + 8 then
+				deplacerAuSol(l, p.X - 7, p.Z)
+			end
+		end
+	end
+
+	-- Deux bancs le long de l'allée (côté rivière), tournés vers elle, et le tonneau entre eux
+	local zBanc = zChemin - 5.7
+	local xTonneau, zTonneau = -28.5, zChemin - 4.4
+	for i, x in {-15.5, -36} do
+		-- arbres sur l'emplacement du banc
+		for _, p in workspace:GetPartBoundsInBox(CFrame.new(x, 6, zBanc), Vector3.new(10, 10, 3)) do
+			local a = p
+			while a.Parent and a.Parent ~= village and a.Parent.Parent ~= village do a = a.Parent end
+			local dossier = a.Parent and a.Parent.Name
+			if a:IsA("Model") and a.Parent and (dossier == "Nature" or dossier == "Bosquets") then a:Destroy() end
+		end
+		local pos = Vector3.new(x, solVisible(x, zBanc), zBanc)
+		B.bancJardinieres(chemin, CFrame.lookAt(pos, pos + Vector3.new(0, 0, 1)), 4 + i)
+	end
+	for _, t in maisons:GetChildren() do
+		local corps = t:IsA("Model") and t.Name == "Tonneau" and t:FindFirstChild("Corps")
+		if corps and (Vector2.new(corps.Position.X, corps.Position.Z) - Vector2.new(-14.7, 108.9)).Magnitude < 3 then
+			local pivot = t:GetPivot()
+			deplacerAuSol(t, pivot.X + (xTonneau - corps.Position.X), pivot.Z + (zTonneau - corps.Position.Z))
+		end
+	end
+
+	-- Gare : le bout du chemin (demi-cercle de bordures, dalles) débordait sur la rampe et le
+	-- plancher en bois du quai. Le chemin s'arrête au bord du bois.
+	-- Le carrefour devant la gare (raccord de l'avenue, départ de l'allée de l'entrepôt) est
+	-- entièrement retracé d'un seul tenant : avenue → carrefour → entrée du quai, et carrefour →
+	-- allée de l'entrepôt. L'entrée fait toute la largeur de l'ouverture des balustrades.
+	local ENTREE_GAUCHE, ENTREE_DROITE = -20.2, -11.2 -- bords de l'ouverture (Mine.lua)
+	local carrefour = Vector2.new((ENTREE_GAUCHE + ENTREE_DROITE) / 2, -95)
+	local raccordAvenue = Vector2.new(-5.2, -91.9)
+	-- départ de l'allée de l'entrepôt : porte la plus proche dans la direction de l'ouest
+	local versEntrepot = Vector2.new(-21.2, 9.1).Unit
+	for _, d in village:GetDescendants() do
+		local accueil = d:IsA("Model") and d:GetAttribute("Accueil")
+		if typeof(accueil) == "Vector3" then
+			local v = Vector2.new(accueil.X, accueil.Z) - Vector2.new(-14.5, -97)
+			if v.Magnitude > 10 and v.Magnitude < 60 and v.Unit:Dot(Vector2.new(-21.2, 9.1).Unit) > 0.97 then
+				versEntrepot = v.Unit
+			end
+		end
+	end
+	local departEntrepot = Vector2.new(-14.5, -97) + versEntrepot * ((-25 - -14.5) / versEntrepot.X)
+	if sentiers then
+		for _, p in sentiers:GetChildren() do
+			if p:IsA("BasePart") then
+				local q = p.Position
+				if q.X > -25 and q.X < -5.1 and q.Z < -88.6 and q.Z > -146 then p:Destroy() end
+			end
+		end
+	end
+	local function v3(v) return Vector3.new(v.X, 0, v.Y) end
+	local troncons = {
+		{raccordAvenue, carrefour, 5},
+		{carrefour, Vector2.new(carrefour.X, -100.2), ENTREE_DROITE - ENTREE_GAUCHE},
+		{carrefour, departEntrepot, 4.5},
+	}
+	local reseau = {}
+	for k, t in troncons do
+		reseau[k] = {debut = t[1], fin = t[2], demi = t[3] / 2}
+	end
+	for k, t in troncons do
+		alleeSentier(chemin, v3(t[1]), v3(t[2]), t[3], rng, 0.03, reseau, k)
+	end
+
+	-- Tonneaux retirés au bout de la rue du sud (devant la maison du fond et ses voisines)
+	-- Les tonneaux « CouvreReste » cachaient un couvercle d'ancien tonneau fondu dans le maillage
+	-- de la maison : un petit buisson fleuri le recouvre à la place.
+	local TONNEAUX_RETIRES = {Vector2.new(12.8, 136.5), Vector2.new(0.86, 136.8), Vector2.new(-12.6, 134.7), Vector2.new(-14.1, 138.7),
+		Vector2.new(14.6, 107), Vector2.new(14, 115.2), Vector2.new(12.4, 119.4)}
+	local fleurs = {Color3.fromRGB(212, 83, 126), Color3.fromRGB(239, 159, 39), Color3.fromRGB(240, 226, 190)}
+	for _, d in village:GetDescendants() do
+		if d:IsA("Model") and d.Name == "Tonneau" and d.Parent then
+			local p = d:GetPivot().Position
+			for _, cible in TONNEAUX_RETIRES do
+				if (Vector2.new(p.X, p.Z) - cible).Magnitude < 1.5 then
+					local couvrait = d:GetAttribute("CouvreReste")
+					d:Destroy()
+					if couvrait then
+						local buisson = O.modele(chemin, "BuissonFleuri")
+						local y = solVisible(p.X, p.Z)
+						O.decor(O.bloc(buisson, Vector3.new(3, 0.9, 3), CFrame.new(p.X, y + 0.45, p.Z), Color3.fromRGB(78, 120, 42), M.Herbe, "Feuillage"))
+						O.decor(O.bloc(buisson, Vector3.new(1.8, 0.7, 1.8), CFrame.new(p.X + 0.3, y + 1.1, p.Z - 0.2), Color3.fromRGB(58, 96, 34), M.Herbe, "Feuillage"))
+						for k = 1, 4 do
+							local a = k * math.pi / 2 + 0.4
+							O.decor(O.bloc(buisson, Vector3.new(0.35, 0.35, 0.35), CFrame.new(p.X + math.cos(a) * 1.05, y + 1.05, p.Z + math.sin(a) * 1.05),
+								fleurs[k % #fleurs + 1], M.Lisse, "Fleur"))
+						end
+					end
+					break
+				end
+			end
+		end
+	end
+
+	-- Lampadaires retirés au bout de la rue du sud (deux paires, devant la maison du fond)
+	-- puis les paires (arches) à l'entrée des allées le long de la rue du sud
+	local LAMPADAIRES_RETIRES = {Vector2.new(-8.6, 134.8), Vector2.new(-8.6, 131.1), Vector2.new(5.6, 133.6), Vector2.new(4.6, 137.2),
+		Vector2.new(8.5, 100.1), Vector2.new(8.5, 103.8), Vector2.new(8.5, 119.1), Vector2.new(8.5, 122.8),
+		Vector2.new(-8.6, 112.1), Vector2.new(-8.6, 115.8)}
+	-- et le lampadaire de rue au milieu du côté est
+	table.insert(LAMPADAIRES_RETIRES, Vector2.new(5.9, 117.5))
+	for _, nom in {"SentiersFontaine", "Eclairage"} do
+		local dossier = village:FindFirstChild(nom)
+		for _, l in (if dossier then dossier:GetChildren() else {}) do
+			if l:IsA("Model") then
+				local p = l:GetPivot().Position
+				for _, cible in LAMPADAIRES_RETIRES do
+					if (Vector2.new(p.X, p.Z) - cible).Magnitude < 1 then l:Destroy() break end
+				end
+			end
+		end
+	end
+	-- À la place : un lampadaire simple de chaque côté de la rue du sud, à deux hauteurs
+	for _, pos in {Vector2.new(5.6, 110), Vector2.new(-5.6, 110), Vector2.new(5.6, 126), Vector2.new(-5.6, 126)} do
+		local y = solVisible(pos.X, pos.Y)
+		B.lanterne(chemin, vers(Vector3.new(pos.X, y, pos.Y), Vector3.new(0, y, pos.Y)))
+	end
+
+	-- Tonneaux des maisons voisines qui débordent sur le chemin : poussés sur le côté
+	local xMin, xMax = MOULIN_SUD_X - 6, porteRue.X + 2
+	local yChemin = solVisible(porteRue.X, zChemin) + 3
+	for _, p in workspace:GetPartBoundsInBox(CFrame.new((xMin + xMax) / 2, yChemin, zChemin), Vector3.new(xMax - xMin, 4, 4)) do
+		local tonneau = p.Parent
+		if p.Name == "Corps" and tonneau and tonneau:IsA("Model") and tonneau.Name == "Tonneau" then
+			local cote = if p.Position.Z >= zChemin then 1 else -1
+			local cible = zChemin + cote * (2 + p.Size.Y / 2 + 0.3)
+			tonneau:PivotTo(tonneau:GetPivot() + Vector3.new(0, 0, cible - p.Position.Z))
+		end
+	end
+end
+
 local function riviere(v, rng)
 	local m = O.modele(v, "Riviere")
 	local z = D.RIVIERE_Z
@@ -1004,9 +1353,8 @@ local function riviere(v, rng)
 	local cfMoulin = CFrame.lookAt(Vector3.new(-34, 0, 60), Vector3.new(-34, 0, 0))
 	local moulin, porteMoulin = B.maison(m, cfMoulin, {largeur = 16, profondeur = 14, etages = 1, mur = C.Ocre, toit = C.Toit, nom = "Moulin", rng = rng, modele = 4})
 	moulin:SetAttribute("Accueil", sol((porteMoulin * CFrame.new(0, 0, -3.4)).Position))
-	local axe = CFrame.new(-34, 1.5, 76) * CFrame.Angles(0, math.pi / 2, 0) -- axe X local = nord-sud
-	O.disque(m, 9, 0.8, axe * CFrame.new(4.5, 0, 0), C.Fer, M.Metal, "Axe")
-	O.bloc(m, Vector3.new(1.6, 9.2, 1.6), CFrame.new(-34, -3.4, 72.6), C.BoisFonce, M.Bois, "Support")
+	moulinSud(m)
+	local axe = AXE_ROUE_SUD
 
 	local roue = O.modele(m, "RoueMoulin")
 	local R = 7
@@ -1029,7 +1377,7 @@ local function riviere(v, rng)
 	roue:SetAttribute("Vitesse", 0.5)
 	O.atomique(roue)
 	O.tag(roue, "Rotatif")
-	local remous = O.decor(O.bloc(m, Vector3.new(12, 1, 3), CFrame.new(-34, -4, 76), Color3.new(1, 1, 1), M.Lisse, "Remous"))
+	local remous = O.decor(O.bloc(m, Vector3.new(12, 1, 3), CFrame.new(MOULIN_SUD_X, -4, ROUE_SUD_Z), Color3.new(1, 1, 1), M.Lisse, "Remous"))
 	remous.Transparency = 1
 	O.brume(remous, Color3.fromRGB(230, 236, 240), 6)
 
@@ -1037,7 +1385,7 @@ local function riviere(v, rng)
 	for _ = 1, 16 do
 		local s = if rng:NextNumber() < 0.5 then -1 else 1
 		local x = rng:NextNumber(-200, 200)
-		if math.abs(x) > 12 and math.abs(x + 34) > 10 then
+		if math.abs(x) > 12 and math.abs(x + 34) > 10 and math.abs(x - MOULIN_SUD_X) > 10 then
 			B.rocher(m, Vector3.new(x, -0.8, z + s * (demi + rng:NextNumber(0, 2))), rng:NextNumber(1.5, 3.5), rng)
 		end
 	end

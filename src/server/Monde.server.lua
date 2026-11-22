@@ -27,6 +27,10 @@ if carte then
 			Village.preparerFontaine(village)
 			Village.preparerToits(village)
 			Village.preparerSentiers(village)
+			local okMoulin, erreurMoulin = pcall(Village.preparerMoulin, village)
+			if not okMoulin then warn("[Monde] Moulin de la rive sud non construit : " .. tostring(erreurMoulin)) end
+			local okBancs, erreurBancs = pcall(Village.preparerBancs, village)
+			if not okBancs then warn("[Monde] Bancs de la place non mis à jour : " .. tostring(erreurBancs)) end
 			local okAteliers, erreurAteliers = pcall(Village.preparerAteliers, village)
 			if not okAteliers then warn("[Monde] Fourneau / puits / enseignes non mis à jour : " .. tostring(erreurAteliers)) end
 			require(monde:WaitForChild("DecorFontaine")).preparer(village)
@@ -41,6 +45,12 @@ if carte then
 		require(monde:WaitForChild("MineursDecor")).construire(carte)
 		harmoniserEnseignes(carte)
 		pcall(require(monde:WaitForChild("Batiments")).degagerTonneaux, carte)
+		-- Après degagerTonneaux : le chemin du moulin pousse les tonneaux qui débordent dessus
+		local villageFige = carte:FindFirstChild("Village")
+		if villageFige then
+			local okChemin, erreurChemin = pcall(require(monde:WaitForChild("Village")).preparerCheminMoulin, villageFige)
+			if not okChemin then warn("[Monde] Chemin du moulin non tracé : " .. tostring(erreurChemin)) end
+		end
 		workspace:SetAttribute("MondeConstruit", true)
 		return
 	end
@@ -58,6 +68,12 @@ local carteConstruite = workspace:FindFirstChild("Carte")
 if carteConstruite then
 	harmoniserEnseignes(carteConstruite)
 	pcall(require(ServerStorage:WaitForChild("Monde"):WaitForChild("Batiments")).degagerTonneaux, carteConstruite)
+	local villageConstruit = carteConstruite:FindFirstChild("Village")
+	if villageConstruit then
+		local Village = require(ServerStorage:WaitForChild("Monde"):WaitForChild("Village"))
+		local okChemin, erreurChemin = pcall(Village.preparerCheminMoulin, villageConstruit)
+		if not okChemin then warn("[Monde] Chemin du moulin non tracé : " .. tostring(erreurChemin)) end
+	end
 end
 workspace:SetAttribute("MondeConstruit", true)
 

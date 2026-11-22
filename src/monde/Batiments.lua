@@ -1623,6 +1623,290 @@ function B.banc(parent, cf)
 	return m
 end
 
+-- Banc de la place : planche épaisse entre deux bacs en pierre fleuris.
+-- cf est posé au sol, l'assise tournée vers -Z.
+local FLEURS_BANC = {
+	Color3.fromRGB(212, 83, 126), Color3.fromRGB(239, 159, 39),
+	Color3.fromRGB(127, 119, 221), Color3.fromRGB(240, 226, 190),
+}
+function B.bancJardinieres(parent, cf, numero)
+	local m = O.modele(parent, "Banc")
+	m:SetAttribute("VersionBanc", 2)
+	local rng = Random.new(numero or 1)
+	local feuillage = Color3.fromRGB(78, 120, 42)
+	local feuillageFonce = Color3.fromRGB(52, 92, 30)
+	-- Assise : trois lattes posées sur une traverse sombre
+	for i, z in {-0.6, 0, 0.6} do
+		local latte = O.bloc(m, Vector3.new(4.9, 0.4, 0.56), cf * CFrame.new(0, 1.8, z), C.BoisClair, M.Planches, "Assise")
+		if i == 2 then m.PrimaryPart = latte end
+	end
+	O.decor(O.bloc(m, Vector3.new(4.7, 0.3, 0.4), cf * CFrame.new(0, 1.45, 0), C.BoisFonce, M.Bois, "Traverse"))
+	-- Deux places assises invisibles, tournées vers l'avant du banc (-Z)
+	for _, x in {-1.2, 1.2} do
+		local siege = Instance.new("Seat")
+		siege.Name = "SiegeBanc"
+		siege.Size = Vector3.new(2, 0.2, 1.6)
+		siege.CFrame = cf * CFrame.new(x, 2.05, 0)
+		siege.Anchored = true
+		siege.CanCollide = false
+		siege.CanTouch = false -- on s'assied avec E, pas en marchant dessus
+		siege.Transparency = 1
+		siege.Parent = m
+		local invite = Instance.new("ProximityPrompt")
+		invite.Name = "AsseoirBanc"
+		invite.ActionText = "S'asseoir"
+		invite.ObjectText = "Banc"
+		invite.KeyboardKeyCode = Enum.KeyCode.E
+		invite.GamepadKeyCode = Enum.KeyCode.ButtonX
+		invite.MaxActivationDistance = 7
+		invite.RequiresLineOfSight = false
+		invite.Parent = siege
+		siege:GetPropertyChangedSignal("Occupant"):Connect(function()
+			invite.Enabled = siege.Occupant == nil
+		end)
+	end
+	for _, cote in {-1, 1} do
+		local x = cote * 3.35
+		-- Bac en pierre
+		O.bloc(m, Vector3.new(2, 2.2, 2), cf * CFrame.new(x, 1.1, 0), C.Pierre, M.Pierre, "Bac")
+		for _, p in {{-0.45, 0.6}, {0.4, 1.45}} do
+			O.decor(O.bloc(m, Vector3.new(0.8, 0.5, 0.08), cf * CFrame.new(x + p[1], p[2], -1.03), C.PierreClaire, M.Pierre, "Moellon"))
+		end
+		-- Rebord et terre
+		for _, r in {{0, -0.95, 2.3, 0.4}, {0, 0.95, 2.3, 0.4}, {-0.95, 0, 0.4, 1.5}, {0.95, 0, 0.4, 1.5}} do
+			O.decor(O.bloc(m, Vector3.new(r[3], 0.3, r[4]), cf * CFrame.new(x + r[1], 2.35, r[2]), C.PierreFoncee, M.Pierre, "Rebord"))
+		end
+		O.decor(O.bloc(m, Vector3.new(1.5, 0.2, 1.5), cf * CFrame.new(x, 2.25, 0), C.Terre, M.Terre, "TerreBac"))
+		-- Feuillage en blocs et quelques fleurs
+		O.decor(O.bloc(m, Vector3.new(1.2, 0.8, 1.2), cf * CFrame.new(x, 2.7, 0), feuillage, M.Herbe, "Feuillage"))
+		O.decor(O.bloc(m, Vector3.new(0.6, 0.7, 0.6), cf * CFrame.new(x + 0.2, 3.3, 0.15), feuillageFonce, M.Herbe, "Feuillage"))
+		for _ = 1, 3 do
+			local fx, fz = rng:NextNumber(-0.55, 0.55), rng:NextNumber(-0.55, 0.55)
+			local couleur = FLEURS_BANC[rng:NextInteger(1, #FLEURS_BANC)]
+			O.decor(O.bloc(m, Vector3.new(0.3, 0.3, 0.3), cf * CFrame.new(x + fx, rng:NextNumber(3.1, 3.6), fz), couleur, M.Lisse, "Fleur"))
+		end
+	end
+	return m
+end
+
+-- Moulin à eau en blocs : rez-de-chaussée en pierre, étage à colombages, toit à deux pans, potence à sacs.
+-- cf est posé au sol, la façade (porte) vers +Z, le mur arrière (côté rivière) à z local -6.
+-- axeRoue : CFrame du moyeu de la roue (axe X local = axe de rotation, -X vers le moulin).
+-- Le mécanisme relie la roue au moulin : arbre + rouet (tournent avec la roue), lanterne + arbre
+-- vertical (tournent plus vite) qui monte jusqu'au coffre des meules sur le mur arrière.
+function B.moulin(parent, cf, axeRoue)
+	local m = O.modele(parent, "MoulinSud")
+	m:SetAttribute("VersionMoulin", 2)
+	local function b(taille, pos, couleur, mat, nom, angles)
+		local c = cf * CFrame.new(pos)
+		if angles then c = c * angles end
+		return O.bloc(m, taille, c, couleur, mat, nom)
+	end
+	local V = Vector3.new
+	local platre = C.Platre
+	local poutre = C.BoisFonce
+
+	-- Rez-de-chaussée en pierre
+	b(V(14.8, 0.8, 12.8), V(0, 0.4, 0), C.PierreFoncee, M.Pierre, "Socle")
+	b(V(14, 8, 12), V(0, 4, 0), C.Pierre, M.Pierre, "MurPierre")
+	for _, sx in {-1, 1} do
+		for _, sz in {-1, 1} do
+			O.decor(b(V(1.4, 8.2, 1.4), V(sx * 6.6, 4.1, sz * 5.6), C.PierreFoncee, M.Pierre, "Chaine"))
+		end
+	end
+	-- Étage à colombages
+	b(V(14.4, 6, 12.4), V(0, 11, 0), platre, M.Platre, "MurColombage")
+	for _, y in {8.25, 13.75} do
+		for _, sz in {-1, 1} do
+			O.decor(b(V(14.6, 0.5, 0.4), V(0, y, sz * 6.25), poutre, M.Bois, "Sabliere"))
+		end
+		for _, sx in {-1, 1} do
+			O.decor(b(V(0.4, 0.5, 12.6), V(sx * 7.25, y, 0), poutre, M.Bois, "Sabliere"))
+		end
+	end
+	for _, sz in {-1, 1} do
+		for _, x in {-7, -3.5, 3.5, 7} do
+			O.decor(b(V(0.45, 6, 0.4), V(x, 11, sz * 6.25), poutre, M.Bois, "Poteau"))
+		end
+		for _, sx in {-1, 1} do
+			O.decor(b(V(0.35, 6.5, 0.35), V(sx * 5.25, 11, sz * 6.27), poutre, M.Bois, "Croix",
+				CFrame.Angles(0, 0, sx * math.rad(32))))
+		end
+	end
+	for _, sx in {-1, 1} do
+		for _, z in {-6, -2, 2, 6} do
+			O.decor(b(V(0.4, 6, 0.45), V(sx * 7.25, 11, z), poutre, M.Bois, "Poteau"))
+		end
+	end
+	-- Pignons en gradins et toit à deux pans (faîtage est-ouest)
+	for i = 0, 3 do
+		b(V(14.4, 1.09, 12.4 * (1 - (i + 0.5) / 4)), V(0, 14 + (i + 0.5) * 1.085, 0), platre, M.Platre, "Pignon")
+	end
+	for _, sz in {-1, 1} do
+		b(V(16, 0.6, 8.6), V(0, 16.2, sz * 3.5), C.ToitRouge, M.Tuiles, "Toit", CFrame.Angles(sz * math.rad(35), 0, 0))
+	end
+	O.decor(b(V(16.2, 0.7, 0.9), V(0, 18.7, 0), poutre, M.Bois, "Faitage"))
+	-- Porte, marches, enseigne
+	b(V(3.4, 4.8, 0.3), V(0, 3.2, 6.1), C.Bois, M.Planches, "Porte")
+	O.decor(b(V(4.4, 0.7, 0.5), V(0, 5.9, 6.15), poutre, M.Bois, "Linteau"))
+	for _, sx in {-1, 1} do
+		O.decor(b(V(0.5, 5.2, 0.5), V(sx * 1.95, 3.1, 6.15), poutre, M.Bois, "Montant"))
+	end
+	b(V(4.6, 0.5, 1.4), V(0, 0.25, 6.9), C.PierreFoncee, M.Pierre, "Marche")
+	local enseigne = O.decor(b(V(5, 1.3, 0.25), V(0, 7.1, 6.2), C.BoisClair, M.Planches, "Enseigne"))
+	O.texte(enseigne, Enum.NormalId.Back, "MOULIN")
+	-- Fenêtres (étage partout, petites fenêtres en pierre sur les côtés)
+	local function fenetre(pos, taille, allumee)
+		local vitre = b(taille, pos, allumee and C.Fenetre or C.Vitre, allumee and M.Neon or M.Verre, "Fenetre")
+		O.decor(vitre)
+		if allumee then O.lumiere(vitre, C.Lumiere, 0.6, 10) end
+	end
+	for _, sz in {-1, 1} do
+		for _, x in {-5.25, 5.25} do
+			fenetre(V(x, 11.3, sz * 6.32), V(1.8, 2, 0.2), x > 0)
+		end
+	end
+	for _, sx in {-1, 1} do
+		fenetre(V(sx * 7.32, 11.3, 0), V(0.2, 2, 1.8), sx < 0)
+		fenetre(V(sx * 7.05, 4.6, 2.6), V(0.2, 1.6, 1.4), false)
+	end
+	-- Potence à sacs sur la façade
+	O.decor(b(V(0.5, 0.5, 3), V(0, 16.6, 7.6), poutre, M.Bois, "Potence"))
+	O.decor(b(V(0.4, 1.8, 0.4), V(0, 15.9, 6.4), poutre, M.Bois, "Potence"))
+	O.decor(b(V(0.12, 3.2, 0.12), V(0, 14.9, 8.8), C.Toile, M.Tissu, "Corde"))
+	O.decor(b(V(1.1, 1.3, 1), V(0, 12.7, 8.8), C.Toile, M.Tissu, "Sac"))
+	for i, x in {-3.3, -4.4, 3.4} do
+		b(V(1.2, 1.4, 1), V(x, 1.5, 7.4 + (i % 2) * 0.3), C.Toile, M.Tissu, "Sac")
+	end
+	b(V(1.8, 1.6, 1.8), V(4.8, 1.6, 7.5), C.Bois, M.Planches, "Caisse")
+
+	-- ===== Mécanisme roue → moulin =====
+	-- Arbre horizontal + rouet denté : tournent avec la roue (même pivot, même vitesse)
+	local arbre = O.modele(m, "ArbreRoue")
+	local noyau = O.disque(arbre, 0.4, 1.2, axeRoue, C.BoisFonce, M.Bois, "Noyau")
+	O.disque(arbre, 10.6, 1.1, axeRoue * CFrame.new(-5.1, 0, 0), C.BoisFonce, M.Bois, "Arbre")
+	for _, x in {-2.6, -5.6, -9.4} do
+		O.disque(arbre, 0.25, 1.3, axeRoue * CFrame.new(x, 0, 0), C.Fer, M.Metal, "Frette")
+	end
+	local rouet = axeRoue * CFrame.new(-7.5, 0, 0)
+	O.disque(arbre, 0.6, 4.6, rouet, C.Bois, M.Planches, "Rouet")
+	for i = 0, 13 do
+		O.bloc(arbre, Vector3.new(0.6, 0.7, 0.6), rouet * CFrame.Angles(i * math.pi / 7, 0, 0) * CFrame.new(0, 2.55, 0), C.BoisFonce, M.Bois, "Dent")
+	end
+	O.decorModele(arbre)
+	arbre.PrimaryPart = noyau
+	arbre:SetAttribute("Vitesse", 0.5)
+	O.atomique(arbre)
+	O.tag(arbre, "Rotatif")
+
+	-- Lanterne + arbre vertical : engrène sur le haut du rouet, tourne plus vite
+	local haut = rouet.Position + Vector3.new(0, 2.9, 0)
+	local versMoulin = (cf.Position - axeRoue.Position) * Vector3.new(1, 0, 1)
+	versMoulin = if versMoulin.Magnitude > 0 then versMoulin.Unit else Vector3.new(0, 0, 1)
+	local centreLanterne = haut + versMoulin * 1.0 + Vector3.new(0, 0.55, 0)
+	local pivotLanterne = CFrame.new(centreLanterne) * CFrame.Angles(0, 0, math.pi / 2) -- axe X local = vertical
+	local lanterne = O.modele(m, "Lanterne")
+	local noyauL = O.disque(lanterne, 0.3, 0.7, pivotLanterne, C.Fer, M.Metal, "Noyau")
+	for _, dy in {-0.4, 0.45} do
+		O.disque(lanterne, 0.25, 2.4, pivotLanterne * CFrame.new(dy, 0, 0), C.Bois, M.Planches, "Plateau")
+	end
+	for i = 0, 7 do
+		local a = i * math.pi / 4
+		O.bloc(lanterne, Vector3.new(0.25, 1.15, 0.25), CFrame.new(centreLanterne + Vector3.new(math.cos(a), -0.05, math.sin(a))),
+			C.BoisFonce, M.Bois, "Fuseau")
+	end
+	local hautArbre = cf.Position.Y + 11.9
+	local longueur = hautArbre - centreLanterne.Y
+	O.disque(lanterne, longueur, 0.6, pivotLanterne * CFrame.new(longueur / 2, 0, 0), C.BoisFonce, M.Bois, "ArbreVertical")
+	O.decorModele(lanterne)
+	lanterne.PrimaryPart = noyauL
+	lanterne:SetAttribute("Vitesse", 1.25)
+	O.atomique(lanterne)
+	O.tag(lanterne, "Rotatif")
+
+	-- Pièces fixes : pile-palier dans la rivière, plaque du mur, fosse du rouet, potences et coffre des meules
+	local function f(taille, pos, couleur, mat, nom)
+		return O.bloc(m, taille, CFrame.new(pos), couleur, mat, nom)
+	end
+	local y = axeRoue.Position.Y
+	local palier = axeRoue.Position + versMoulin * 3
+	f(V(2.6, 8, 1.6), V(palier.X, y - 5.4, palier.Z), C.Pierre, M.Pierre, "Pile")
+	f(V(2.2, 0.7, 1.6), V(palier.X, y - 0.9, palier.Z), C.BoisFonce, M.Bois, "Palier")
+	O.decor(f(V(2.4, 0.35, 1.7), V(palier.X, y + 0.75, palier.Z), C.Fer, M.Metal, "Cerclage"))
+	for _, dx in {-1.05, 1.05} do
+		O.decor(f(V(0.3, 1.7, 1.7), V(palier.X + dx, y, palier.Z), C.Fer, M.Metal, "Cerclage"))
+	end
+	local mur = cf * CFrame.new(0, 0, -6)
+	O.decor(f(V(2.6, 2.6, 0.25), V(mur.X, y, mur.Z - 0.15), C.Fer, M.Metal, "PlaqueArbre"))
+	-- Fosse du rouet, creusée dans la berge et bordée de pierre
+	local fosse = rouet.Position
+	workspace.Terrain:FillBlock(CFrame.new(fosse.X, cf.Position.Y - 0.4, fosse.Z), V(7, 4.8, 3.6), Enum.Material.Air)
+	f(V(7.6, 0.6, 3.8), V(fosse.X, fosse.Y - 3.4, fosse.Z), C.PierreFoncee, M.Pierre, "FondFosse")
+	for _, dx in {-3.5, 3.5} do
+		f(V(0.6, 3.2, 3.8), V(fosse.X + dx, fosse.Y - 1.6, fosse.Z), C.Pierre, M.Pierre, "BordFosse")
+	end
+	f(V(7.6, 3.2, 0.6), V(fosse.X, fosse.Y - 1.6, fosse.Z - versMoulin.Z * 2.1), C.Pierre, M.Pierre, "BordFosse")
+	local mx, mz = centreLanterne.X, (centreLanterne.Z + mur.Z) / 2
+	for _, dy in {3.2, 6.6} do
+		O.decor(f(V(0.8, 0.5, math.abs(mur.Z - centreLanterne.Z) + 0.4), V(mx, centreLanterne.Y + dy, mz), C.BoisFonce, M.Bois, "Potence"))
+		O.decor(f(V(1.1, 0.3, 1.1), V(mx, centreLanterne.Y + dy, centreLanterne.Z), C.Fer, M.Metal, "Collier"))
+	end
+	f(V(2.8, 2.4, math.abs(mur.Z - centreLanterne.Z) + 0.9), V(mx, hautArbre + 0.9, mz), C.BoisFonce, M.Planches, "CoffreMeules")
+	O.decor(f(V(3.2, 0.3, math.abs(mur.Z - centreLanterne.Z) + 1.3), V(mx, hautArbre + 2.2, mz), C.ToitRouge, M.Tuiles, "CoffreToit"))
+	return m
+end
+
+-- Jardinières de la gare. cf posé au sol ; la longueur suit l'axe Z local.
+local FLEURS_JARDINIERE = {
+	Color3.fromRGB(212, 83, 126), Color3.fromRGB(239, 159, 39),
+	Color3.fromRGB(127, 119, 221), Color3.fromRGB(240, 226, 190),
+}
+local function fleurir(m, cf, largeur, longueur, y, rng)
+	O.decor(O.bloc(m, Vector3.new(largeur, 0.55, longueur), cf * CFrame.new(0, y + 0.27, 0), Color3.fromRGB(78, 120, 42), M.Herbe, "Feuillage"))
+	O.decor(O.bloc(m, Vector3.new(largeur * 0.55, 0.5, longueur * 0.45), cf * CFrame.new(largeur * 0.12, y + 0.75, -longueur * 0.18), Color3.fromRGB(58, 96, 34), M.Herbe, "Feuillage"))
+	for _ = 1, math.max(3, math.floor(longueur * 2)) do
+		local p = Vector3.new(rng:NextNumber(-largeur * 0.4, largeur * 0.4), y + rng:NextNumber(0.6, 1.05), rng:NextNumber(-longueur * 0.42, longueur * 0.42))
+		O.decor(O.bloc(m, Vector3.new(0.3, 0.3, 0.3), cf * CFrame.new(p), FLEURS_JARDINIERE[rng:NextInteger(1, #FLEURS_JARDINIERE)], M.Lisse, "Fleur"))
+	end
+end
+
+-- Petit wagonnet de mine rouillé transformé en jardinière
+function B.wagonnetFleuri(parent, cf, numero)
+	local m = O.modele(parent, "WagonnetFleuri")
+	local rouille = Color3.fromRGB(112, 64, 42)
+	O.bloc(m, Vector3.new(2.2, 1.4, 3.2), cf * CFrame.new(0, 1.25, 0), rouille, M.Rouille, "Caisse")
+	for _, z in {-1.1, 0, 1.1} do
+		O.decor(O.bloc(m, Vector3.new(2.3, 1.2, 0.15), cf * CFrame.new(0, 1.25, z), C.Fer, M.Metal, "Renfort"))
+	end
+	for _, x in {-1, 1} do
+		O.decor(O.bloc(m, Vector3.new(0.2, 0.2, 3.4), cf * CFrame.new(x * 1.12, 1.98, 0), C.Fer, M.Metal, "Rebord"))
+		for _, z in {-0.95, 0.95} do
+			O.decor(O.disque(m, 0.3, 1.05, cf * CFrame.new(x * 1.18, 0.52, z), C.Fer, M.Metal, "Roue"))
+		end
+	end
+	O.decor(O.bloc(m, Vector3.new(1.95, 0.2, 2.95), cf * CFrame.new(0, 1.92, 0), C.Terre, M.Terre, "Terre"))
+	fleurir(m, cf, 1.8, 2.8, 2, Random.new(numero or 1))
+	return m
+end
+
+-- Caisse en planches fleurie, avec une petite lanterne plantée au milieu
+function B.caisseLanterne(parent, cf, numero)
+	local m = O.modele(parent, "CaisseLanterne")
+	O.bloc(m, Vector3.new(1.9, 1.5, 1.9), cf * CFrame.new(0, 0.75, 0), Color3.fromRGB(150, 104, 62), M.Bois, "Caisse")
+	for _, y in {0.18, 1.32} do
+		O.decor(O.bloc(m, Vector3.new(1.98, 0.22, 1.98), cf * CFrame.new(0, y, 0), C.BoisFonce, M.Bois, "Latte"))
+	end
+	for _, x in {-0.88, 0.88} do
+		for _, z in {-0.88, 0.88} do
+			O.decor(O.bloc(m, Vector3.new(0.26, 1.55, 0.26), cf * CFrame.new(x, 0.77, z), C.BoisFonce, M.Bois, "Coin"))
+		end
+	end
+	fleurir(m, cf, 1.7, 1.7, 1.5, Random.new(numero or 1))
+	O.decor(O.bloc(m, Vector3.new(0.2, 1.1, 0.2), cf * CFrame.new(0, 2.5, 0), C.Fer, M.Metal, "Poteau"))
+	cage(m, cf * CFrame.new(0, 3.6, 0), C.Lumiere, 14)
+	return m
+end
+
 function B.tableTaverne(parent, cf)
 	local m = O.modele(parent, "Table")
 	m:SetAttribute("VersionTableTaverne", 2)

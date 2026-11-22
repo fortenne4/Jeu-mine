@@ -119,9 +119,37 @@ local function gare(f, rng)
 	local enseigne = O.bloc(m, Vector3.new(17, 3, 0.5), CFrame.new(x0, 15.8, -100.2), C.BoisFonce, M.Planches, "Enseigne")
 	O.texte(enseigne, Enum.NormalId.Back, "GARE DE LA GRANDE MINE")
 
-	for _, z in {-112, -134} do
-		B.banc(m, CFrame.new(-18, 2.2, z) * CFrame.Angles(0, -math.pi / 2, 0))
+	for i, z in {-112, -134} do
+		B.bancJardinieres(m, CFrame.new(-18, 2.2, z) * CFrame.Angles(0, -math.pi / 2, 0), 10 + i)
 	end
+	-- Balustrades en bois : bord arrière du quai (côté forêt) et bord avant, de part et
+	-- d'autre de l'arrivée du chemin (ouverture de x = -20,2 à -11,2, alignée sur le chemin : Village.preparerCheminMoulin)
+	local yQuai = 2.2
+	local function balustrade(a, b)
+		local longueur = (b - a).Magnitude
+		local repere = CFrame.lookAt(a, b) -- axe -Z local le long de la balustrade
+		local poteaux = math.max(1, math.ceil(longueur / 3.4))
+		for i = 0, poteaux do
+			local d = longueur * i / poteaux
+			O.bloc(m, Vector3.new(0.5, 3.1, 0.5), repere * CFrame.new(0, 1.55, -d), C.BoisFonce, M.Bois, "PoteauBalustrade")
+			O.decor(O.bloc(m, Vector3.new(0.65, 0.25, 0.65), repere * CFrame.new(0, 3.2, -d), C.BoisFonce, M.Bois, "ChapeauBalustrade"))
+			if i < poteaux then
+				for k = 1, 3 do
+					O.decor(O.bloc(m, Vector3.new(0.22, 2.3, 0.22), repere * CFrame.new(0, 1.35, -(d + longueur / poteaux * k / 4)), C.Bois, M.Bois, "Barreau"))
+				end
+			end
+		end
+		O.bloc(m, Vector3.new(0.45, 0.35, longueur + 0.5), repere * CFrame.new(0, 2.9, -longueur / 2), C.Bois, M.Planches, "MainCourante")
+		O.decor(O.bloc(m, Vector3.new(0.3, 0.25, longueur), repere * CFrame.new(0, 0.35, -longueur / 2), C.Bois, M.Bois, "Lisse"))
+	end
+	balustrade(Vector3.new(-23.55, yQuai, -145.6), Vector3.new(-23.55, yQuai, -100.4))
+	balustrade(Vector3.new(-23.55, yQuai, -100.35), Vector3.new(-20.2, yQuai, -100.35))
+	balustrade(Vector3.new(-11.2, yQuai, -100.35), Vector3.new(-6.1, yQuai, -100.35))
+
+	-- Jardinières du quai : un wagonnet fleuri à chaque bout, une caisse à lanterne entre les bancs
+	B.wagonnetFleuri(m, CFrame.new(-18, 2.2, -105.4), 21)
+	B.caisseLanterne(m, CFrame.new(-18, 2.2, -123), 22)
+	B.wagonnetFleuri(m, CFrame.new(-18, 2.2, -140.8), 23)
 	for _, z in {-108, -123, -138} do
 		B.suspension(m, Vector3.new(x0, 13.6, z), 2.5)
 	end
