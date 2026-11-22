@@ -24,6 +24,9 @@ Le code vit dans `src/` et Rojo le synchronise avec Roblox Studio.
 
 Le village comprend des chemins pavés, un décor fleuri autour de la fontaine et des accessoires miniers. Le style et la palette sont décrits dans `DIRECTION_ARTISTIQUE.md`.
 
+Le quai des profondeurs comporte un banc et deux bacs décoratifs de charbon et d'or ; sa surface en bois est séparée du terrain pour éviter le scintillement.
+Les wagons chargés de charbon, bronze, fer ou or exposent les mêmes modèles de minerais que la mine ; les wagons de transport restent libres.
+
 À la gare, appuie sur **E** près du wagonnet vide : le joueur l'enjambe en saut d'obstacle (main posée sur le rebord, jambes groupées par-dessus) et s'assied. Le départ est automatique. Une cinématique en plans de film (bandes noires, interface masquée, contrôles bloqués) montre le wagon quitter la gare vers le tunnel, puis plonger dans la descente, avant un fondu au noir. Le joueur réapparaît debout sur le quai souterrain, face à la caverne. Pour remonter, monte de la même façon dans le wagon du quai souterrain : une cinématique montre la montée et l'arrivée à la gare, où le joueur réapparaît à côté du wagon. Les deux wagons restent à leur place pour les autres joueurs.
 
 Le serveur valide le départ (joueur assis dans le wagon, délai anti-spam), attend l'accusé du client puis téléporte le joueur ; le client ne joue que la cinématique, avec des clones locaux du wagon et du passager (`src/client/CinematiqueWagon.client.lua`). Les plans sont décrits dans la table `PLANS` (sens `aller` et `retour`) : on en ajoute un en ajoutant une entrée (durée, FOV, portion de voie, caméra). Si une cinématique s'allonge, augmenter `FIN_BLOCAGE` dans `src/server/DepartWagon.server.lua`.

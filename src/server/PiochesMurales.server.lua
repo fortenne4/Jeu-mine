@@ -2,6 +2,9 @@
 local PICKAXE_LENGTH_RATIO = 1.0
 local ESPACE_AU_DESSUS_EPEE = 0.5
 local INCLINAISON = 0 -- degrés dans le plan du mur
+local MARGE_HAUT_MUR = 1.0 -- espace au-dessus des pioches, en studs
+local MARGE_BORD_MUR = 0.03
+local RETRAIT_PIGNON = 0.11 -- découpe contre le pignon, sans le traverser
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Pioches = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("PiochesVoxels"))
@@ -62,5 +65,51 @@ for _, epee in forge:GetChildren() do
 		crochet.Color, crochet.Material = garde.Color, garde.Material
 		crochet.Anchored, crochet.CanCollide, crochet.CanTouch, crochet.CanQuery = true, false, false, false
 		crochet.Parent = pioche
+	end
+end
+
+-- Prolonger uniquement le mur derrière le râtelier. Le pignon existant
+-- occupe déjà l'arrière du bord supérieur : le retrait évite de le traverser.
+local mur, distance = nil, math.huge
+for _, candidat in forge:GetChildren() do
+	if candidat:IsA("BasePart") and candidat.Name == "MurCote" and candidat.Material == Enum.Material.Plaster then
+		local d = (candidat.Position - groupe:GetPivot().Position).Magnitude
+		if d < distance then mur, distance = candidat, d end
+	end
+end
+if mur then
+	local zMin, zMax, yMax = math.huge, -math.huge, -math.huge
+	for _, part in groupe:GetDescendants() do
+		if part:IsA("BasePart") then
+			for _, x in {-1, 1} do for _, y in {-1, 1} do for _, z in {-1, 1} do
+				local coin = part.CFrame:PointToWorldSpace(Vector3.new(x * part.Size.X / 2, y * part.Size.Y / 2, z * part.Size.Z / 2))
+				local localCoin = mur.CFrame:PointToObjectSpace(coin)
+				zMin, zMax = math.min(zMin, localCoin.Z), math.max(zMax, localCoin.Z)
+				yMax = math.max(yMax, coin.Y)
+			end end end
+		end
+	end
+	if zMin < math.huge then
+		zMin, zMax = zMin - MARGE_BORD_MUR, zMax + MARGE_BORD_MUR
+		local hautMur = mur.Position.Y + mur.Size.Y / 2
+		local surelevation = math.max(0, yMax + MARGE_HAUT_MUR - hautMur)
+		local function extension(nom, taille, centre)
+			local morceau = Instance.new("Part")
+			morceau.Name = nom
+			morceau.Size, morceau.CFrame = taille, mur.CFrame * CFrame.new(centre)
+			morceau.Material, morceau.Color = mur.Material, mur.Color
+			morceau.Reflectance, morceau.Transparency = mur.Reflectance, mur.Transparency
+			morceau.Anchored, morceau.CanCollide, morceau.CanTouch, morceau.CanQuery = true, false, false, false
+			morceau.Parent = groupe
+		end
+		if surelevation > 0 then
+			extension("MurExtensionHaut", Vector3.new(mur.Size.X - RETRAIT_PIGNON, surelevation, zMax - zMin),
+				Vector3.new(-RETRAIT_PIGNON / 2, mur.Size.Y / 2 + surelevation / 2, (zMin + zMax) / 2))
+		end
+		local bord = -mur.Size.Z / 2
+		if zMin < bord then
+			extension("MurExtensionCote", Vector3.new(mur.Size.X - RETRAIT_PIGNON, mur.Size.Y, bord - zMin),
+				Vector3.new(-RETRAIT_PIGNON / 2, 0, (zMin + bord) / 2))
+		end
 	end
 end

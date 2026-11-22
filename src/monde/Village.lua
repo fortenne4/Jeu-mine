@@ -282,7 +282,7 @@ end
 -- Chemins décoratifs posés sur le terrain réel, y compris sur les cartes figées.
 function Village.preparerSentiers(village)
 	local anciens = village:FindFirstChild("SentiersFontaine")
-	if anciens and anciens:GetAttribute("VersionSentiers") == 13 then
+	if anciens and anciens:GetAttribute("VersionSentiers") == 14 then
 		return
 	end
 	local sentiers = O.modele(village, "SentiersEnConstruction")
@@ -433,14 +433,31 @@ function Village.preparerSentiers(village)
 			for j = -1, 1 do
 				local position = centre + normal * j * largeur * 0.3
 				if not raccordGare or position.X < -5.2 then
-					dalle(position.X, position.Y, Vector2.new(largeur * 0.29, direction.Magnitude / nombre - 0.04), angle, "DalleReguliere", pierres[(i + j + 1) % #pierres + 1])
+					local taille = Vector2.new(largeur * 0.29, direction.Magnitude / nombre - 0.04)
+					if raccordGare then
+						-- Les dalles de l'avenue atteignent X = -4,45. Réduire
+						-- seulement les dalles obliques qui déborderaient dessus.
+						local demiLargeurX = (math.abs(math.cos(angle)) * taille.X + math.abs(math.sin(angle)) * taille.Y) / 2
+						local facteur = math.clamp((-4.45 - position.X) / demiLargeurX, 0, 1)
+						taille *= facteur
+					end
+					if taille.X > 0.1 and taille.Y > 0.1 then
+						dalle(position.X, position.Y, taille, angle, "DalleReguliere", pierres[(i + j + 1) % #pierres + 1])
+					end
 				end
 			end
 			for _, signe in {-1, 1} do
 				local position = centre + normal * signe * largeur * 0.49
 				-- ouverture là où la rue circulaire croise l'allée (pas de bordure en travers de la rue)
 				local croiseAnneau = math.abs(centre.Magnitude - Village.RUES.ANNEAU) < 3.6
-				if (not raccordGare or position.X < -5.2) and (raccordGare or math.abs(centre.Y) > 19.5) and not croiseAnneau then
+				-- Garder le passage libre au raccord oblique vers le quai : les
+				-- bordures de l'avenue ne doivent pas couper la seconde allée.
+				local debutQuai, finQuai = Vector2.new(0, -89), Vector2.new(-14.5, -97)
+				local axeQuai = finQuai - debutQuai
+				local t = math.clamp((position - debutQuai):Dot(axeQuai) / axeQuai:Dot(axeQuai), 0, 1)
+				local dansRaccord = x1 == 0 and z1 == -15
+					and (position - (debutQuai + axeQuai * t)).Magnitude < 4.6
+				if (not raccordGare or position.X < -5.2) and (raccordGare or math.abs(centre.Y) > 19.5) and not croiseAnneau and not dansRaccord then
 					dalle(position.X, position.Y, Vector2.new(0.45, direction.Magnitude / nombre - 0.02), angle, "Bordure", bordure)
 				end
 			end
@@ -578,7 +595,7 @@ function Village.preparerSentiers(village)
 			end
 		end
 	end
-	sentiers:SetAttribute("VersionSentiers", 13)
+	sentiers:SetAttribute("VersionSentiers", 14)
 	if anciens then anciens:Destroy() end
 	sentiers.Name = "SentiersFontaine"
 end

@@ -268,6 +268,19 @@ end
 
 local preparerPortes, preparerCristal -- définies avec la caverne, plus bas
 
+-- Ajuster le texte indépendamment du dégagement du quai et de sa rampe.
+local LARGEUR_TEXTE_QUAI = 0.78
+local function preparerQuai(caverne)
+	local enseigne = caverne:FindFirstChild("Enseigne")
+	local gui = enseigne and enseigne:FindFirstChild("TexteBack")
+	local label = gui and gui:FindFirstChild("Label")
+	if label and label:IsA("TextLabel") then
+		label.Size = UDim2.fromScale(LARGEUR_TEXTE_QUAI, 0.8)
+		label.Position = UDim2.fromScale((1 - LARGEUR_TEXTE_QUAI) / 2, 0.1)
+		label.TextScaled = true
+	end
+end
+
 -- Actualise la voie des cartes déjà enregistrées sans reconstruire la mine.
 function Mine.preparerVoie(mine)
 	preparerEnseigne(mine)
@@ -278,6 +291,7 @@ function Mine.preparerVoie(mine)
 		preparerWagonRetour(caverneExistante)
 		preparerCristal(caverneExistante)
 		degagerQuai(caverneExistante)
+		preparerQuai(caverneExistante)
 	end
 	local ok, erreur = pcall(preparerPortes, mine)
 	if not ok then warn("[Mine] Portes non mises à jour : " .. tostring(erreur)) end
@@ -452,6 +466,7 @@ local function caverne(f, rng)
 	end
 	local enseigne = O.bloc(m, Vector3.new(11, 2.6, 0.4), CFrame.new(-12, y + 10, -376.5), C.BoisFonce, M.Planches, "Enseigne")
 	O.texte(enseigne, Enum.NormalId.Back, "QUAI DES PROFONDEURS")
+	preparerQuai(m)
 	preparerWagonRetour(m)
 
 	-- Grand amas de cristaux violets (lobe ouest, loin des portes)
