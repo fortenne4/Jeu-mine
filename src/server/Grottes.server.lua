@@ -253,6 +253,7 @@ local groupe = nil      -- un seul groupe au cercle à la fois (compteur 0/2)
 local derniers = {}     -- [joueur] = os.clock() de la dernière activation
 local expeditions = {}  -- [joueur] = expédition en cours
 local occupes = {}      -- [index d'emplacement] = true
+local construction = false -- verrou : une grotte générée à la fois
 
 local function vivant(joueur: Player)
 	local perso = joueur.Character
@@ -374,8 +375,13 @@ local function lancer(niveau)
 	while occupes[index] do index += 1 end
 	occupes[index] = true
 	local invite = g.membres[2]
+	-- Une seule génération à la fois (creusement lourd, étalé sur plusieurs frames)
+	while construction do task.wait(0.2) end
+	construction = true
 	local ok, grotte = pcall(Generateur.construire, niveau, index, os.time() * 7919 + math.random(1, 1e6), g.chef.UserId, invite and invite.UserId)
+	construction = false
 	if not ok then
+		pcall(Generateur.detruire, {base = Generateur.emplacement(index)}) -- remet à l'air la roche déjà posée
 		occupes[index] = nil
 		warn("[Grottes] Génération ratée : " .. tostring(grotte))
 		g.depart = false

@@ -266,6 +266,51 @@ local function mine()
 	terrain:FillBlock(CFrame.new(0, sol + 14, (B.Z + D.QUAI_BAS.Z) / 2 + 10), Vector3.new(30, 28, 40), AIR)
 end
 
+--[[ Délimitation de la mine (à appeler en DERNIER, après tout le décor) : dans D.ZONE_MINE, les parois gardent
+	les matériaux d'origine (roche, ardoise, basalte) et aucun décor extérieur (pièces/maillages hors Carte.Mine)
+	ne traverse la caverne. ]]
+function Terrain.delimiterMine(carte: Instance)
+	local okSol, errSol = pcall(function()
+		local region = Region3.new(D.ZONE_MINE_MIN, D.ZONE_MINE_MAX):ExpandToGrid(RES)
+		for _, etranger in {HERBE, HERBE_HAUTE, TERRE, GRES, BOUE, CALCAIRE, NEIGE, GLACIER} do
+			terrain:ReplaceMaterial(region, RES, etranger, ROCHE)
+		end
+	end)
+	if not okSol then
+		warn("[Terrain] Matériaux de la mine non corrigés : " .. tostring(errSol))
+	end
+	local okDecor, errDecor = pcall(function()
+		local mine = carte:FindFirstChild("Mine")
+		local noms = {}
+		for _, p in carte:GetDescendants() do
+			if p:IsA("BasePart") and not (mine and p:IsDescendantOf(mine)) then
+				local q = p.Position
+				local retirer = D.dansZoneMine(q, q) -- centre dans la zone
+				if not retirer and math.max(p.Size.X, p.Size.Y, p.Size.Z) <= 40 then -- petite pièce qui déborde dedans
+					local d = p.Size / 2
+					local mn, mx = q, q
+					for _, s in {Vector3.new(1, 1, 1), Vector3.new(-1, 1, 1), Vector3.new(1, -1, 1), Vector3.new(1, 1, -1)} do
+						local c = p.CFrame:VectorToWorldSpace(d * s)
+						mn, mx = mn:Min(q - c):Min(q + c), mx:Max(q - c):Max(q + c)
+					end
+					retirer = D.dansZoneMine(mn, mx)
+				end
+				if retirer then
+					table.insert(noms, p:GetFullName())
+					p:Destroy()
+				end
+			end
+		end
+		if #noms > 0 then
+			warn(string.format("[Terrain] %d pièce(s) de décor retirée(s) de la zone de la mine : %s", #noms,
+				table.concat(noms, ", ", 1, math.min(10, #noms))))
+		end
+	end)
+	if not okDecor then
+		warn("[Terrain] Décor de la mine non vérifié : " .. tostring(errDecor))
+	end
+end
+
 function Terrain.construire()
 	terrain:Clear()
 	terrain.WaterColor = Color3.fromRGB(44, 92, 98)

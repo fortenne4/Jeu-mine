@@ -10,10 +10,12 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
+local GuiService = game:GetService("GuiService")
 
 local Pioches = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("Pioches"))
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
 local Icones = require(script.Parent:WaitForChild("IconesObjets"))
+local DecorPioches = require(script.Parent:WaitForChild("DecorPioches"))
 local evOuvrir = ReplicatedStorage:WaitForChild("BoutiqueOuvrir") :: RemoteEvent
 local fnAction = ReplicatedStorage:WaitForChild("BoutiqueAction") :: RemoteFunction
 
@@ -40,28 +42,19 @@ local F = UI.fenetre(gui, {nom = "Liesel", role = "FABRICANTE D'OUTILS · L'ATEL
 local boucles = F.boucles
 local majBourse = UI.bourse(F.droite)
 local message = UI.toast(gui)
+-- Décor du second plan (pioches en contre-jour, minerais, cristaux, rayons, poussière) : propre à cette boutique
+local decor = DecorPioches.creer(F.contenu.Parent :: Frame, boucles)
 
--- Liste des pioches (à gauche)
+-- Liste des pioches (à gauche). Pas de UIListLayout : les cartes sont placées à la main (voir « Zoom de survol »)
+-- pour pouvoir écarter les voisines de la carte survolée ; la hauteur défilable est réglée au même endroit.
 local liste = creer("ScrollingFrame", {Name = "Liste", Size = UDim2.fromScale(0.34, 1), BackgroundTransparency = 1, BorderSizePixel = 0,
-	ScrollBarThickness = 5, ScrollBarImageColor3 = T.OrFonce, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
-	ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 3, Parent = F.contenu}, {
-	creer("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center}),
-	creer("UIPadding", {PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6)}),
-})
--- AutomaticCanvasSize ne suit pas toujours les cartes : on règle la hauteur défilable à la main (molette).
-do
-	local disposition = liste:FindFirstChildOfClass("UIListLayout") :: UIListLayout
-	local function majCanevas()
-		liste.CanvasSize = UDim2.fromOffset(0, disposition.AbsoluteContentSize.Y + 12)
-	end
-	liste.AutomaticCanvasSize = Enum.AutomaticSize.None
-	disposition:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(majCanevas)
-	majCanevas()
-end
+	ScrollBarThickness = 5, ScrollBarImageColor3 = T.OrFonce, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.None,
+	ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 3, Parent = F.contenu})
 
 -- Fiche détaillée (à droite)
 local fiche = UI.panneau({Name = "Fiche", Position = UDim2.fromScale(0.36, 0), Size = UDim2.fromScale(0.64, 1),
 	BackgroundColor3 = Color3.fromRGB(44, 34, 28), ZIndex = 3, Parent = F.contenu}, 0.04)
+fiche.BackgroundTransparency = 0.2 -- laisse deviner le décor derrière, le contenu reste net
 creer("UIPadding", {PaddingLeft = UDim.new(0.025, 0), PaddingRight = UDim.new(0.025, 0), PaddingTop = UDim.new(0.035, 0),
 	PaddingBottom = UDim.new(0.035, 0), Parent = fiche})
 
@@ -195,8 +188,10 @@ local selection = Pioches.DEPART
 local positionLiesel: Vector3? = nil
 local enAttente = false
 type Carte = {bouton: TextButton, statut: TextLabel, nom: TextLabel, rarete: TextLabel, bande: Frame, fond: Frame,
-	vignette: ViewportFrame, trait: UIStroke}
+	vignette: ViewportFrame, trait: UIStroke, echelle: UIScale, rang: number, cibleY: number?, cibleS: number?}
 local cartes: {[string]: Carte} = {}
+local ordreCartes: {Carte} = {}
+local focus: string? = nil -- carte survolée / touchée / sélectionnée à la manette (zoom)
 local enDevoilement: {[string]: boolean} = {}
 
 local function pieces(): number
@@ -329,7 +324,7 @@ local function rafraichirListe()
 		local couleurRarete = Pioches.RARETES[def.rarete] or T.Gris
 		UI.rarete(c.bouton, if vue then couleurRarete else Color3.fromRGB(110, 30, 26), if vue then UI.NIVEAUX[def.rarete] or 1 else 1, boucles)
 		c.trait.Color = if choisie then T.Or elseif vue then couleurRarete else Color3.fromRGB(110, 30, 26)
-		c.trait.Thickness = if choisie then 3.5 else c.trait.Thickness
+		c.trait.Thickness = if focus == def.id then 4 elseif choisie then 3.5 else c.trait.Thickness
 		c.bouton.BackgroundColor3 = if not vue then (if choisie then Color3.fromRGB(30, 22, 22) else Color3.fromRGB(14, 11, 10))
 			elseif choisie then T.CarteClaire else T.Carte
 		c.nom.Text = if vue then def.nom else "???"
@@ -377,12 +372,102 @@ local function choisir(id: string)
 	TweenService:Create(echelleApercu, BOUNCY, {Scale = 1}):Play()
 end
 
+-- ================= Zoom de survol des cartes =================
+-- La carte survolée (souris), touchée (mobile) ou sélectionnée (manette) grossit et passe devant ; ses voisines
+-- rapetissent un peu et s'écartent. Positions calculées ici (pas de UIListLayout) et animées depuis leur valeur
+-- actuelle : passer vite d'une carte à l'autre enchaîne les tweens sans saut.
+local ZOOM, VOISINE, LOINTAINE = 1.16, 0.92, 0.96
+local LARGEUR_CARTE = 0.85 -- part de la largeur de la liste : la carte zoomée (×1,16) tient encore sans être coupée
+local ESPACE = 8 -- px entre deux cartes au repos
+local ECART = 0.1 -- décalage des voisines, en hauteur de carte
+local INFO_ZOOM = TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local INFO_GLISSE = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local echelleFenetre = UI.echelle(F.racine) -- l'ouverture anime ce UIScale : on mesure en unités non mises à l'échelle
+local largeurConnue = 0
+
+local function largeurListe(): number
+	return liste.AbsoluteWindowSize.X / math.max(echelleFenetre.Scale, 0.05)
+end
+
+local function disposer(instantane: boolean?, largeurForcee: number?)
+	local largeurVue = largeurForcee or math.floor(largeurListe() + 0.5)
+	if largeurVue < 10 then
+		return
+	end
+	largeurConnue = largeurVue
+	local l = math.floor(largeurVue * LARGEUR_CARTE)
+	local h = math.floor(l / 4)
+	local marge = math.ceil(h * (ZOOM - 1) / 2 + h * ECART) + 4
+	local c0 = if focus then cartes[focus] else nil
+	local iFocus = if c0 then c0.rang else nil
+	for i, c in ordreCartes do
+		local y = marge + (i - 1) * (h + ESPACE) + h / 2
+		local s = 1
+		if iFocus then
+			local d = i - iFocus
+			if d == 0 then
+				s = ZOOM
+			else
+				s = if math.abs(d) == 1 then VOISINE else LOINTAINE
+				y += (if d > 0 then 1 else -1) * h * ECART
+			end
+		end
+		c.bouton.Size = UDim2.fromOffset(l, h)
+		c.bouton.ZIndex = if i == iFocus then 6 else 3 -- la carte zoomée passe devant ses voisines
+		local pos = UDim2.fromOffset(largeurVue / 2, y)
+		if instantane then
+			c.bouton.Position, c.echelle.Scale = pos, s
+		else
+			if c.cibleY ~= y then
+				TweenService:Create(c.bouton, INFO_GLISSE, {Position = pos}):Play()
+			end
+			if c.cibleS ~= s then
+				TweenService:Create(c.echelle, if s > 1 then INFO_ZOOM else INFO_GLISSE, {Scale = s}):Play()
+			end
+		end
+		c.cibleY, c.cibleS = y, s
+	end
+	liste.CanvasSize = UDim2.fromOffset(0, marge * 2 + #ordreCartes * (h + ESPACE) - ESPACE)
+end
+
+-- Plusieurs changements dans la même image (sortie d'une carte + entrée dans la suivante) : un seul recalcul
+local dispositionDemandee = false
+local function demanderDisposition()
+	if dispositionDemandee then
+		return
+	end
+	dispositionDemandee = true
+	task.defer(function()
+		dispositionDemandee = false
+		disposer(false, if largeurConnue > 0 then largeurConnue else nil)
+	end)
+end
+local function definirFocus(id: string?)
+	if focus ~= id then
+		focus = id
+		demanderDisposition()
+	end
+end
+liste:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(function()
+	-- Pendant l'animation d'ouverture seule l'échelle change : rien à recalculer
+	if math.abs(math.floor(largeurListe() + 0.5) - largeurConnue) >= 1 then
+		disposer(true)
+	end
+end)
+
+-- Petit rebond d'une carte (révélation) puis retour à son échelle de zoom
+local function rebondir(c: Carte, depart: number)
+	c.echelle.Scale = depart
+	c.cibleS = nil
+	demanderDisposition()
+end
+
 -- Cartes de la liste (dans l'ordre de progression), numérotées comme un carnet de collection
 for i, def in Pioches.LISTE do
 	local carte = creer("TextButton", {Name = def.id, LayoutOrder = i, Text = "", AutoButtonColor = false,
-		Size = UDim2.new(1, -6, 0, 60), BackgroundColor3 = T.Carte, ZIndex = 3, Parent = liste},
-		{coin(0.2), creer("UIAspectRatioConstraint", {AspectRatio = 4, DominantAxis = Enum.DominantAxis.Width}),
-		UI.degrade(Color3.new(1, 1, 1), Color3.fromRGB(175, 165, 160))})
+		AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(240, 60), BackgroundColor3 = T.Carte, ZIndex = 3, Parent = liste},
+		{coin(0.2), UI.degrade(Color3.new(1, 1, 1), Color3.fromRGB(175, 165, 160))})
+	local echelleCarte = creer("UIScale", {Parent = carte}) :: UIScale
 	local tr = UI.rarete(carte, T.Gris, 1, boucles)
 	local bande = creer("Frame", {Name = "Bande", Position = UDim2.fromScale(0.012, 0.15), Size = UDim2.fromScale(0.018, 0.7),
 		BorderSizePixel = 0, ZIndex = 4, Parent = carte}, {coin(0.5)})
@@ -399,26 +484,48 @@ for i, def in Pioches.LISTE do
 		Position = UDim2.fromScale(0.27, 0.68), Size = UDim2.fromScale(0.47, 0.22), ZIndex = 4, Parent = carte}, 13)
 	local statut = texte({Font = Enum.Font.GothamBlack, TextXAlignment = Enum.TextXAlignment.Right,
 		Position = UDim2.fromScale(0.73, 0.3), Size = UDim2.fromScale(0.24, 0.4), ZIndex = 4, Parent = carte}, 16)
-	cartes[def.id] = {bouton = carte, statut = statut, nom = nom, rarete = rar, bande = bande, fond = fond, vignette = vignette, trait = tr}
-	UI.reactif(carte, 1.04)
-	carte.MouseEnter:Connect(function()
+	local c: Carte = {bouton = carte, statut = statut, nom = nom, rarete = rar, bande = bande, fond = fond, vignette = vignette, trait = tr,
+		echelle = echelleCarte, rang = i}
+	cartes[def.id] = c
+	table.insert(ordreCartes, c)
+	local function entrer()
+		definirFocus(def.id)
 		local v = Icones.vue(vignette)
 		if v then
 			v.vitesse = 2
 		end
 		TweenService:Create(tr, FAST, {Thickness = 4}):Play()
-	end)
-	carte.MouseLeave:Connect(function()
+	end
+	local function sortir()
+		if focus == def.id then
+			definirFocus(nil)
+		end
 		local v = Icones.vue(vignette)
 		if v then
 			v.vitesse = if def.id == selection then 0.9 else 0
 		end
 		TweenService:Create(tr, FAST, {Thickness = if def.id == selection then 3.5 else 1 + math.min(UI.NIVEAUX[def.rarete] or 1, 4) * 0.5}):Play()
+	end
+	carte.MouseEnter:Connect(function()
+		jouer("survol", 1.6)
+		entrer()
+	end)
+	carte.MouseLeave:Connect(sortir)
+	carte.SelectionGained:Connect(entrer) -- manette
+	carte.SelectionLost:Connect(sortir)
+	-- Appui : léger écrasement, puis retour au zoom
+	carte.MouseButton1Down:Connect(function()
+		TweenService:Create(echelleCarte, TweenInfo.new(0.08), {Scale = (c.cibleS or 1) * 0.94}):Play()
+	end)
+	carte.MouseButton1Up:Connect(function()
+		TweenService:Create(echelleCarte, INFO_ZOOM, {Scale = c.cibleS or 1}):Play()
 	end)
 	carte.Activated:Connect(function()
+		definirFocus(def.id) -- tactile : l'appui donne le focus (il reste jusqu'au prochain appui)
 		choisir(def.id)
 	end)
 end
+disposer(true)
 
 -- ================= Révélation d'une nouvelle pioche =================
 local function devoiler(def: Pioches.Pioche)
@@ -430,15 +537,18 @@ local function devoiler(def: Pioches.Pioche)
 	bandeau:SetAttribute("Revelation", def.id)
 	bandeau.Text = "QUELLE EST CETTE PIOCHE ?"
 	pop(bandeau)
-	if c then
-		liste.CanvasPosition = Vector2.new(0, math.max(0, c.bouton.AbsolutePosition.Y - liste.AbsolutePosition.Y
-			+ liste.CanvasPosition.Y - liste.AbsoluteSize.Y * 0.4))
+	if c and F.estOuverte() then
+		local hauteurVue = liste.AbsoluteWindowSize.Y / math.max(echelleFenetre.Scale, 0.05)
+		liste.CanvasPosition = Vector2.new(0, math.max(0, (c.cibleY or 0) - hauteurVue * 0.4))
 		for _, r in {-4, 4, -3, 3, 0} do
 			TweenService:Create(c.bouton, TweenInfo.new(0.06), {Rotation = r}):Play()
 			task.wait(0.06)
 		end
 	end
 	for k = 1, 3 do
+		if not F.estOuverte() then
+			break
+		end
 		jouer("metal", 0.7 + k * 0.15)
 		UI.secouer(scene, 3 + k * 2)
 		task.wait(0.3)
@@ -455,7 +565,7 @@ local function devoiler(def: Pioches.Pioche)
 	echelleApercu.Scale = 0.2
 	TweenService:Create(echelleApercu, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
 	if c then
-		pop(c.bouton, 0.8)
+		rebondir(c, 0.8)
 	end
 	jouer("succes", 1.35)
 	message("Nouvelle pioche découverte : " .. def.nom .. " !", true)
@@ -486,8 +596,9 @@ bouton.Activated:Connect(function()
 		return fnAction:InvokeServer({action = b.action, id = def.id})
 	end)
 	enAttente = false
-	if ok and type(rep) == "table" and type(rep.etat) == "table" then
-		etat = rep.etat
+	local etatRecu = if ok and type(rep) == "table" then validerEtat(rep.etat) else nil
+	if etatRecu then
+		etat = etatRecu
 		message(tostring(rep.message), rep.ok == true)
 		if rep.ok then
 			jouer("succes", if b.action == "acheter" then 1 else 1.3)
@@ -517,7 +628,28 @@ end)
 -- ================= Ouverture / fermeture =================
 local rotation: RBXScriptConnection? = nil
 
+-- État reçu du serveur, vérifié : pioche équipée inconnue du catalogue → pioche de départ
+local function validerEtat(e: any): Etat?
+	if type(e) ~= "table" or type(e.possedees) ~= "table" then
+		return nil
+	end
+	local possedees: {[string]: boolean} = {[Pioches.DEPART] = true}
+	for id, v in e.possedees do
+		if type(id) == "string" and v == true and Pioches.get(id) then
+			possedees[id] = true
+		end
+	end
+	local equipee = if type(e.equipee) == "string" and Pioches.get(e.equipee) then e.equipee else Pioches.DEPART
+	return {possedees = possedees, equipee = equipee}
+end
+
 F.surFermeture.Event:Connect(function()
+	decor.arreter()
+	focus = nil
+	local sel = GuiService.SelectedObject
+	if sel and sel:IsDescendantOf(gui) then
+		GuiService.SelectedObject = nil
+	end
 	if rotation then
 		rotation:Disconnect()
 		rotation = nil
@@ -527,7 +659,7 @@ end)
 local function ouvrirBoutique(nouvelEtat: Etat, position: Vector3)
 	etat = nouvelEtat
 	positionLiesel = position
-	selection = etat.equipee
+	selection = if Pioches.get(etat.equipee) then etat.equipee else Pioches.DEPART
 	for _, def in Pioches.LISTE do
 		if not etat.possedees[def.id] then
 			selection = def.id
@@ -543,6 +675,14 @@ local function ouvrirBoutique(nouvelEtat: Etat, position: Vector3)
 		return
 	end
 	F.ouvrir()
+	decor.demarrer()
+	-- Remise au repos avec la dernière largeur connue (les tailles absolues lues juste après F.ouvrir() peuvent être périmées)
+	disposer(true, if largeurConnue > 0 then largeurConnue else nil)
+	-- Manette : la carte de la pioche affichée est sélectionnée d'office
+	local c = cartes[selection]
+	if UserInputService.GamepadEnabled and c then
+		GuiService.SelectedObject = c.bouton
+	end
 	rotation = RunService.RenderStepped:Connect(function(dt)
 		local v = Icones.vue(apercu)
 		if v and not glisse and os.clock() - derniereMain > 1.5 then
@@ -553,16 +693,13 @@ local function ouvrirBoutique(nouvelEtat: Etat, position: Vector3)
 end
 
 evOuvrir.OnClientEvent:Connect(function(nouvelEtat: any, position: any)
-	if type(nouvelEtat) == "table" and typeof(position) == "Vector3" then
-		ouvrirBoutique(nouvelEtat, position)
+	local e = validerEtat(nouvelEtat)
+	if e and typeof(position) == "Vector3" then
+		ouvrirBoutique(e, position)
 	end
 end)
 
-UserInputService.InputBegan:Connect(function(input, traite)
-	if F.estOuverte() and (input.KeyCode == Enum.KeyCode.ButtonB or (not traite and input.KeyCode == Enum.KeyCode.Q)) then
-		F.fermerFenetre()
-	end
-end)
+-- Fermeture au clavier / manette : touche d'interaction (E / X), gérée par InterfaceMine.fenetre
 
 -- Pièces : compteur qui défile + boutons qui se mettent à jour
 local function suivrePieces()

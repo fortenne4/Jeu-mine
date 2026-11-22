@@ -1,7 +1,9 @@
 --!strict
 -- Grottes profondes · INTERFACE (StarterPlayerScripts › Jeu)
 -- 1. Choix de la profondeur (ouvert par le serveur quand le chef entre dans le cercle) : 5 paliers, une barre de
---    danger chacun (selon l'équipement du joueur), agrandissement au survol, bloc « Groupe » avec invitation.
+--    danger chacun (selon l'équipement du joueur), les minerais du palier en pastilles 3D qui se chevauchent
+--    (générées depuis Grottes.NIVEAUX, du plus fréquent au plus rare ; silhouette noire « ??? » tant que le
+--    joueur n'a jamais miné ce minerai), agrandissement au survol, bloc « Groupe » avec invitation.
 -- 2. Carte d'invitation (Accepter / Refuser, 20 s) et petites notifications.
 -- Le serveur (Grottes.server.lua) fait foi : ici on affiche et on demande, rien de plus.
 
@@ -12,7 +14,9 @@ local UserInputService = game:GetService("UserInputService")
 local Debris = game:GetService("Debris")
 
 local Grottes = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("Grottes"))
+local MineraisModeles = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("MineraisModeles"))
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
+local Icones = require(script.Parent:WaitForChild("IconesObjets"))
 local T, creer, coin, trait, texte, jouer = UI.T, UI.creer, UI.coin, UI.trait, UI.texte, UI.jouer
 
 local joueur = Players.LocalPlayer
@@ -407,9 +411,117 @@ type Ligne = {
 	info: TextLabel,
 	noeud: Frame,
 	assombri: Frame,
+	pastilles: {Pastille},
+	bulle: TextLabel,
 	survol: boolean,
 }
 local lignes: {Ligne} = {}
+
+-- ================= Minerais du palier (pastilles 3D qui se chevauchent) =================
+-- Ordre : du plus fréquent au plus rare (Grottes.partsMinerais, estimation qui suit le générateur), le plus
+-- fréquent à gauche et au-dessus de la pile. Jamais miné → silhouette noire + « ??? » (comme un Pokédex).
+type Pastille = {id: string, part: number, cadre: Frame, echelle: UIScale, vp: ViewportFrame, bord: UIStroke,
+	lueur: Frame, badge: Frame, k: number, n: number, decouvert: boolean?, survol: boolean}
+
+local D_PASTILLE, PAS_SERRE, PAS_ECARTE, L_PILE = 42, 25, 29, 104
+local ANNEAU = {Charbon = Color3.fromRGB(150, 150, 168), Bronze = Color3.fromRGB(255, 146, 66), Fer = Color3.fromRGB(176, 214, 255),
+	Gold = Color3.fromRGB(255, 212, 92)} :: {[string]: Color3}
+local PIERRE_CLAIRE, PIERRE_FROIDE = Color3.fromRGB(150, 134, 124), Color3.fromRGB(150, 146, 158)
+
+local decouverts: {[string]: boolean} = {}
+local function lireDecouverts(): {[string]: boolean}
+	local res = {}
+	local v = joueur:GetAttribute(Grottes.ATTRIBUT_DECOUVERTS)
+	if type(v) == "string" then
+		for id in v:gmatch("[^,]+") do
+			res[id] = true
+		end
+	end
+	return res
+end
+
+local function anneau(id: string): Color3
+	local v = MineraisModeles.VISUEL[id]
+	return ANNEAU[id] or (if v then v.couleur else T.Gris)
+end
+
+local function placePastille(p: Pastille, pas: number): UDim2
+	return UDim2.new(1, -D_PASTILLE / 2 - (p.n - p.k) * pas, 0.5, 0)
+end
+
+-- Apparence selon « découvert » ; renvoie vrai si l'état a changé après la création (animation de découverte)
+local function peindrePastille(p: Pastille, decouvert: boolean): boolean
+	if p.decouvert == decouvert then
+		return false
+	end
+	local avant = p.decouvert
+	p.decouvert = decouvert
+	local vue = Icones.vue(p.vp)
+	Icones.definir(p.vp, "minerai", p.id, {vitesse = if vue then vue.vitesse else 0, silhouette = not decouvert, marge = 0.78,
+		hauteur = 0.35, angle = if vue then vue.angle else 0.5 + p.k * 1.3})
+	local c = anneau(p.id)
+	p.bord.Color = if decouvert then c:Lerp(ENCRE, 0.15) else ENCRE
+	p.bord.Thickness = if decouvert then 2.5 else 2
+	p.cadre.BackgroundColor3 = if decouvert then PIERRE_CLAIRE:Lerp(c, 0.18) else PIERRE_FROIDE
+	p.lueur.BackgroundColor3 = c
+	p.lueur.Visible = decouvert
+	p.badge.Visible = not decouvert
+	return avant ~= nil
+end
+
+local function creerPastilles(carte: TextButton, niveau: any): ({Pastille}, TextLabel)
+	local pile = creer("Frame", {Name = "Minerais", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0),
+		Size = UDim2.fromOffset(L_PILE, D_PASTILLE + 4), BackgroundTransparency = 1, ZIndex = 6, Parent = carte})
+	local parts = Grottes.partsMinerais(niveau)
+	local liste: {Pastille} = {}
+	for k, e in parts do
+		local cadre = creer("Frame", {Name = e.id, AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(D_PASTILLE, D_PASTILLE),
+			BackgroundColor3 = PIERRE_FROIDE, ZIndex = 20 - k, Parent = pile}, {coin(0.5),
+			creer("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 250, 240)),
+				ColorSequenceKeypoint.new(0.55, Color3.fromRGB(190, 180, 172)), ColorSequenceKeypoint.new(1, Color3.fromRGB(96, 86, 84))})})})
+		local bord = trait(ENCRE, 2)
+		bord.Parent = cadre
+		local echelle = creer("UIScale", {Parent = cadre})
+		-- halo de la couleur du minerai derrière le rocher (découvert seulement)
+		local lueur = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.55), Size = UDim2.fromScale(0.82, 0.82),
+			BackgroundColor3 = T.Gris, BackgroundTransparency = 0.55, BorderSizePixel = 0, Visible = false, ZIndex = 1, Parent = cadre}, {coin(0.5),
+			creer("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1),
+				NumberSequenceKeypoint.new(0.5, 0.15), NumberSequenceKeypoint.new(1, 1)})})})
+		-- reflet en haut de la pastille
+		creer("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.06), Size = UDim2.fromScale(0.62, 0.26),
+			BackgroundColor3 = BLANC, BackgroundTransparency = 0.82, BorderSizePixel = 0, ZIndex = 4, Parent = cadre}, {coin(0.5)})
+		local vp = Icones.creer(cadre)
+		vp.AnchorPoint, vp.Position, vp.Size, vp.ZIndex = Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.52), UDim2.fromScale(0.96, 0.96), 2
+		-- petit « ? » gravé (non découvert)
+		local badge = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.84, 0.84), Size = UDim2.fromScale(0.36, 0.36),
+			BackgroundColor3 = T.BoisSombre, ZIndex = 5, Parent = cadre}, {coin(0.5), trait(T.Gris, 1.2, 0.2)})
+		texte({Text = "?", Font = Enum.Font.GothamBlack, TextColor3 = T.Parchemin, Size = UDim2.fromScale(1, 1), ZIndex = 6, Parent = badge}, 12)
+		local p: Pastille = {id = e.id, part = e.part, cadre = cadre, echelle = echelle, vp = vp, bord = bord, lueur = lueur,
+			badge = badge, k = k, n = #parts, decouvert = nil, survol = false}
+		cadre.Position = placePastille(p, PAS_SERRE)
+		peindrePastille(p, decouverts[e.id] == true)
+		table.insert(liste, p)
+	end
+	-- Infobulle (nom ou « ??? ») au-dessus de la pastille survolée
+	local bulle = texte({Name = "Bulle", Text = "", RichText = true, Font = Enum.Font.GothamBlack, TextColor3 = T.Parchemin,
+		AnchorPoint = Vector2.new(0.5, 1), Size = UDim2.fromOffset(118, 24), Visible = false, ZIndex = 40, Parent = pile}, 15)
+	bulle.BackgroundTransparency, bulle.BackgroundColor3 = 0.04, T.BoisSombre
+	creer("UICorner", {CornerRadius = UDim.new(0, 8), Parent = bulle})
+	creer("UIStroke", {Color = T.OrFonce, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = bulle})
+	creer("UIPadding", {PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6), PaddingTop = UDim.new(0, 3),
+		PaddingBottom = UDim.new(0, 3), Parent = bulle})
+	creer("UIScale", {Parent = bulle})
+	return liste, bulle
+end
+
+local function texteBulle(p: Pastille): string
+	if not p.decouvert then
+		return '<font color="#9c9084">???</font>'
+	end
+	local nom = Grottes.NOMS_MINERAIS[p.id] or p.id
+	local frequence = if p.part >= 0.45 then "abondant" elseif p.part < 0.15 then "rare" else "courant"
+	return string.format('%s <font color="#9c9084">· %s</font>', echapper(nom), frequence)
+end
 
 local function creerLigne(niveau: any, i: number): Ligne
 	local y = Y0 + (i - 1) * (H_LIGNE + ECART)
@@ -447,7 +559,7 @@ local function creerLigne(niveau: any, i: number): Ligne
 	creer("UIStroke", {Thickness = 1.5, Color = ENCRE, Transparency = 0.1, Parent = profondeur})
 
 	-- Barre de danger (remplissage + couleur selon l'équipement) avec crans
-	local barreFond = creer("Frame", {Name = "Barre", Position = UDim2.fromOffset(150, 17), Size = UDim2.fromOffset(200, 15),
+	local barreFond = creer("Frame", {Name = "Barre", Position = UDim2.fromOffset(150, 17), Size = UDim2.fromOffset(172, 15),
 		BackgroundColor3 = Color3.fromRGB(20, 14, 12), ZIndex = 6, Parent = carte}, {coin(0.5), trait(ENCRE, 1.5)})
 	local plein = creer("Frame", {Name = "Plein", Size = UDim2.fromScale(0, 1), BackgroundColor3 = Grottes.couleurDanger(0), BorderSizePixel = 0,
 		ZIndex = 7, Parent = barreFond}, {coin(0.5), UI.degrade(BLANC, Color3.fromRGB(165, 165, 165))})
@@ -457,16 +569,11 @@ local function creerLigne(niveau: any, i: number): Ligne
 		creer("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(k / 5, 0), Size = UDim2.new(0, 2, 1, 0),
 			BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 9, Parent = barreFond})
 	end
-	-- Crans de difficulté de base (1 à 5)
-	for k = 1, 5 do
-		local allume = k <= niveau.difficulte
-		creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(372 + (k - 1) * 15, 24), Size = UDim2.fromOffset(9, 9),
-			Rotation = 45, BackgroundColor3 = if allume then T.Or else T.Inactif, BackgroundTransparency = if allume then 0 else 0.35,
-			ZIndex = 6, Parent = carte}, {arrondi(2), trait(ENCRE, 1.2), UI.degrade(BLANC, Color3.fromRGB(150, 150, 150), 45)})
-	end
+	-- Minerais du palier (à droite, à la place des anciens crans de difficulté)
+	local pastilles, bulle = creerPastilles(carte, niveau)
 	-- Ligne d'info (nom du palier + danger), visible au survol seulement
 	local info = texte({Font = Enum.Font.GothamBold, RichText = true, TextColor3 = T.Parchemin, TextTransparency = 1,
-		TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(150, 38), Size = UDim2.fromOffset(284, 18), ZIndex = 6, Parent = carte}, 15)
+		TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(150, 38), Size = UDim2.fromOffset(178, 18), ZIndex = 6, Parent = carte}, 15)
 	-- Voile (paliers non choisis pendant le départ)
 	local assombri = creer("Frame", {Name = "Assombri", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1,
 		ZIndex = 12, Parent = carte}, {arrondi(12)})
@@ -481,12 +588,98 @@ local function creerLigne(niveau: any, i: number): Ligne
 		{Size = UDim2.fromScale(2.3, 2.3)}, boucles)
 
 	return {niveau = niveau, conteneur = conteneur, echelle = echelle, carte = carte, ombre = ombre, halo = halo, lueur = lueur,
-		plein = plein, info = info, noeud = noeud, assombri = assombri, survol = false}
+		plein = plein, info = info, noeud = noeud, assombri = assombri, pastilles = pastilles, bulle = bulle, survol = false}
 end
 
+decouverts = lireDecouverts()
 for i, niveau in Grottes.NIVEAUX do
 	table.insert(lignes, creerLigne(niveau, i))
 end
+
+-- Survol d'une pastille : elle grossit, passe devant la pile et affiche son nom (ou « ??? »)
+local function survolPastille(l: Ligne, p: Pastille, actif: boolean)
+	if p.survol == actif then
+		return
+	end
+	p.survol = actif
+	p.cadre.ZIndex = if actif then 30 else 20 - p.k
+	TweenService:Create(p.echelle, if actif then BOUNCY else FAST, {Scale = if actif then 1.2 else 1}):Play()
+	local b = l.bulle
+	local e = b:FindFirstChildOfClass("UIScale") :: UIScale
+	if actif then
+		b.Text = texteBulle(p)
+		b.Position = UDim2.new(p.cadre.Position.X.Scale, p.cadre.Position.X.Offset, 0, -2)
+		b.Visible = true
+		e.Scale = 0.7
+		TweenService:Create(e, BOUNCY, {Scale = 1}):Play()
+		jouer("survol", 1.8)
+	else
+		task.delay(0.05, function()
+			for _, autre in l.pastilles do
+				if autre.survol then
+					return
+				end
+			end
+			b.Visible = false
+		end)
+	end
+end
+
+for _, l in lignes do
+	for _, p in l.pastilles do
+		p.cadre.MouseEnter:Connect(function()
+			survolPastille(l, p, true)
+		end)
+		p.cadre.MouseLeave:Connect(function()
+			survolPastille(l, p, false)
+		end)
+		p.cadre.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.Touch then
+				survolPastille(l, p, true)
+				task.delay(1.6, function()
+					survolPastille(l, p, false)
+				end)
+			end
+		end)
+	end
+end
+
+-- Pile de minerais : s'écarte et les rochers tournent quand le palier est survolé
+local function animerPile(l: Ligne, actif: boolean)
+	for _, p in l.pastilles do
+		TweenService:Create(p.cadre, SURVOL, {Position = placePastille(p, if actif then PAS_ECARTE else PAS_SERRE)}):Play()
+		local vue = Icones.vue(p.vp)
+		if vue then
+			vue.vitesse = if actif then 1.3 else 0
+		end
+		if not actif then
+			survolPastille(l, p, false)
+		end
+	end
+end
+
+-- Minerai découvert (attribut posé par le serveur) : la silhouette se colore, petit éclat si le menu est ouvert
+local function majDecouvertes()
+	decouverts = lireDecouverts()
+	local nouveau = false
+	for _, l in lignes do
+		for _, p in l.pastilles do
+			if peindrePastille(p, decouverts[p.id] == true) and p.decouvert and ouverte then
+				nouveau = true
+				p.echelle.Scale = 0.6
+				TweenService:Create(p.echelle, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+				local flash = creer("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = BLANC, BackgroundTransparency = 0.1, ZIndex = 7,
+					Parent = p.cadre}, {coin(0.5)})
+				TweenService:Create(flash, TweenInfo.new(0.6, Enum.EasingStyle.Quad), {BackgroundTransparency = 1}):Play()
+				Debris:AddItem(flash, 0.65)
+			end
+		end
+	end
+	if nouveau then
+		jouer("succes", 1.3)
+	end
+end
+joueur:GetAttributeChangedSignal(Grottes.ATTRIBUT_DECOUVERTS):Connect(majDecouvertes)
 
 local function survoler(l: Ligne, actif: boolean)
 	if l.survol == actif then
@@ -501,6 +694,7 @@ local function survoler(l: Ligne, actif: boolean)
 	TweenService:Create(l.lueur, SURVOL, {BackgroundTransparency = if actif then 0.78 else 1}):Play()
 	TweenService:Create(l.info, SURVOL, {TextTransparency = if actif then 0 else 1}):Play()
 	TweenService:Create(l.noeud, SURVOL, {Size = if actif then UDim2.fromOffset(24, 24) else UDim2.fromOffset(16, 16)}):Play()
+	animerPile(l, actif)
 	if actif then
 		jouer("survol", 1.55 - l.niveau.id * 0.1) -- plus c'est profond, plus c'est grave
 	end
@@ -881,6 +1075,7 @@ local function particule()
 end
 
 local tweenVoile: Tween? = nil
+local jetonOuverture = 0
 local function ouvrirFenetre()
 	if ouverte then
 		return
@@ -911,10 +1106,27 @@ local function ouvrirFenetre()
 		l.noeud.Size = UDim2.fromOffset(16, 16)
 		l.echelle.Scale = 0.5
 		TweenService:Create(l.echelle, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out, 0, false, 0.12 + i * 0.06), {Scale = 1}):Play()
+		-- les minerais tombent dans leur pile l'un après l'autre
+		for _, p in l.pastilles do
+			p.survol = false
+			p.cadre.ZIndex = 20 - p.k
+			p.cadre.Position = placePastille(p, PAS_SERRE)
+			local vue = Icones.vue(p.vp)
+			if vue then
+				vue.vitesse = 0
+			end
+			p.echelle.Scale = 0
+			TweenService:Create(p.echelle, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out, 0, false, 0.3 + i * 0.06 + p.k * 0.07),
+				{Scale = 1}):Play()
+		end
+		l.bulle.Visible = false
 	end
+	majDecouvertes() -- après la cascade : l'éclat d'un minerai découvert n'est pas écrasé par le tween d'ouverture
 	majBarres(true)
+	jetonOuverture += 1
+	local jeton = jetonOuverture
 	task.spawn(function()
-		while ouverte do
+		while ouverte and jeton == jetonOuverture do -- fermer / rouvrir vite : l'ancienne boucle s'arrête
 			particule()
 			task.wait(0.08 + math.random() * 0.12)
 		end

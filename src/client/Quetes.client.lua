@@ -857,17 +857,16 @@ evOuvrir.OnClientEvent:Connect(function(nouvelEtat: any, part: any)
 end)
 
 F.surFermeture.Event:Connect(function()
-	if promptGuilde then
-		promptGuilde.Enabled = true
-	end
+	-- réactivée un peu après (comme les autres invites coupées par InterfaceMine) : le E qui ferme ne rouvre pas
+	task.delay(0.25, function()
+		if promptGuilde and not F.estOuverte() then
+			promptGuilde.Enabled = true
+		end
+	end)
 	task.delay(0.2, majMarqueur)
 end)
 
-UserInputService.InputBegan:Connect(function(input, traite)
-	if F.estOuverte() and (input.KeyCode == Enum.KeyCode.ButtonB or (not traite and input.KeyCode == Enum.KeyCode.Q)) then
-		F.fermerFenetre()
-	end
-end)
+-- Fermeture au clavier / manette : touche d'interaction (E / X), gérée par InterfaceMine.fenetre
 
 -- Pièces : bourse de la fenêtre
 task.spawn(function()

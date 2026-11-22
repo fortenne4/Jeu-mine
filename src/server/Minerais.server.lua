@@ -336,6 +336,7 @@ task.spawn(function()
 			end
 		end
 		Donnees.ajouterMinerai(joueur, nom, 1) -- au sac : à vendre chez Gaspard ou à forger chez Brom
+		Donnees.decouvrirMinerai(joueur, nom) -- 1re fois : plus de silhouette noire dans le menu des grottes
 	end)
 end)
 

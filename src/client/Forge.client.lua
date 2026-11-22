@@ -706,9 +706,12 @@ end)
 -- ================= Ouverture / fermeture =================
 F.surFermeture.Event:Connect(function()
 	fermerChoix()
-	if promptForge then
-		promptForge.Enabled = true
-	end
+	-- réactivée un peu après (comme les autres invites coupées par InterfaceMine) : le E qui ferme ne rouvre pas
+	task.delay(0.25, function()
+		if promptForge and not F.estOuverte() then
+			promptForge.Enabled = true
+		end
+	end)
 end)
 
 local function ouvrirForge(nouvelEtat: Etat, part: BasePart)
@@ -749,11 +752,7 @@ evOuvrir.OnClientEvent:Connect(function(nouvelEtat: any, part: any)
 	end
 end)
 
-UserInputService.InputBegan:Connect(function(input, traite)
-	if F.estOuverte() and (input.KeyCode == Enum.KeyCode.ButtonB or (not traite and input.KeyCode == Enum.KeyCode.Q)) then
-		F.fermerFenetre()
-	end
-end)
+-- Fermeture au clavier / manette : touche d'interaction (E / X), gérée par InterfaceMine.fenetre
 
 -- Les pièces changent (minage, autre achat) : bourse et bouton Forger se mettent à jour
 task.spawn(function()

@@ -638,11 +638,7 @@ task.spawn(function()
 	end)
 end)
 
-UserInputService.InputBegan:Connect(function(input, traite)
-	if F.estOuverte() and (input.KeyCode == Enum.KeyCode.ButtonB or (not traite and input.KeyCode == Enum.KeyCode.Q)) then
-		F.fermerFenetre()
-	end
-end)
+-- Fermeture au clavier / manette : touche d'interaction (E / X), gérée par InterfaceMine.fenetre
 
 -- Pièces : compteur de la bourse qui défile
 task.spawn(function()

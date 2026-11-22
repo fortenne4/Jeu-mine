@@ -1,8 +1,11 @@
 -- Grottes profondes : génération d'une grotte aléatoire (Terrain) pour une expédition à 1 ou 2 joueurs.
 -- Bloc de roche (matériau du palier) creusé par des galeries sinueuses : salle de départ (cercle de sortie,
 -- panneau), 3 à 5 salles larges, une salle finale (boss) au bout, culs-de-sac et boucles.
--- Sol plat (galettes de roche sous chaque boule d'air), pentes ≤ ~17°, plafond ≥ 13 studs.
--- Minerais : même rocher que MinePrivee (Partage › MineraisModeles), collés aux parois / au sol.
+-- Relief : salles à des hauteurs très différentes (pentes ≤ ~32° ou marches de 2 studs), fosses peu profondes
+-- (bords franchissables), corniches (≤ 4,5 studs, à sauter), salles hautes, passages bas (plafond ≥ 11).
+-- Minerais : même rocher que MinePrivee (Partage › MineraisModeles), enfoncés dans les parois / le sol,
+-- regroupés en 3-4 gisements (niveau.nombreMinerais nœuds au total, 1 nœud = 1 minerai), aucun dans la zone
+-- sûre de l'arrivée (Grottes.ZONE_SURE). grotte.gisements = points de garde pour MobsGrotte.
 -- Décor (cristaux néon, torches, stalactites / stalagmites) : O.decor, lumières plafonnées (MAX_LUMIERES).
 local CollectionService = game:GetService("CollectionService")
 local TweenService = game:GetService("TweenService")
@@ -19,14 +22,19 @@ local Generateur = {}
 
 local terrain = workspace.Terrain
 local AIR = Enum.Material.Air
-local TAILLE_BOITE = Vector3.new(240, 80, 240) -- bloc de roche (repère : base = sol ≈ 0)
-local CENTRE_BOITE = Vector3.new(0, 15, 0)     -- y de -25 à +55
-local LIMITE = 98                              -- |x|, |z| max d'un point de galerie (parois ≥ 12 studs)
-local Y_MIN, Y_MAX = -5, 10                    -- sols des salles
-local PAS = 3.5                                -- espacement des boules d'air le long d'une galerie
-local MAX_LUMIERES = 24
-local MAX_MINERAIS = 70
-local DISTANCE_MOBS = 45
+-- Grottes 1,5 × (salles, galeries, chaîne, bloc) ; hauteurs de marche / pentes / corniches inchangées
+local TAILLE_BOITE = Vector3.new(360, 190, 360) -- bloc de roche (repère : base = sol ≈ 0)
+local CENTRE_BOITE = Vector3.new(0, 20, 0)     -- y de -75 à +115
+local LIMITE = 147                             -- |x|, |z| max d'un point de galerie (parois ≥ 18 studs)
+local Y_MIN, Y_MAX = -24, 30                   -- sols des salles (départ à 0)
+local PENTE = 0.42                             -- dénivelé max / longueur d'une galerie (pente moyenne ≤ ~23°)
+local MARCHE = 2                               -- hauteur des marches (galeries en escalier)
+local PAS = 4.5                                -- espacement des boules d'air le long d'une galerie
+local MAX_LUMIERES = 30
+local DISTANCE_MOBS = Grottes.ZONE_SURE
+-- Gisements (« zones de chaleur ») : 3-4 grappes de 2 à 5 nœuds dans une même salle / alcôve, hors zone sûre
+local GISEMENTS = {3, 4}
+local NOEUDS_GISEMENT = {2, 5}
 local FLAMME = Color3.fromRGB(255, 170, 80)
 
 local noeuds = {} -- [cœur] = modèle du rocher (toutes grottes confondues)
@@ -73,14 +81,35 @@ end
 -- Le segment a → b ne traverse aucune autre salle (sinon sols à des hauteurs différentes qui se coupent)
 local function libre(salles, a, b, sa, sb)
 	for _, s in salles do
-		if s ~= sa and s ~= sb and distanceSegment(s.p, a, b) < s.r + 20 then return false end
+		if s ~= sa and s ~= sb and distanceSegment(s.p, a, b) < s.r + 30 then return false end
 	end
 	return true
 end
 
+-- Le segment a → b coupe (en plan) une galerie déjà posée, hors galeries partant de sa / sb (extrémité commune)
+local function coupe(liens, a, b, sa, sb)
+	local function o(p, q, r) return (q.X - p.X) * (r.Z - p.Z) - (q.Z - p.Z) * (r.X - p.X) end
+	for _, l in liens do
+		local c, d = l[1], l[2]
+		if c ~= sa and c ~= sb and d ~= sa and d ~= sb then
+			local cp, dp = c.p, d.p
+			if o(a, b, cp) * o(a, b, dp) < 0 and o(cp, dp, a) * o(cp, dp, b) < 0 then return true end
+		end
+	end
+	return false
+end
+
+-- Le point p est à moins de marge d'une galerie déjà posée (hors galeries partant de sauf)
+local function presDeGalerie(liens, p, marge, sauf)
+	for _, l in liens do
+		if l[1] ~= sauf and l[2] ~= sauf and distanceSegment(p, l[1].p, l[2].p) < marge then return true end
+	end
+	return false
+end
+
 -- Hauteur de sol d'une salle reliée à une autre : pente bornée par l'écart entre leurs bords
 local function hauteurVers(base, ya, ecart, rng)
-	local dy = rng:NextNumber(-1, 1) * math.min(6, 0.2 * math.max(ecart, 0))
+	local dy = (if rng:NextNumber() < 0.5 then -1 else 1) * rng:NextNumber(0.3, 1) * math.min(21, PENTE * math.max(ecart, 0))
 	return math.clamp(ya + dy - base.Y, Y_MIN, Y_MAX) + base.Y
 end
 
@@ -94,11 +123,12 @@ local function trace(base, a, b, ra, rb, r, rng)
 	if L < 2 then return nil end
 	local avant = plat(b - a).Unit
 	local cote = Vector3.new(-avant.Z, 0, avant.X)
-	local amp = rng:NextNumber(5, 14) * (if rng:NextNumber() < 0.5 then -1 else 1)
-	local amp2 = rng:NextNumber(1, 3.5)
+	local amp = rng:NextNumber(7.5, 21) * (if rng:NextNumber() < 0.5 then -1 else 1)
+	local amp2 = rng:NextNumber(1.5, 5)
 	local ondes = rng:NextInteger(1, 2)
 	local phase = rng:NextNumber(0, math.pi)
 	local debut, fin = ra * 0.8, L - rb * 0.8
+	local marches = math.abs(b.Y - a.Y) > 5 and rng:NextNumber() < 0.5
 	local n = math.max(2, math.ceil(L * 1.3 / PAS))
 	local pts = {}
 	for i = 0, n do
@@ -108,7 +138,9 @@ local function trace(base, a, b, ra, rb, r, rng)
 		u = u * u * (3 - 2 * u)
 		local decal = math.sin(t * math.pi) * (amp * math.sin(t * math.pi * ondes + phase) + amp2 * math.sin(t * math.pi * 5 + phase * 2))
 		local p = a + avant * s + cote * decal
-		table.insert(pts, {p = borne(base, Vector3.new(p.X, a.Y + (b.Y - a.Y) * u, p.Z)), r = r})
+		local dy = (b.Y - a.Y) * u
+		if marches then dy = math.round(dy / MARCHE) * MARCHE end
+		table.insert(pts, {p = borne(base, Vector3.new(p.X, a.Y + dy, p.Z)), r = r})
 	end
 	local longueur = 0
 	for i, pt in pts do
@@ -117,11 +149,12 @@ local function trace(base, a, b, ra, rb, r, rng)
 		pt.t = if t.Magnitude > 1e-3 then t.Unit else avant
 		if i > 1 then longueur += (pt.p - pts[i - 1].p).Magnitude end
 	end
-	return {pts = pts, r = r, longueur = longueur}
+	local x = rng:NextNumber()
+	return {pts = pts, r = r, longueur = longueur, plafond = if x < 0.25 then "bas" elseif x < 0.5 then "haut" else nil}
 end
 
 local function planifier(base, rng)
-	local depart = {p = base + Vector3.new(0, 0, 80), r = 16, depart = true}
+	local depart = {p = base + Vector3.new(0, 0, 120), r = 24, depart = true}
 	local salles = {depart}
 	local liens = {} -- {sa, sb}
 	-- Chaîne principale : départ → 2-3 salles (alternées gauche / droite) → boss au fond (-Z)
@@ -130,14 +163,14 @@ local function planifier(base, rng)
 	local signe = if rng:NextNumber() < 0.5 then -1 else 1
 	for i = 1, nChaine + 1 do
 		local boss = i == nChaine + 1
-		local r = if boss then 20 else rng:NextNumber(14, 18)
-		local x = if boss then rng:NextNumber(-40, 40) else signe * rng:NextNumber(22, LIMITE - r - 6)
-		local z = if boss then -82 else 80 - 162 * i / (nChaine + 1) + rng:NextNumber(-6, 6)
+		local r = if boss then 30 else rng:NextNumber(21, 27)
+		local x = if boss then rng:NextNumber(-60, 60) else signe * rng:NextNumber(33, LIMITE - r - 9)
+		local z = if boss then -123 else 120 - 243 * i / (nChaine + 1) + rng:NextNumber(-9, 9)
 		local p = base + Vector3.new(x, 0, z)
 		local y = hauteurVers(base, prec.p.Y, ecartEntre(prec.p, p, prec.r, r), rng)
 		local s = {p = Vector3.new(p.X, y, p.Z), r = r, boss = boss}
 		table.insert(salles, s)
-		table.insert(liens, {prec, s})
+		table.insert(liens, {prec, s, principal = true})
 		prec = s
 		signe = -signe
 	end
@@ -147,16 +180,17 @@ local function planifier(base, rng)
 	local nSalles = rng:NextInteger(3, 5)
 	for _ = 1, 40 do
 		if #salles - 2 >= nSalles then break end
-		local r = rng:NextNumber(14, 20)
-		local p = base + Vector3.new(rng:NextNumber(-(LIMITE - r), LIMITE - r), 0, rng:NextNumber(-70, 60))
-		local ok = plat(p - depart.p).Magnitude < distBoss - 10
+		local r = rng:NextNumber(21, 30)
+		local p = base + Vector3.new(rng:NextNumber(-(LIMITE - r), LIMITE - r), 0, rng:NextNumber(-105, 90))
+		local ok = plat(p - depart.p).Magnitude < distBoss - 15
 		local proche, dProche = nil, math.huge
 		for _, s in salles do
 			local d = plat(p - s.p).Magnitude
-			if d < s.r + r + 18 then ok = false; break end
+			if d < s.r + r + 27 then ok = false; break end
 			if not s.depart and not s.boss and d < dProche then proche, dProche = s, d end
 		end
-		if ok and proche and libre(salles, proche.p, p, proche, nil) then
+		if ok and proche and libre(salles, proche.p, p, proche, nil) and not presDeGalerie(liens, p, r + 30, nil)
+			and not coupe(liens, proche.p, p, proche, nil) then
 			local y = hauteurVers(base, proche.p.Y, ecartEntre(proche.p, p, proche.r, r), rng)
 			local s = {p = Vector3.new(p.X, y, p.Z), r = r}
 			table.insert(salles, s)
@@ -178,23 +212,27 @@ local function planifier(base, rng)
 			local a, b = salles[rng:NextInteger(2, #salles)], salles[rng:NextInteger(2, #salles)]
 			local d = plat(b.p - a.p).Magnitude
 			local ecart = ecartEntre(a.p, b.p, a.r, b.r)
-			if a ~= b and not relie(a, b) and d < 140 and ecart > 8 and math.abs(a.p.Y - b.p.Y) <= 0.2 * ecart
-				and libre(salles, a.p, b.p, a, b) then
+			if a ~= b and not relie(a, b) and d < 210 and ecart > 12 and math.abs(a.p.Y - b.p.Y) <= PENTE * ecart
+				and libre(salles, a.p, b.p, a, b) and not coupe(liens, a.p, b.p, a, b) then
 				table.insert(liens, {a, b})
 			end
 		else
 			local a = salles[rng:NextInteger(2, #salles)]
 			local angle = rng:NextNumber(0, 2 * math.pi)
-			local longueur = rng:NextNumber(30, 55)
+			local longueur = rng:NextNumber(45, 82)
 			local fin = borne(base, a.p + Vector3.new(math.cos(angle), 0, math.sin(angle)) * (a.r * 0.8 + longueur))
-			local ecart = ecartEntre(a.p, fin, a.r, 9)
-			local ok = ecart > 15 and libre(salles, a.p, fin, a, nil)
+			local ecart = ecartEntre(a.p, fin, a.r, 13.5)
+			local ok = ecart > 22 and libre(salles, a.p, fin, a, nil) and not coupe(liens, a.p, fin, a, nil)
+				and not presDeGalerie(liens, fin, 13.5 + 30, a)
 			for _, s in salles do
-				if s ~= a and plat(fin - s.p).Magnitude < s.r + 18 then ok = false end
+				if s ~= a and plat(fin - s.p).Magnitude < s.r + 27 then ok = false end
+			end
+			for _, s in alcoves do
+				if plat(fin - s.p).Magnitude < 40 then ok = false end
 			end
 			if ok then
 				local y = hauteurVers(base, a.p.Y, ecart, rng)
-				local s = {p = Vector3.new(fin.X, y, fin.Z), r = 9, alcove = true}
+				local s = {p = Vector3.new(fin.X, y, fin.Z), r = 13.5, alcove = true}
 				table.insert(alcoves, s)
 				table.insert(liens, {a, s})
 			end
@@ -205,9 +243,18 @@ end
 
 -- ================= Creusement (Terrain) =================
 
+-- Laisse respirer le serveur pendant le creusement (une pause toutes les ~25 opérations de terrain)
+local operations = 0
+local function respirer()
+	operations += 1
+	if operations % 25 == 0 then task.wait() end
+end
+
 local function creuserSalle(s, roche, rng)
+	respirer()
 	local r = s.r
 	terrain:FillBall(s.p + Vector3.new(0, r * 0.4, 0), r, AIR)
+	if s.haute then terrain:FillBall(s.p + Vector3.new(0, r * 1.25, 0), r * 0.85, AIR) end -- salle haute (≈ 2 × r)
 	for _ = 1, 3 do
 		local a = rng:NextNumber(0, 2 * math.pi)
 		local d = rng:NextNumber(0.3, 0.5) * r
@@ -217,14 +264,53 @@ local function creuserSalle(s, roche, rng)
 	terrain:FillCylinder(CFrame.new(s.p - Vector3.new(0, h / 2, 0)), h, r * 1.15, roche)
 end
 
--- Boules d'air (deux, l'une au-dessus de l'autre : plafond ≥ 13) puis galette de roche jusqu'au sol
+-- Boules d'air puis galette de roche jusqu'au sol. Plafond : normal ≥ 19, « bas » ≥ 11, « haut » ≥ 26
 local function creuserGalerie(g, roche)
 	for _, pt in g.pts do
+		respirer()
 		local r = pt.r
-		terrain:FillBall(pt.p + Vector3.new(0, r * 0.5, 0), r, AIR)
-		terrain:FillBall(pt.p + Vector3.new(0, r * 0.5 + 5, 0), r * 0.9, AIR)
+		if g.plafond == "bas" then
+			terrain:FillBall(pt.p + Vector3.new(0, r * 0.3, 0), r * 0.9, AIR)
+		else
+			terrain:FillBall(pt.p + Vector3.new(0, r * 0.5, 0), r, AIR)
+			terrain:FillBall(pt.p + Vector3.new(0, r * 0.5 + (if g.plafond == "haut" then 12 else 5), 0), r * 0.9, AIR)
+		end
 		local h = r * 0.5 + 1.5
 		terrain:FillCylinder(CFrame.new(pt.p - Vector3.new(0, h / 2, 0)), h, r, roche)
+	end
+end
+
+-- Relief d'une salle (hors départ / boss) : fosse (cuvette ≤ 3,5 studs, bords ≤ ~50° : on en ressort en
+-- marchant, même sur le passage) et corniche contre la paroi (≤ 4,5 studs, à sauter, hors des passages).
+local function relief(s, galeries, roche, rng)
+	local function loinDesGaleries(c, marge)
+		for _, g in galeries do
+			for _, pt in g.pts do
+				if plat(pt.p - c).Magnitude < marge + pt.r * 0.3 and math.abs(pt.p.Y - s.p.Y) < 8 then return false end
+			end
+		end
+		return true
+	end
+	local function endroit(dist, marge)
+		local a0 = rng:NextNumber(0, 2 * math.pi)
+		for k = 0, 5 do
+			local a = a0 + k * math.pi / 3
+			local c = s.p + Vector3.new(math.cos(a), 0, math.sin(a)) * dist
+			if loinDesGaleries(c, marge) then return c end
+		end
+		return nil
+	end
+	if rng:NextNumber() < 0.45 then
+		local R = math.min(rng:NextNumber(13, 16), s.r * 0.6)
+		local prof = rng:NextNumber(2, 3.5)
+		local a = rng:NextNumber(0, 2 * math.pi)
+		local c = s.p + Vector3.new(math.cos(a), 0, math.sin(a)) * s.r * rng:NextNumber(0, 0.3)
+		terrain:FillBall(c + Vector3.new(0, R - prof, 0), R, AIR)
+	end
+	if rng:NextNumber() < 0.5 then
+		local rc, h = rng:NextNumber(6, 9), rng:NextNumber(3, 4.5)
+		local c = endroit(s.r * 0.72, rc + 2)
+		if c then terrain:FillCylinder(CFrame.new(c + Vector3.new(0, (h - 2) / 2, 0)), h + 2, rc, roche) end
 	end
 end
 
@@ -296,7 +382,7 @@ local function torche(ctx, hit)
 end
 
 local function panneau(ctx, depart)
-	local hit = solSous(depart.p + Vector3.new(-8, 0, 3))
+	local hit = solSous(depart.p + Vector3.new(-10, 0, 3))
 	if not hit then return end
 	local pied = hit.Position
 	local face = CFrame.lookAt(pied, Vector3.new(depart.p.X, pied.Y, depart.p.Z))
@@ -322,71 +408,122 @@ CollectionService:GetInstanceRemovedSignal("Minerai"):Connect(function(coeur)
 	Debris:AddItem(modele, 1.2)
 end)
 
--- Appui du rocher : sur la paroi (haut = normale) ou au sol, le long du point de galerie pt
-local function appuiMinerai(rng, pt)
-	local lat = Vector3.new(-pt.t.Z, 0, pt.t.X) * (if rng:NextNumber() < 0.5 then -1 else 1)
-	local hit
-	if rng:NextNumber() < 0.7 then
-		hit = lancer(pt.p + Vector3.new(0, rng:NextNumber(1.2, 3.5), 0), lat * (pt.r + 6))
-	else
-		hit = lancer(pt.p + lat * (pt.r * rng:NextNumber(0.4, 0.65)) + Vector3.new(0, 5, 0), Vector3.new(0, -12, 0))
-	end
-	if not hit then return nil end
+-- Appui du rocher (haut = normale) : paroi ou sol touché par le rayon origine → direction.
+-- Le centre du rocher est mis à la surface (± un peu) : il affleure au lieu de dépasser. s = taille du rocher.
+-- Renvoie le CFrame à passer à MineraisModeles.construire et le point de surface.
+local function appuiMinerai(rng, origine, direction, s)
+	local hit = lancer(origine, direction)
+	if not hit then return nil, nil end
 	local n = hit.Normal
-	if n.Y > 0.7 then return CFrame.new(hit.Position - Vector3.new(0, 0.3, 0)) end
+	local enfonce = rng:NextNumber(-0.5, 0.15) - 1.25 * s -- construire() monte le centre de 1,25 × s
+	local penche = CFrame.Angles(rng:NextNumber(-0.3, 0.3), 0, rng:NextNumber(-0.3, 0.3))
+	if n.Y > 0.7 then return CFrame.new(hit.Position + Vector3.new(0, enfonce + 0.2, 0)) * penche, hit.Position end
 	local droite = n:Cross(Vector3.yAxis)
-	if droite.Magnitude < 1e-3 or n.Y < -0.3 then return nil end
-	return CFrame.fromMatrix(hit.Position - n * 0.7, droite.Unit, n)
+	if droite.Magnitude < 1e-3 or n.Y < -0.3 then return nil, nil end
+	return CFrame.fromMatrix(hit.Position + n * enfonce, droite.Unit, n) * penche, hit.Position
 end
 
-local function minerais(ctx, chemin, interdits, total)
+local function poserMinerai(ctx, f, def, sol, echelle, graine)
+	local visuel = MineraisModeles.VISUEL[def.id]
+	local modele, coeur = MineraisModeles.construire(def.id, sol, Random.new(graine), true)
+	if echelle ~= 1 then modele:ScaleTo(echelle) end -- autour du cœur (PrimaryPart) : reste affleurant
+	for _, p in modele:GetChildren() do
+		if p:IsA("BasePart") then p.CanQuery = p == coeur end -- la visée ne touche que le cœur
+	end
+	coeur:SetAttribute("Type", def.id)
+	coeur:SetAttribute("Taille", visuel.taille * echelle)
+	coeur:SetAttribute("PV", def.pv)
+	coeur:SetAttribute("PVMax", def.pv)
+	coeur:SetAttribute("Proprietaire", ctx.proprietaire)
+	if ctx.invite then coeur:SetAttribute("Invite", ctx.invite) end
+	modele.Parent = f
+	CollectionService:AddTag(coeur, "Minerai")
+	noeuds[coeur] = modele
+end
+
+-- Gisements (« zones de chaleur ») : `total` nœuds (1 nœud = 1 minerai) en 3-4 grappes de 2 à 5, chacune dans
+-- un secteur de paroi / sol (± 35°) d'une salle ou alcôve (sites, déjà hors zone sûre). Chaque gisement a un
+-- type dominant (types différents d'un gisement à l'autre : au moins 2-3 types par grotte).
+-- Renvoie {{centre = sol devant le gisement (gardes), rayon}}.
+local function gisements(ctx, sites, interdits, total)
 	local rng, niveau = ctx.rng, ctx.niveau
 	local f = Instance.new("Folder")
 	f.Name = "Minerais"
 	f.Parent = ctx.modele
-	local poses = {}
-	local nombre = 0
-	for essai = 1, total * 4 do
-		if nombre >= total then break end
-		local sol = appuiMinerai(rng, chemin[rng:NextInteger(1, #chemin)])
-		local ok = sol ~= nil
-		if sol then
-			for _, q in interdits do
-				if (q[1] - sol.Position).Magnitude < q[2] then ok = false; break end
-			end
-			if ok then
-				for _, q in poses do
-					if (q - sol.Position).Magnitude < 4.5 then ok = false; break end
+	local mini, maxi = NOEUDS_GISEMENT[1], NOEUDS_GISEMENT[2]
+	local k = math.min(#sites, math.max(rng:NextInteger(GISEMENTS[1], GISEMENTS[2]), math.ceil(total / maxi)))
+	if k == 0 then return {} end
+	local tailles = {}
+	for i = 1, k do tailles[i] = mini end
+	local reste = total - k * mini
+	for _ = 1, 200 do
+		if reste <= 0 then break end
+		local i = rng:NextInteger(1, k)
+		if tailles[i] < maxi then tailles[i] += 1; reste -= 1 end
+	end
+	-- types dominants : tirage pondéré sans remise, puis on reboucle (un minerai « dominant = false » ne domine jamais)
+	local types, reserve = {}, Grottes.mineraisDominants(niveau)
+	while #reserve > 0 do
+		local d = Grottes.tirer(reserve, rng)
+		table.insert(types, d)
+		table.remove(reserve, table.find(reserve, d))
+	end
+	local liste, iSite, essai = {}, 1, 0
+	for i, n in tailles do
+		local dominant = types[(i - 1) % #types + 1]
+		while iSite <= #sites do
+			local s = sites[iSite]
+			iSite += 1
+			local a0 = rng:NextNumber(0, 2 * math.pi)
+			local places = {}
+			for _ = 1, n * 8 do
+				if #places >= n then break end
+				essai += 1
+				local def = if rng:NextNumber() < 0.7 then dominant else Grottes.tirer(niveau.minerais, rng)
+				local visuel = MineraisModeles.VISUEL[def.id]
+				local a = a0 + rng:NextNumber(-0.6, 0.6)
+				local dir = Vector3.new(math.cos(a), 0, math.sin(a))
+				local sol, surface
+				if visuel then
+					if rng:NextNumber() < 0.75 then
+						sol, surface = appuiMinerai(rng, s.p + Vector3.new(0, rng:NextNumber(0.8, 4.5), 0), dir * (s.r * 1.6), visuel.taille)
+					else
+						sol, surface = appuiMinerai(rng, s.p + dir * (s.r * rng:NextNumber(0.6, 0.85)) + Vector3.new(0, 5, 0), Vector3.new(0, -14, 0), visuel.taille)
+					end
+				end
+				local ok = sol ~= nil and plat(surface - s.p).Magnitude < s.r * 1.35
+				if ok then
+					for _, q in interdits do
+						if (q[1] - surface).Magnitude < q[2] then ok = false; break end
+					end
+				end
+				if ok then
+					for _, q in places do
+						if (q - surface).Magnitude < 3.2 then ok = false; break end -- serrés mais pas imbriqués
+					end
+				end
+				if ok then
+					poserMinerai(ctx, f, def, sol, rng:NextNumber(0.8, 1), ctx.graine + essai)
+					table.insert(places, surface)
 				end
 			end
-		end
-		if ok then
-			local def = Grottes.tirer(niveau.minerais, rng)
-			local visuel = MineraisModeles.VISUEL[def.id]
-			if visuel then
-				local modele, coeur = MineraisModeles.construire(def.id, sol, Random.new(ctx.graine + essai), true)
-				for _, p in modele:GetChildren() do
-					if p:IsA("BasePart") then p.CanQuery = p == coeur end -- la visée ne touche que le cœur
-				end
-				coeur:SetAttribute("Type", def.id)
-				coeur:SetAttribute("Taille", visuel.taille)
-				coeur:SetAttribute("PV", def.pv)
-				coeur:SetAttribute("PVMax", def.pv)
-				coeur:SetAttribute("Proprietaire", ctx.proprietaire)
-				if ctx.invite then coeur:SetAttribute("Invite", ctx.invite) end
-				modele.Parent = f
-				CollectionService:AddTag(coeur, "Minerai")
-				noeuds[coeur] = modele
-				table.insert(poses, sol.Position)
-				nombre += 1
+			if #places > 0 then
+				local moyenne = Vector3.zero
+				for _, q in places do moyenne += q end
+				moyenne /= #places
+				local c = s.p + plat(moyenne - s.p) * 0.5
+				local hit = solSous(Vector3.new(c.X, s.p.Y, c.Z))
+				table.insert(liste, {centre = if hit then hit.Position else s.p, rayon = math.min(s.r, 18)})
+				break
 			end
 		end
 	end
+	return liste
 end
 
 -- ================= Construction =================
 
-function Generateur.construire(niveau, index, graine, proprietaire, invite)
+function Generateur.construire(niveau, index, graine, proprietaire, invite, essai)
 	local rng = Random.new(graine)
 	local base = Generateur.emplacement(index)
 	local roche = O.materiau(niveau.ambiance.materiau, Enum.Material.Slate)
@@ -414,18 +551,52 @@ function Generateur.construire(niveau, index, graine, proprietaire, invite)
 	local galeries = {}
 	for _, l in liens do
 		local a, b = l[1], l[2]
-		local g = trace(base, a.p, b.p, a.r, b.r, rng:NextNumber(9.5, 12.5), rng) -- galeries larges (≈ 16 à 22 studs de sol)
-		if g then table.insert(galeries, g) end
+		local g = trace(base, a.p, b.p, a.r, b.r, rng:NextNumber(14, 18.5), rng) -- galeries larges (≈ 24 à 33 studs de sol)
+		if g then
+			g.principal = l.principal
+			table.insert(galeries, g)
+		end
 	end
-	for _, s in salles do creuserSalle(s, roche, rng) end
+	for _, s in salles do
+		s.haute = not s.depart and rng:NextNumber() < 0.4
+		creuserSalle(s, roche, rng)
+	end
 	for _, s in alcoves do creuserSalle(s, roche, rng) end
 	-- Rallonge de la salle de départ derrière les joueurs (place du cercle de sortie)
-	creuserSalle({p = depart.p + Vector3.new(0, 0, 9), r = 11}, roche, rng)
-	for _, g in galeries do creuserGalerie(g, roche) end
+	creuserSalle({p = depart.p + Vector3.new(0, 0, 12), r = 15}, roche, rng)
+	-- Chaîne principale (départ → boss) creusée EN DERNIER : rien ne peut la reboucher
+	for _, g in galeries do
+		if not g.principal then creuserGalerie(g, roche) end
+	end
+	for _, g in galeries do
+		if g.principal then creuserGalerie(g, roche) end
+	end
+	for _, s in salles do
+		if not s.depart and not s.boss then relief(s, galeries, roche, rng) end
+	end
 	-- Le terrain qui vient d'être écrit n'est touché par les raycasts qu'après un pas physique : on attend
 	-- qu'il le soit (sinon panneau, torches, minerais et points des mobs ne trouvent aucun sol)
 	local attente = os.clock()
 	repeat task.wait() until lancer(depart.p + Vector3.new(0, 5, 0), Vector3.new(0, -40, 0)) or os.clock() - attente > 3
+
+	-- Vérification départ → boss : rayons à 3 studs du sol le long de la chaîne ; bouchée → nouvelle graine
+	local bouchee = false
+	for _, g in galeries do
+		if g.principal then
+			for i = 2, #g.pts do
+				local a, b = g.pts[i - 1].p + Vector3.new(0, 3, 0), g.pts[i].p + Vector3.new(0, 3, 0)
+				if lancer(a, b - a) then bouchee = true; break end
+			end
+		end
+		if bouchee then break end
+	end
+	if bouchee and (essai or 0) < 2 then
+		m:Destroy()
+		terrain:FillBlock(CFrame.new(base + CENTRE_BOITE), TAILLE_BOITE + Vector3.new(8, 8, 8), AIR)
+		return Generateur.construire(niveau, index, graine + 7, proprietaire, invite, (essai or 0) + 1)
+	elseif bouchee then
+		warn("[Grottes] chemin départ → boss peut-être bouché (graine " .. tostring(graine) .. ")")
+	end
 
 	-- 2. Départ : apparitions, sortie, panneau, torches
 	-- Regard vers la première salle de la chaîne (l'entrée de la première galerie), pas vers la paroi
@@ -441,19 +612,17 @@ function Generateur.construire(niveau, index, graine, proprietaire, invite)
 	ctx.lumieres += 1 -- lampe du cercle
 	panneau(ctx, depart)
 	for _, dir in {Vector3.new(-1, 0, 0), Vector3.new(1, 0, 0), Vector3.new(0, 0, 1)} do
-		local hit = paroi(depart.p + Vector3.new(0, 0, 4), dir, 6, 30)
+		local hit = paroi(depart.p + Vector3.new(0, 0, 4), dir, 6, 45)
 		if hit then torche(ctx, hit) end
 	end
 	for _, dir in {Vector3.new(-1, 0, 0), Vector3.new(1, 0, 0)} do
-		local hit = paroi(boss.p, dir, 7, 40)
+		local hit = paroi(boss.p, dir, 7, 60)
 		if hit then torche(ctx, hit) end
 	end
 
 	-- 3. Chemin : tous les points de galerie + quelques points dans les salles
 	local chemin = {}
-	local longueur = 0
 	for _, g in galeries do
-		longueur += g.longueur
 		for _, pt in g.pts do table.insert(chemin, pt) end
 	end
 	local lieux = table.clone(salles)
@@ -471,18 +640,27 @@ function Generateur.construire(niveau, index, graine, proprietaire, invite)
 	end
 	melanger(candidats, rng)
 	local sols = {}
+	local libres = {}
 	for _, c in candidats do
 		local hit = solSous(c)
 		if hit and not lancer(hit.Position + Vector3.new(0, 0.5, 0), Vector3.new(0, 9, 0)) then
-			local loin = true
-			for _, a in apparitions do
-				if (a.Position - hit.Position).Magnitude < DISTANCE_MOBS then loin = false end
-			end
-			if loin then table.insert(sols, hit.Position) end
+			table.insert(libres, hit.Position)
 		end
 	end
+	-- Hors zone sûre ; si trop peu de points (petite grotte), on se rapproche un peu (jamais sous 0,7 × la zone)
+	for _, distance in {DISTANCE_MOBS, DISTANCE_MOBS * 0.7} do
+		table.clear(sols)
+		for _, p in libres do
+			local loin = true
+			for _, a in apparitions do
+				if (a.Position - p).Magnitude < distance then loin = false end
+			end
+			if loin then table.insert(sols, p) end
+		end
+		if #sols >= 8 then break end
+	end
 	local pointsMobs = {}
-	for _, espace in {14, 6} do
+	for _, espace in {20, 8} do
 		for _, p in sols do
 			if #pointsMobs >= 30 then break end
 			local ok = true
@@ -491,16 +669,23 @@ function Generateur.construire(niveau, index, graine, proprietaire, invite)
 			end
 			if ok then table.insert(pointsMobs, p) end
 		end
-		if #pointsMobs >= 12 then break end
+		if #pointsMobs >= 16 then break end
 	end
 	local hitBoss = solSous(boss.p)
 	local salleBoss = if hitBoss then hitBoss.Position else boss.p
 
-	-- 5. Minerais (pas devant la sortie, pas sur un point de mob)
-	local interdits = {{depart.p + Vector3.new(0, 0, 4), 20}, {salleBoss, 6}}
+	-- 5. Gisements de minerais (pas dans la zone sûre, pas sur un point de mob) : salles et alcôves
+	-- (ordre aléatoire, salle du boss en dernier), chacune assez loin de l'arrivée
+	local interdits = {{depart.p + Vector3.new(0, 0, 4), Grottes.ZONE_SURE}, {salleBoss, 6}}
 	for _, p in pointsMobs do table.insert(interdits, {p, 3.5}) end
-	local total = math.min(MAX_MINERAIS, math.floor(niveau.densiteMinerais * longueur / 10 + 0.5))
-	if #chemin > 0 then minerais(ctx, chemin, interdits, total) end
+	local sites = {}
+	for _, s in lieux do
+		if not s.depart and not s.boss and plat(s.p - depart.p).Magnitude > Grottes.ZONE_SURE + 5 then table.insert(sites, s) end
+	end
+	melanger(sites, rng)
+	table.insert(sites, boss)
+	local total = rng:NextInteger(niveau.nombreMinerais[1], niveau.nombreMinerais[2])
+	local listeGisements = gisements(ctx, sites, interdits, total)
 
 	-- 6. Décor : cristaux aux parois (un amas par salle + le long des galeries), stalactites, stalagmites
 	for _, s in lieux do
@@ -509,19 +694,19 @@ function Generateur.construire(niveau, index, graine, proprietaire, invite)
 		if hit then cristaux(ctx, hit.Position, hit.Normal, if s.boss then 1.6 else 1.2) end
 	end
 	if #chemin > 0 then
-		for _ = 1, 30 do
+		for _ = 1, 40 do
 			if ctx.lumieres >= MAX_LUMIERES then break end
 			local pt = chemin[rng:NextInteger(1, #chemin)]
 			local lat = Vector3.new(-pt.t.Z, 0, pt.t.X) * (if rng:NextNumber() < 0.5 then -1 else 1)
 			local hit = paroi(pt.p, lat, rng:NextNumber(0.5, 6), pt.r + 6)
 			if hit and (hit.Position - depart.p).Magnitude > 18 then cristaux(ctx, hit.Position, hit.Normal, 1) end
 		end
-		for _ = 1, 32 do
+		for _ = 1, 45 do
 			local pt = chemin[rng:NextInteger(1, #chemin)]
-			local hit = lancer(pt.p + Vector3.new(rng:NextNumber(-3, 3), 2, rng:NextNumber(-3, 3)), Vector3.new(0, 40, 0))
+			local hit = lancer(pt.p + Vector3.new(rng:NextNumber(-3, 3), 2, rng:NextNumber(-3, 3)), Vector3.new(0, 60, 0))
 			if hit and hit.Normal.Y < -0.3 then pointe(ctx, hit.Position, -1, rng:NextNumber(0.7, 1.4)) end
 		end
-		for _ = 1, 22 do
+		for _ = 1, 30 do
 			local pt = chemin[rng:NextInteger(1, #chemin)]
 			local lat = Vector3.new(-pt.t.Z, 0, pt.t.X) * (if rng:NextNumber() < 0.5 then -1 else 1)
 			local hit = solSous(pt.p + lat * pt.r * 0.7)
@@ -538,9 +723,10 @@ function Generateur.construire(niveau, index, graine, proprietaire, invite)
 		sortie = sortie,
 		centreSortie = sortie:GetAttribute("Centre"),
 		pointsMobs = pointsMobs,
+		gisements = listeGisements, -- {{centre, rayon}} : gardés par un groupe de mobs (MobsGrotte)
 		salleBoss = salleBoss,
 		centre = base + CENTRE_BOITE,
-		rayon = 130,
+		rayon = 195,
 	}
 end
 

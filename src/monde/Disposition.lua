@@ -36,6 +36,15 @@ D.PORTES_ENFONCEMENT = 7   -- le cadre est encastré dans la paroi, 7 studs derr
 D.CERCLES_AVANCE = 4.5     -- cercle lumineux 4.5 studs devant D.PORTES (r = 55.5), sans toucher le parvis
 D.RETOUR_AVANCE = 13       -- point de retour d'une mine privée (r = 47, hors du cercle, face au centre)
 
+-- Zone protégée de la mine souterraine (tunnel sous la montagne, descente, quai, caverne, portes) :
+-- aucun décor extérieur (sommets lointains, parois, herbe, mousse…) ne doit y entrer. Boîte alignée sur les axes.
+D.ZONE_MINE_MIN = Vector3.new(-112, -116, -516)
+D.ZONE_MINE_MAX = Vector3.new(112, 40, -200)
+function D.dansZoneMine(mn: Vector3, mx: Vector3): boolean -- vrai si la boîte [mn, mx] touche la zone
+	local a, b = D.ZONE_MINE_MIN, D.ZONE_MINE_MAX
+	return mx.X > a.X and mn.X < b.X and mx.Y > a.Y and mn.Y < b.Y and mx.Z > a.Z and mn.Z < b.Z
+end
+
 -- Grand cristal violet de la caverne (lobe ouest, à l'écart des portes et du chemin quai → portes)
 D.CRISTAL_CAVERNE = Vector3.new(-68, -60, -398)
 

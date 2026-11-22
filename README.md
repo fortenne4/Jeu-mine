@@ -223,7 +223,7 @@ Le comptoir : touche **E** (manette X, mobile : toucher l'invite) près de Gaspa
 (modèle 3D, rareté, stock, prix à l'unité, valeur totale) ; à droite, le minerai choisi avec le choix de la quantité
 (−/+ maintenus pour accélérer, champ à taper, raccourcis ×1, ×10, MAX), le total en direct, **Vendre** et **Tout vendre**.
 Après une vente, les pièces s'envolent jusqu'à la bourse. Sac vide : « Rien à vendre, va miner ! ».
-Le comptoir se ferme si on s'éloigne (Q ou ✕ pour le fermer).
+Le comptoir se ferme si on s'éloigne (bouton rouge ou touche E / X manette pour le fermer).
 
 | Fichier | Rôle |
 |---|---|
@@ -346,14 +346,18 @@ Le cercle « Sortie » derrière le point d'apparition ramène le joueur devant 
 Dans la caverne, à droite du Tunnel VI, un panneau « Grottes profondes » et un **cercle lumineux « 0/2 »**
 (1,25 × plus grand que celui des tunnels privés). Le premier joueur qui entre dans le cercle devient le **chef** :
 l'interface de choix de profondeur s'ouvre. Très peu de texte : seulement les niveaux (−50 m … −500 m) et une
-**barre de difficulté** calculée selon SON équipement (pioche, épée, défense casque + plastron + jambières) ; au survol,
-le niveau s'agrandit. Le chef peut **inviter** un joueur (amis en premier dans la liste) ; un 2e joueur peut aussi
+**barre de difficulté** calculée selon SON équipement (pioche, épée, défense casque + plastron + jambières), et à droite
+les **minerais du palier** : petites pastilles 3D (les vrais modèles de minerai) qui se chevauchent, générées depuis
+`Grottes.NIVEAUX`, **du plus fréquent au plus rare** (estimation `Grottes.partsMinerais`). Un minerai que le joueur n'a
+**jamais miné** reste une **silhouette noire** avec un « ? » (infobulle « ??? ») ; dès qu'il en casse un (mine publique,
+tunnel privé ou grotte), il apparaît en couleurs avec son nom (Charbon, Cuivre, Fer, Or) et sa fréquence. Au survol,
+le niveau s'agrandit, la pile s'écarte et les rochers tournent. Le chef peut **inviter** un joueur (amis en premier dans la liste) ; un 2e joueur peut aussi
 simplement entrer dans le cercle (« 2/2 »). Quand le chef choisit un niveau, une **grotte aléatoire** est générée
 et le groupe y est téléporté. Le cercle « Sortie » de la grotte ramène devant l'entrée ; la grotte est détruite
 quand plus personne n'est dedans (sortie, mort ou départ du jeu).
 
 5 paliers (réglages dans `src/partage/Grottes.lua`) : plus on descend, plus les minerais sont **rares et résistants**
-(du charbon à −50 m jusqu'à l'or seul à −500 m) et plus les **mobs** sont dangereux (chauves-souris, zombies,
+(du charbon à −50 m jusqu'à surtout de l'or à −500 m) et plus les **mobs** sont dangereux (chauves-souris, zombies,
 rampants, brutes, et l'Exécuteur maudit en boss à −500 m). Chaque palier a un équipement **conseillé** :
 
 | Palier | Pioche (puissance) | Épée (dégâts) | Défense |
@@ -365,7 +369,52 @@ rampants, brutes, et l'Exécuteur maudit en boss à −500 m). Chaque palier a u
 | −500 m Cœur maudit | 8 | 230 | 100 |
 
 Combat : les mobs (sans Humanoid, déplacés par le serveur) se battent à l'épée ; la défense réduit les dégâts reçus
-(`défense / (défense + 60)`). Les nœuds de minerai se cassent à la pioche, par le chef ou son invité.
+(`défense / (défense + 60)`). Coup reçu : le mob flashe orange et lâche quelques éclats
+(`src/client/EffetCoupMob.client.lua`, déclenché par l'attribut `DernierCoup` posé par le serveur). Les nœuds de minerai se cassent à la pioche, par le chef ou son invité.
+
+**Relief** : les salles sont à des hauteurs très différentes (jusqu'à ~36 studs d'écart), reliées par des pentes
+(≤ ~32°) ou des galeries en marches de 2 studs ; certaines salles sont hautes, certains passages bas (plafond ≥ 11) ;
+fosses peu profondes (≤ 4 studs, on en ressort) et corniches (≤ 4,5 studs, à sauter). Tout reste praticable à pied,
+la salle du fond et le cercle de sortie sont toujours reliés.
+
+**Zone sûre** : ni minerai ni mob ne naît dans un rayon de `Grottes.ZONE_SURE` (55 studs) autour de l'arrivée, et
+les mobs n'entrent jamais dans le refuge (`Grottes.ZONE_REFUGE`, 25 studs). La chaîne départ → boss est creusée en
+dernier et vérifiée (sinon la grotte est regénérée avec une autre graine).
+**Taille** : bloc de roche 360 × 190 × 360 studs (1,5 × l'ancien) ; salles de 21 à 30 studs de rayon, galeries
+de ~24 à 33 studs de large, chaîne départ → boss de ~240 studs ; marches, pentes et corniches gardent leurs hauteurs.
+**Minerais en gisements (« zones de chaleur »)** : 1 nœud = 1 minerai ; `nombreMinerais` nœuds par grotte
+(−50 m 12–14, −100 m 12–13, −200 m 11–13, −350 m 11–13, −500 m 11–13), regroupés en **3–4 gisements de 2 à 5 nœuds**
+dans une même salle / alcôve (affleurant dans les murs ou le sol), jamais dans la zone sûre. Chaque gisement a un
+type dominant différent (70 % des nœuds) ; les 30 % restants sont tirés au poids. Un minerai `dominant = false`
+ne domine jamais un gisement : il reste rare.
+
+| Palier | Minerais (part estimée des nœuds) |
+|---|---|
+| −50 m | Charbon ~91 %, Cuivre ~9 % (≈ 1 par grotte) |
+| −100 m | Charbon ~35 %, Cuivre ~34 %, Fer ~31 % |
+| −200 m | Fer ~37 %, Or ~34 %, Cuivre ~29 % |
+| −350 m | Fer ~51 %, Or ~49 % |
+| −500 m | Or ~56 %, Fer ~44 % |
+
+**Minerais découverts** : profil `mineraisDecouverts = {[id] = true}` (`src/server/Donnees.lua`, champ ajouté sans
+changer de version ; ancien profil → déduit du sac et des objets forgés). Mis à vrai par le serveur à chaque minerai
+cassé (`Minerais.server.lua`, événement `MineraiCasse`), répliqué par l'attribut joueur `MineraisDecouverts`
+(« Charbon,Bronze »). Le menu se met à jour en direct.
+**Mobs par groupes de 2–3** : chaque gisement est **gardé** par un groupe (alerte si un joueur s'approche à 28 studs
+du gisement, poursuite limitée à 40 studs, puis retour). Les autres mobs errent aussi en groupes. Coup d'épée :
+le serveur pose `CoupDirection` puis `DernierCoup` sur le mob (avant `PV`) et le repousse de ~3 studs en 0,18 s
+(moins pour les gros mobs, à peine pour le boss, arrêté par les murs).
+
+**Mobs par palier** (PV joueur 150 ; dégâts avant réduction par la défense ; réglages `mobs` / `nombreMobs` dans
+`src/partage/Grottes.lua`) :
+
+| Palier | Mobs (PV / dégâts) | Nombre |
+|---|---|---|
+| −50 m | Zombie mineur 36 / 8, chauve-souris 18 / 5 | 9–11 |
+| −100 m | Zombie mineur 90 / 14, chauve-souris 35 / 9, rampant 70 / 12 | 10–12 |
+| −200 m | Zombie à lame 240 / 26, zombie mineur 180 / 22, rampant 180 / 22, chauve-souris 70 / 14 | 11–13 |
+| −350 m | Zombie mutant 650 / 50, zombie à lame 520 / 44, brute 1200 / 70, chauve-souris 140 / 26 | 11–14 |
+| −500 m | Zombie mutant 1400 / 80, brute 2300 / 105, zombie à lame 1100 / 72 + boss Exécuteur 9000 / 170 | 12–14 |
 
 | Fichier | Rôle |
 |---|---|
@@ -373,7 +422,7 @@ Combat : les mobs (sans Humanoid, déplacés par le serveur) se battent à l'ép
 | `src/server/Grottes.server.lua` | Entrée (panneau + cercle 0/2), groupe, invitations, lancement, sortie, nettoyage ; stats d'équipement (`StatPioche`, `StatEpee`, `StatDefense`). |
 | `src/monde/GrotteGenerateur.lua` | Grotte aléatoire en terrain (galeries, salles, décor, minerais, cercle de sortie). |
 | `src/server/MobsGrotte.lua` + `src/client/MobsGrotte.client.lua` | IA des mobs, coups d'épée, renforts, boss ; animations et barres de vie. |
-| `src/client/InterfaceGrottes.client.lua` | Choix de profondeur, groupe, invitations. |
+| `src/client/InterfaceGrottes.client.lua` | Choix de profondeur (barre, minerais du palier en silhouettes / couleurs), groupe, invitations. |
 
 ## Bordures de la carte (château fort, sommets, cascades)
 
