@@ -453,6 +453,22 @@ gisements ni à l'arrivée) :
   Dans une grotte, AmbianceGrotte pose l'attribut `GrotteActive` sur Lighting et `LumiereSouterraine` se met en
   retrait (les deux scripts ne se battent plus pour l'éclairage).
 
+**Sanctuaire et carte naine (palier 1, qui n'a pas de boss)**
+- **Sanctuaire** (`src/server/Sanctuaire.lua`, appelé par `Grottes.server.lua` après les mobs) : quand un joueur
+  franchit l'arche runique (22 studs), le modèle reçoit `SanctuaireEveil` → cinématique locale de 4 s
+  (`src/client/Sanctuaire.client.lua` : bandes noires, caméra vers l'arche, 11 glyphes qui s'allument un à un, yeux
+  des statues qui s'embrasent, titre « Le Sanctuaire de Haldur »). Puis une vague de **gardiens** (mobs du palier,
+  pv ×3, aura violette ; 3 + 1 par joueur en plus, max 5) surgit dans le temple ; compteur à l'écran
+  (`GardiensRestants`). Quand ils sont vaincus, le **coffre du sanctuaire** s'ouvre (`CoffreOuvert`) : chaque joueur
+  peut l'ouvrir une fois (40 pièces, 3 Bronze et un fragment de carte).
+- **Carte naine** (`src/partage/CarteNaine.lua`, `src/server/CarteNaine.lua`, `src/client/CarteNaine.client.lua`) :
+  8 fragments d'histoire du royaume englouti. Chaque grotte du palier 1 cache 5 rouleaux (fond du grand lac,
+  derrière la géode du temple, sous un champignon géant, sous un rideau de mousse, au fond d'une alcôve) ; chaque
+  joueur peut ramasser chaque rouleau une fois et reçoit un fragment qu'il n'a pas encore (+15 pièces). Carte
+  complète : +300 pièces. Sauvegardé dans le profil (`fragments`, attribut joueur `FragmentsCarte`).
+- Le contrôle « chemin bouché » du générateur ne régénère plus la grotte pour une simple bosse du sol (rayons à 3,
+  6 et 9 studs : bouché seulement si les trois touchent) : la grotte n'est plus générée trois fois de suite.
+
 | Fichier | Rôle |
 |---|---|
 | `src/partage/Grottes.lua` | Paliers, équipement conseillé, calcul du danger, noms des RemoteEvents. |
@@ -463,6 +479,8 @@ gisements ni à l'arrivée) :
 | `src/client/VieGrotte.client.lua` | Faune et animations des grottes (méduses, poissons, néons, papillons, gouttes). |
 | `src/client/AmbianceGrotte.client.lua` | Éclairage souterrain, couleurs et teintes de zone quand le joueur est dans une grotte. |
 | `src/client/FeuxFollets.client.lua` | Feux follets guides, lucioles, pas lumineux et lueur des méduses (palier 1). |
+| `src/server/Sanctuaire.lua` + `src/client/Sanctuaire.client.lua` | Éveil du sanctuaire (cinématique), vague de gardiens, coffre du temple (palier 1). |
+| `src/partage/CarteNaine.lua` + `src/server/CarteNaine.lua` + `src/client/CarteNaine.client.lua` | Fragments de la carte naine : cachettes, récompenses, sauvegarde, parchemin. |
 | `src/server/MobsGrotte.lua` + `src/client/MobsGrotte.client.lua` | IA des mobs, coups d'épée, renforts, boss ; animations et barres de vie. |
 | `src/client/InterfaceGrottes.client.lua` | Choix de profondeur (barre, minerais du palier en silhouettes / couleurs), groupe, invitations. |
 

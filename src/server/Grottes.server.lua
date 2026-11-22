@@ -17,6 +17,7 @@ local Forge = require(Partage:WaitForChild("Forge"))
 local Donnees = require(script.Parent:WaitForChild("Donnees"))
 local acces = require(script.Parent:WaitForChild("AccesMine"))
 local MobsGrotte = require(script.Parent:WaitForChild("MobsGrotte"))
+local Sanctuaire = require(script.Parent:WaitForChild("Sanctuaire")) -- palier 1 : arche, gardiens, coffre (+ fragments de carte)
 
 local monde = ServerStorage:WaitForChild("Monde")
 local D = require(monde:WaitForChild("Disposition"))
@@ -395,6 +396,8 @@ local function lancer(niveau)
 	end
 	local okMobs, mobs = pcall(MobsGrotte.peupler, grotte, niveau, partants)
 	if okMobs then exp.mobs = mobs else warn("[Grottes] Mobs : " .. tostring(mobs)) end
+	local okSanctuaire, errSanctuaire = pcall(Sanctuaire.preparer, exp)
+	if not okSanctuaire then warn("[Grottes] Sanctuaire : " .. tostring(errSanctuaire)) end
 	-- Le cercle se libère tout de suite pour le groupe suivant
 	groupe = nil
 	compteur()

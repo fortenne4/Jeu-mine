@@ -105,6 +105,10 @@ function GrotteDecor.decorer(ctx, infos, outils, opts)
 		end
 		return true
 	end
+	-- décor qui a du volume (sans collision) : jamais en plein passage, on le traverserait comme un fantôme
+	local function solLibre(p: Vector3, marge: number, passage: number): boolean
+		return horsGisements(p, marge) and not (infos.surChemin and infos.surChemin(p, passage))
+	end
 
 	-- ===== 1. Stalactites (avec gouttes), stalagmites =====
 	for _ = 1, 55 do
@@ -132,7 +136,7 @@ function GrotteDecor.decorer(ctx, infos, outils, opts)
 		local pt = chemin[rng:NextInteger(1, #chemin)]
 		local lat = Vector3.new(-pt.t.Z, 0, pt.t.X) * (if rng:NextNumber() < 0.5 then -1 else 1)
 		local hit = solSous(pt.p + lat * pt.r * rng:NextNumber(0.6, 0.85))
-		if hit and loinDu(hit.Position, depart.p, 18) and horsGisements(hit.Position, 4) then
+		if hit and loinDu(hit.Position, depart.p, 18) and solLibre(hit.Position, 4, 4) then
 			local h = rng:NextNumber(3, 9)
 			local cf = CFrame.new(hit.Position - Vector3.new(0, 0.4, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
 			if not (modeles and poser(decor, "^Stalagmite%d+$", cf, h / 8, rng, COULEURS, "bas")) then
@@ -149,7 +153,7 @@ function GrotteDecor.decorer(ctx, infos, outils, opts)
 					local a = rng:NextNumber(0, math.pi * 2)
 					local p = s.p + Vector3.new(math.cos(a), 0, math.sin(a)) * s.r * 0.72
 					local sol = solSous(p)
-					if sol and horsGisements(sol.Position, 6) then
+					if sol and solLibre(sol.Position, 6, 6) then
 						local plafond = lancer(sol.Position + Vector3.new(0, 1, 0), Vector3.new(0, 60, 0))
 						if plafond then
 							local h = plafond.Position.Y - sol.Position.Y + 1.5
@@ -260,7 +264,7 @@ function GrotteDecor.decorer(ctx, infos, outils, opts)
 		local pt = chemin[rng:NextInteger(1, #chemin)]
 		local lat = Vector3.new(-pt.t.Z, 0, pt.t.X) * (if rng:NextNumber() < 0.5 then -1 else 1)
 		local sol = solSous(pt.p + lat * pt.r * 0.8)
-		if sol and loinDu(sol.Position, depart.p, 14) and horsGisements(sol.Position, 3) then
+		if sol and loinDu(sol.Position, depart.p, 14) and solLibre(sol.Position, 3, 2.5) then
 			champignons(sol.Position, rng:NextNumber(0.7, 1.3), rng:NextNumber() < 0.2)
 		end
 	end
@@ -360,7 +364,7 @@ function GrotteDecor.decorer(ctx, infos, outils, opts)
 		if not s.depart and not s.boss then
 			local a = rng:NextNumber(0, math.pi * 2)
 			local sol = solSous(s.p + Vector3.new(math.cos(a), 0, math.sin(a)) * s.r * 0.55)
-			if sol and horsGisements(sol.Position, 8) then
+			if sol and solLibre(sol.Position, 8, 5) then
 				nDebris += 1
 				local base = CFrame.new(sol.Position) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
 				local wagon = B.wagonnet(decor, base * CFrame.new(0, 1.6, 0) * CFrame.Angles(0, 0, math.rad(rng:NextInteger(70, 100))), nil, rng)

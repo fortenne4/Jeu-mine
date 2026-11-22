@@ -15,6 +15,8 @@
 	- zones d'ambiance (« GrotteZone ») lues par AmbianceGrotte.client.lua
 	Le reste (stalactites, colonnes, racines, restes de mine) vient de GrotteDecor avec une palette froide.
 	Tout est décoratif (aucune collision) ; rien dans la zone d'arrivée, sur les gisements ni sur le chemin. ]]
+local CollectionService = game:GetService("CollectionService")
+local CarteNaine = require(game:GetService("ReplicatedStorage"):WaitForChild("Partage"):WaitForChild("CarteNaine"))
 local O = require(script.Parent.Outils)
 local M3 = require(script.Parent.Modeles3D)
 local B = require(script.Parent.Batiments)
@@ -201,6 +203,22 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 		end
 		return true
 	end
+	-- points du chemin (galeries et traversées de salles, ~3,5 studs d'écart) : le décor qui a du volume reste
+	-- hors du passage (sans collision, on le traverserait), les lacs ne le coupent jamais
+	local ptsChemin = {}
+	for _, g in galeries do
+		for _, pt in g.pts do
+			table.insert(ptsChemin, pt.p)
+		end
+	end
+	local function surChemin(p: Vector3, marge: number): boolean
+		for _, q in ptsChemin do
+			if math.abs(p.Y - q.Y) < 12 and plat(p - q).Magnitude < marge then
+				return true
+			end
+		end
+		return false
+	end
 
 	local zones = {}
 	local function zone(centre: Vector3, rayon: number, teinte: Color3, nom: string)
@@ -318,6 +336,9 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 		zone(depart.p, 34, P.ambre, "Camp")
 	end
 
+	-- repères notés au fil du décor pour le sanctuaire et les cachettes de fragments (section 16)
+	local reperes = {champis = {}, mousses = {}}
+
 	-- ===== 2. Lacs : cuvettes creusées en gradins de cylindres (bords en pente douce) =====
 	local lacs = {}
 	local function chercherLac(s, f0: number)
@@ -325,9 +346,9 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 		-- entre les gisements (9 studs de marge autour de leurs rochers), l'arrivée et les parois
 		local c, f = nil, 0
 		local a0 = rng:NextNumber(0, math.pi * 2)
-		for _, dr in {0.12, 0.3, 0.45} do
-			for k = 0, 15 do
-				local a = a0 + k * math.pi / 8
+		for _, dr in {0.12, 0.25, 0.38, 0.5} do
+			for k = 0, 23 do
+				local a = a0 + k * math.pi / 12
 				local e = s.p + Vector3.new(math.cos(a), 0, math.sin(a)) * s.r * dr
 				local place = math.min(f0, s.r * (1 - dr) - 2)
 				for _, g in infos.gisements or {} do
@@ -336,12 +357,18 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 					end
 				end
 				place = math.min(place, plat(e - depart.p).Magnitude - 30)
+				for _, q in ptsChemin do -- le lac ne coupe jamais le passage (on devrait nager)
+					if math.abs(e.Y - q.Y) < 14 then
+						place = math.min(place, plat(e - q).Magnitude - 3)
+					end
+				end
 				if place > f then
 					c, f = e, place
 				end
 			end
 		end
-		if f < 7 then
+		-- sous 9 studs, la cuvette n'est qu'un trou sombre avec un fond d'eau (voxels de 4) : pas de lac
+		if f < 9 then
 			c = nil
 		end
 		return c, f
@@ -399,6 +426,18 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 			roles[site.s] = "lac"
 		end
 	end
+	-- points d'apparition des mobs tombés dans un lac : repoussés sur la berge (sinon le mob naît sous l'eau)
+	local pm = infos.pointsMobs or {}
+	for i, q in pm do
+		for _, lac in lacs do
+			local v = plat(q - lac.c)
+			if math.abs(q.Y - lac.solY) < 10 and v.Magnitude < lac.f + 2 then
+				local dir = unite(v, Vector3.xAxis)
+				local sol = solEn(Vector3.new(lac.c.X, lac.solY, lac.c.Z) + dir * (lac.f + 3.5))
+				pm[i] = if sol then sol.Position else Vector3.new(lac.c.X, lac.solY, lac.c.Z) + dir * (lac.f + 3.5)
+			end
+		end
+	end
 
 	-- ===== 3. Ruines naines : arche runique devant la salle du boss, statues gardiennes, temple =====
 	local axeBoss = unite(plat(boss.p - (infos.avantBoss or depart.p)), Vector3.new(0, 0, -1))
@@ -442,6 +481,27 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 				local arche = poser(ctx, "^Arche$", CFrame.lookAt(sol.Position - Vector3.new(0, 0.6, 0), sol.Position - Vector3.new(0, 0.6, 0) + t), k)
 				if arche then
 					arche.Name = "ArcheRunique"
+					-- runes éteintes : elles s'allument quand le sanctuaire s'éveille (Sanctuaire.client)
+					local rune = piece(arche, "Rune")
+					if rune then
+						CollectionService:RemoveTag(rune, "GrottePulse")
+						rune.Color = Color3.fromRGB(26, 46, 56)
+						O.tag(rune, "RuneArche")
+					end
+				end
+				reperes.arche, reperes.archeT, reperes.archeK = sol.Position, t, k
+				-- glyphes le long de la voûte (face côté arrivant), allumés un par un pendant la cinématique
+				local cote = t:Cross(Vector3.yAxis).Unit
+				local centreVoute = sol.Position + Vector3.new(0, 10 * k, 0) - t * 1.9 * k
+				for i = 0, 10 do
+					local a = math.pi * i / 10
+					local p = centreVoute + (cote * math.cos(a) + Vector3.yAxis * math.sin(a)) * 8.1 * k
+					local g = O.decor(O.bloc(decor, Vector3.new(0.5, 0.9, 0.12) * k, CFrame.lookAt(p, p - t) * CFrame.Angles(0, 0, a - math.pi / 2),
+						P.cyan, M.Neon, "GlypheArche"))
+					g.Transparency = 1
+					g.CastShadow = false
+					g:SetAttribute("Ordre", i)
+					O.tag(g, "RuneArche")
 				end
 				axeBoss = t
 			end
@@ -467,7 +527,11 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 						c.Material = Enum.Material.Slate
 						if teinte == "Pivot" then
 							c.Transparency = 1
-						elseif teinte == "Yeux" or teinte == "Pupilles" or teinte == "Lueur" or teinte == "Peinture" then
+						elseif teinte == "Yeux" or teinte == "Pupilles" then
+							-- yeux éteints : ils s'embrasent à l'éveil du sanctuaire (Sanctuaire.client)
+							c.Color, c.Material = Color3.fromRGB(30, 34, 44), M.Neon
+							O.tag(c, "YeuxGardien")
+						elseif teinte == "Lueur" or teinte == "Peinture" then
 							c.Color, c.Material = P.cyan, M.Neon
 							O.tag(c, "GrottePulse")
 						elseif teinte == "Barbe" or teinte == "Cheveux" or teinte == "Sourcils" then
@@ -501,6 +565,7 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 				end
 			end
 		end
+		reperes.fond = fond
 		if fond and modeles then
 			local n = fond.Normal
 			local m = poser(ctx, "^Geode%d+$", outils.axeVers(fond.Position - n * 2 - Vector3.new(0, 1.5, 0), (n + Vector3.new(0, 1, 0)).Unit), 3.2)
@@ -516,7 +581,7 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 		for k = 1, 6 do
 			local a = k / 6 * math.pi * 2 + 0.3
 			local sol = solEn(centre + Vector3.new(math.cos(a), 0, math.sin(a)) * rb * 0.8)
-			if sol and modeles then
+			if sol and modeles and not surChemin(sol.Position, 5) then
 				poser(ctx, "^ColonneBrisee%d+$", CFrame.new(sol.Position - Vector3.new(0, 0.5, 0)) * CFrame.Angles(0, rng:NextNumber(0, 6), 0), rng:NextNumber(1, 1.5))
 			end
 		end
@@ -766,7 +831,7 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 				end
 			end
 			local sol = not proche and solEn(p)
-			if sol and libre(sol.Position, 5) then
+			if sol and libre(sol.Position, 5) and not surChemin(sol.Position, 7) then
 				local plafond = plafondEn(sol.Position + Vector3.new(0, 1, 0))
 				local libreH = if plafond then plafond.Position.Y - sol.Position.Y else 40
 				local k3 = math.min(rng:NextNumber(0.8, 1.45), (libreH - 3) / 14)
@@ -778,13 +843,14 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 						lumiere(lam, P.magenta, 0.75, 18)
 					end
 					table.insert(interdits, {centre = sol.Position, rayon = 3})
+					table.insert(reperes.champis, sol.Position)
 				end
 			end
 		end
 		for _ = 1, 18 do
 			local a = rng:NextNumber(0, math.pi * 2)
 			local sol = solEn(foret.p + Vector3.new(math.cos(a), 0, math.sin(a)) * foret.r * rng:NextNumber(0.3, 0.9))
-			if sol and libre(sol.Position, 2) then
+			if sol and libre(sol.Position, 2) and not surChemin(sol.Position, 2.5) then
 				GD.poser(decor, "^Champignon%d+$", CFrame.new(sol.Position - Vector3.new(0, 0.2, 0)) * CFrame.Angles(0, rng:NextNumber(0, 6), 0),
 					rng:NextNumber(0.8, 1.6), rng, COUL_GENERIQUE, "bas")
 			end
@@ -811,7 +877,7 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 				for _ = 1, rng:NextInteger(2, 4) do
 					local p = coin(s, s.r * rng:NextNumber(0.6, 0.8))
 					local sol = solEn(p)
-					if sol and libre(sol.Position, 4) then
+					if sol and libre(sol.Position, 4) and not surChemin(sol.Position, 5) then
 						poser(ctx, if rng:NextNumber() < 0.7 then "^ColonneBrisee%d+$" else "^Gravats$",
 							CFrame.new(sol.Position - Vector3.new(0, 0.5, 0)) * CFrame.Angles(0, rng:NextNumber(0, 6), 0), rng:NextNumber(0.9, 1.4))
 						table.insert(interdits, {centre = sol.Position, rayon = 4})
@@ -831,7 +897,7 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 					if (pt.p - derniere).Magnitude > 26 and plat(pt.p - boss.p).Magnitude > rb + 4 and plat(pt.p - depart.p).Magnitude > 22 then
 						local lat = Vector3.new(-pt.t.Z, 0, pt.t.X) * cote
 						local sol = solEn(pt.p + lat * pt.r * 0.72)
-						if sol then
+						if sol and libre(sol.Position, 1) then -- jamais dans un lac
 							local vers = -lat
 							local cf = CFrame.fromMatrix(sol.Position - Vector3.new(0, 0.3, 0), vers, Vector3.yAxis)
 							local m = poser(ctx, "^LanterneVers$", cf, 1.45)
@@ -852,7 +918,7 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 	-- ===== 9. Décor générique (stalactites, colonnes, racines, restes de mine) en palette froide =====
 	GD.decorer(ctx, {
 		depart = depart, boss = boss, chemin = chemin, lieux = salles, galeries = galeries,
-		gisements = infos.gisements, interdits = interdits, salleBoss = infos.salleBoss, avantBoss = infos.avantBoss,
+		gisements = infos.gisements, interdits = interdits, surChemin = surChemin, salleBoss = infos.salleBoss, avantBoss = infos.avantBoss,
 	}, outils, {cristaux = false, bassins = false, torches = false, poussieres = false, boss = false, couleurs = COUL_GENERIQUE})
 
 	-- ===== 10. Géodes cyan / améthyste aux parois =====
@@ -931,6 +997,7 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 			if haut and haut.Position.Y - pt.p.Y > 11 then
 				local pos = haut.Position + Vector3.new(0, 0.6, 0)
 				poser(ctx, "^Mousse%d+$", CFrame.fromMatrix(pos, unite(plat(pt.t), Vector3.xAxis), Vector3.yAxis), rng:NextNumber(0.8, 1.25), "haut")
+				table.insert(reperes.mousses, {pt = pt, lat = lat})
 			end
 		end
 	end
@@ -1115,6 +1182,120 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 	guide.Parent = ctx.modele
 	ctx.modele:SetAttribute("Veines", nVeines)
 	ctx.modele:SetAttribute("Remplissage", nRemplissage)
+
+	-- ===== 16. Sanctuaire (coffre du temple) et cachettes des fragments de la carte naine =====
+	-- Repères lus par Sanctuaire.lua (serveur) et Sanctuaire.client.lua : arche, axe d'arrivée, centre du temple
+	local modele = ctx.modele
+	if reperes.arche then
+		modele:SetAttribute("ArcheSanctuaire", reperes.arche)
+		modele:SetAttribute("ArcheAxe", reperes.archeT)
+	end
+	local centreT = infos.salleBoss or boss.p
+	modele:SetAttribute("TempleSanctuaire", centreT)
+	do -- coffre fermé entre le centre du temple et la géode du fond, tourné vers l'arrivant
+		local vers = if reperes.fond then unite(plat(reperes.fond.Position - centreT), axeBoss) else axeBoss
+		local sol = solEn(centreT + vers * rb * 0.38) or solEn(centreT)
+		if sol then
+			local base = CFrame.lookAt(sol.Position, sol.Position - vers)
+			local m = O.modele(decor, "CoffreSanctuaire")
+			local bois, fer, dore = Color3.fromRGB(86, 56, 34), Color3.fromRGB(70, 72, 80), Color3.fromRGB(255, 204, 92)
+			local caisse = O.decor(O.bloc(m, Vector3.new(4.2, 2.2, 2.8), base * CFrame.new(0, 1.1, 0), bois, M.Bois, "Caisse"))
+			for _, x in {-1.5, 1.5} do
+				O.decor(O.bloc(m, Vector3.new(0.3, 2.3, 2.9), base * CFrame.new(x, 1.1, 0), fer, M.Rouille, "Bande"))
+			end
+			O.decor(O.bloc(m, Vector3.new(0.7, 0.8, 0.2), base * CFrame.new(0, 1.7, -1.45), dore, M.Metal, "Serrure"))
+			local tresor = O.decor(O.bloc(m, Vector3.new(3.6, 0.5, 2.2), base * CFrame.new(0, 2.05, 0), dore, M.Neon, "Tresor"))
+			tresor.Transparency = 1
+			local charniere = base * CFrame.new(0, 2.2, 1.4) -- arrière du coffre (la face regarde -Z)
+			local couvercle = O.decor(O.bloc(m, Vector3.new(4.3, 0.7, 2.9), charniere * CFrame.new(0, 0.35, -1.45), bois, M.Bois, "Couvercle"))
+			couvercle:SetAttribute("Charniere", charniere)
+			local lueur = Instance.new("PointLight")
+			lueur.Color, lueur.Brightness, lueur.Range, lueur.Enabled = dore, 2, 18, false
+			lueur.Parent = tresor
+			emetteur(tresor, {Name = "Eclat", Texture = TEX_ETINCELLE, LightEmission = 1, Color = ColorSequence.new(dore), Enabled = false,
+				Size = NumberSequence.new({kp(0, 0.4), kp(1, 0)}), Lifetime = NumberRange.new(0.8, 1.6), Rate = 30, Speed = NumberRange.new(3, 7),
+				SpreadAngle = Vector2.new(35, 35), EmissionDirection = Enum.NormalId.Top, Acceleration = Vector3.new(0, -6, 0)})
+			local invite = Instance.new("ProximityPrompt")
+			invite.ActionText, invite.ObjectText = "Ouvrir", "Coffre du sanctuaire"
+			invite.HoldDuration, invite.MaxActivationDistance, invite.RequiresLineOfSight = 0.8, 10, false
+			invite.Enabled = false -- activée par Sanctuaire.lua quand les gardiens sont vaincus
+			invite:SetAttribute("CoffreSanctuaire", true)
+			invite.Parent = caisse
+		end
+	end
+	-- cachettes : fond du grand lac, derrière la géode du temple, sous un champignon géant, sous un rideau de
+	-- mousse, au fond d'une alcôve ; chaque joueur peut ramasser chaque cachette une fois (CarteNaine.lua)
+	local caches = {}
+	local function cachette(sol, ou: string)
+		if not sol or #caches >= CarteNaine.CACHES_PAR_GROTTE then
+			return
+		end
+		local pos = sol.Position
+		if (pos - depart.p).Magnitude < 30 then
+			return
+		end
+		for _, c in caches do
+			if (c - pos).Magnitude < 22 then
+				return
+			end
+		end
+		local m = O.modele(decor, "FragmentCarte")
+		local cf = CFrame.new(pos + Vector3.new(0, 0.28, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+		local couche = cf * CFrame.Angles(0, 0, math.pi / 2)
+		local rouleau = O.decor(O.cylindre(m, 1.5, 0.5, couche, Color3.fromRGB(226, 206, 160), M.Lisse, "Rouleau"))
+		O.decor(O.cylindre(m, 0.28, 0.56, couche, Color3.fromRGB(150, 40, 40), M.Tissu, "Ruban"))
+		O.decor(O.ellipsoide(m, Vector3.new(0.3, 0.12, 0.3), cf * CFrame.new(0, 0.28, 0), P.cyan, M.Neon, "Sceau"))
+		emetteur(rouleau, {Name = "Scintille", Texture = TEX_ETINCELLE, LightEmission = 1, LightInfluence = 0, Color = ColorSequence.new(P.cyan, Color3.new(1, 1, 1)),
+			Size = NumberSequence.new({kp(0, 0), kp(0.3, 0.35), kp(1, 0)}), Lifetime = NumberRange.new(0.8, 1.4), Rate = 4,
+			Speed = NumberRange.new(0.3, 0.8), SpreadAngle = Vector2.new(180, 180)})
+		local invite = Instance.new("ProximityPrompt")
+		invite.ActionText, invite.ObjectText = "Ramasser", "Fragment de carte"
+		invite.HoldDuration, invite.MaxActivationDistance, invite.RequiresLineOfSight = 0.3, 8, false
+		invite:SetAttribute("FragmentCarte", true)
+		invite.Parent = rouleau
+		m:SetAttribute("Cachette", ou)
+		m:SetAttribute("PrisPar", ",")
+		O.tag(m, "FragmentCarte")
+		table.insert(caches, pos)
+	end
+	if lacs[1] then
+		local lac = lacs[1]
+		local a = rng:NextNumber(0, math.pi * 2)
+		cachette(solEn(Vector3.new(lac.c.X, lac.solY, lac.c.Z) + Vector3.new(math.cos(a), 0, math.sin(a)) * lac.rw * 0.4, 3), "lac")
+	end
+	if reperes.fond then
+		cachette(solEn(reperes.fond.Position + plat(reperes.fond.Normal) * 3.5, 8), "temple")
+	end
+	if #reperes.champis > 0 then
+		local c = reperes.champis[rng:NextInteger(1, #reperes.champis)]
+		local a = rng:NextNumber(0, math.pi * 2)
+		cachette(solEn(c + Vector3.new(math.cos(a), 0, math.sin(a)) * 1.8), "foret")
+	end
+	for _, s in salles do
+		if not s.depart and not s.boss and s.r < 14 then -- alcôve (petite salle annexe)
+			local p = coin(s, s.r * 0.6)
+			cachette(solEn(p), "alcove")
+			break
+		end
+	end
+	local essais = 0
+	while #caches < CarteNaine.CACHES_PAR_GROTTE and essais < 40 do
+		essais += 1
+		if #reperes.mousses > 0 and essais <= 20 then
+			local r = reperes.mousses[rng:NextInteger(1, #reperes.mousses)]
+			local sol = solEn(r.pt.p + r.lat * r.pt.r * 0.85)
+			if sol and not surChemin(sol.Position, 3) then
+				cachette(sol, "mousse")
+			end
+		elseif #candidates > 0 then
+			local s = candidates[rng:NextInteger(1, #candidates)]
+			local sol = solEn(coin(s, s.r * 0.75))
+			if sol and not surChemin(sol.Position, 3) then
+				cachette(sol, "salle")
+			end
+		end
+	end
+	modele:SetAttribute("Cachettes", #caches)
 
 	-- ===== 14. Mise en eau des lacs (en dernier : les rayons du décor ignorent l'eau, ceux du générateur non) =====
 	-- même sphère que la cuvette, remplie d'eau ; tout ce qui est au-dessus de la surface est remis à l'identique

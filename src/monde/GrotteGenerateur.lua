@@ -581,13 +581,20 @@ function Generateur.construire(niveau, index, graine, proprietaire, invite, essa
 	local attente = os.clock()
 	repeat task.wait() until lancer(depart.p + Vector3.new(0, 5, 0), Vector3.new(0, -40, 0)) or os.clock() - attente > 3
 
-	-- Vérification départ → boss : rayons à 3 studs du sol le long de la chaîne ; bouchée → nouvelle graine
+	-- Vérification départ → boss : rayons le long de la chaîne ; bouchée → nouvelle graine.
+	-- Un tronçon n'est bouché que si les rayons à 3, 6 ET 9 studs du sol touchent tous la roche : les bosses du sol
+	-- entre deux points (qu'on franchit en marchant) arrêtaient le seul rayon à 3 studs, et la grotte était alors
+	-- générée trois fois de suite pour rien (chargement bien plus long).
 	local bouchee = false
 	for _, g in galeries do
 		if g.principal then
 			for i = 2, #g.pts do
-				local a, b = g.pts[i - 1].p + Vector3.new(0, 3, 0), g.pts[i].p + Vector3.new(0, 3, 0)
-				if lancer(a, b - a) then bouchee = true; break end
+				local ferme = true
+				for _, hauteur in {3, 6, 9} do
+					local a, b = g.pts[i - 1].p + Vector3.new(0, hauteur, 0), g.pts[i].p + Vector3.new(0, hauteur, 0)
+					if not lancer(a, b - a) then ferme = false; break end
+				end
+				if ferme then bouchee = true; break end
 			end
 		end
 		if bouchee then break end
@@ -696,7 +703,7 @@ function Generateur.construire(niveau, index, graine, proprietaire, invite, essa
 	if #chemin > 0 then
 		local theme = if niveau.id == 1 then GrotteLueurs else GrotteDecor
 		local ok, err = pcall(theme.decorer, ctx, {
-			depart = depart, boss = boss, chemin = chemin, lieux = lieux, galeries = galeries,
+			depart = depart, boss = boss, chemin = chemin, lieux = lieux, galeries = galeries, pointsMobs = pointsMobs,
 			gisements = listeGisements, salleBoss = salleBoss, avantBoss = (function() for _, l in liens do if l.principal and l[2] == boss then return l[1].p end end return nil end)(),
 		}, {
 			lancer = lancer, paroi = paroi, solSous = solSous, plat = plat, axeVers = axeVers,
