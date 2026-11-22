@@ -3,10 +3,22 @@
 local D = require(script.Parent.Disposition)
 local O = require(script.Parent.Outils)
 local B = require(script.Parent.Batiments)
+local Lampadaires = require(script.Parent.Lampadaires)
 local T = require(script.Parent.Terrain)
 local M, C = O.M, O.C
 
 local Village = {}
+
+-- Aménagement de la terrasse de la taverne (coordonnées locales de la façade).
+local TERRASSE_HAUSSE_TOIT = 3.5
+local TERRASSE_AVANCE_TABLES = 8.3
+local TERRASSE_ESPACEMENT_TABLES = 11
+local TERRASSE_POSITION_MARGOT = Vector3.new(-6, 0, -9)
+local TERRASSE_ECART_TONNEAUX = 17.5
+local TAVERNE_MARGE_CHEMIN = 4 -- espace d'herbe visé devant le mobilier
+local TAVERNE_RECUL = 11 + TAVERNE_MARGE_CHEMIN
+local TAVERNE_LANTERNE_COTE = Vector3.new(19.3, 6.6, 0)
+local TAVERNE_LANTERNE_PORTEE = 22
 
 local function sol(v)
 	return Vector3.new(v.X, 0, v.Z)
@@ -538,7 +550,7 @@ function Village.preparerSentiers(village)
 	for _, d in village:GetDescendants() do
 		if d:IsA("Model") then
 			local accueil = d:GetAttribute("Accueil")
-			if typeof(accueil) == "Vector3" then
+			if typeof(accueil) == "Vector3" and d.Name ~= "Taverne" then
 				local p = Vector2.new(accueil.X, accueil.Z)
 				local q, distance, axe = plusProche(p)
 				if q and distance > 2.5 and distance < 70 then
@@ -727,30 +739,31 @@ end
 local function terrasseTaverne(m, cf, profondeur, largeur, couleur)
 	local t = O.modele(m, "Terrasse")
 	local hx, z0, z1 = largeur / 2, -profondeur, 0
+	local hausse = TERRASSE_HAUSSE_TOIT
 	for _, x in {-hx, hx} do
 		for _, z in {z0, z1} do
-			O.bloc(t, Vector3.new(0.8, 9, 0.8), cf * CFrame.new(x, 4.5, z), C.BoisFonce, M.Bois, "Poteau")
+			O.bloc(t, Vector3.new(0.8, 9 + hausse, 0.8), cf * CFrame.new(x, (9 + hausse) / 2, z), C.BoisFonce, M.Bois, "Poteau")
 		end
-		O.bloc(t, Vector3.new(0.6, 0.7, profondeur + 1), cf * CFrame.new(x, 9, (z0 + z1) / 2), C.Bois, M.Bois, "Poutre")
+		O.bloc(t, Vector3.new(0.6, 0.7, profondeur + 1), cf * CFrame.new(x, 9 + hausse, (z0 + z1) / 2), C.Bois, M.Bois, "Poutre")
 	end
 	for k = 0, 5 do
-		O.decor(O.bloc(t, Vector3.new(largeur + 1, 0.4, 0.4), cf * CFrame.new(0, 9.3, z0 + k * profondeur / 5), C.Bois, M.Bois, "Chevron"))
+		O.decor(O.bloc(t, Vector3.new(largeur + 1, 0.4, 0.4), cf * CFrame.new(0, 9.3 + hausse, z0 + k * profondeur / 5), C.Bois, M.Bois, "Chevron"))
 	end
-	O.bloc(t, Vector3.new(largeur + 1.2, 0.8, 0.7), cf * CFrame.new(0, 9, z0), C.BoisFonce, M.Bois, "PoutreFacade")
+	O.bloc(t, Vector3.new(largeur + 1.2, 0.8, 0.7), cf * CFrame.new(0, 9 + hausse, z0), C.BoisFonce, M.Bois, "PoutreFacade")
 	-- guirlande de petites lumières qui pend en arcs sur la façade de la terrasse
 	for i = 0, 22 do
 		local x = -hx + i * largeur / 22
 		local creux = math.sin(((i % 11) / 11) * math.pi) * 0.9
-		O.decor(O.ellipsoide(t, Vector3.new(0.45, 0.45, 0.45), cf * CFrame.new(x, 8.3 - creux, z0 - 0.1), Color3.fromRGB(255, 214, 140), M.Neon, "Ampoule"))
+		O.decor(O.ellipsoide(t, Vector3.new(0.45, 0.45, 0.45), cf * CFrame.new(x, 8.3 + hausse - creux, z0 - 0.1), Color3.fromRGB(255, 214, 140), M.Neon, "Ampoule"))
 	end
 	-- enseigne au-dessus de l'entrée de la terrasse
-	local planche = O.bloc(t, Vector3.new(16, 2.8, 0.45), cf * CFrame.new(0, 11.2, z0 - 0.1), C.BoisFonce, M.Planches, "Enseigne")
+	local planche = O.bloc(t, Vector3.new(16, 2.8, 0.45), cf * CFrame.new(0, 11.2 + hausse, z0 - 0.1), C.BoisFonce, M.Planches, "Enseigne")
 	O.texte(planche, Enum.NormalId.Front, "TAVERNE DU PIC DORÉ")
 	for _, y in {9.7, 12.7} do
-		O.decor(O.bloc(t, Vector3.new(16.4, 0.32, 0.6), cf * CFrame.new(0, y, z0 - 0.1), couleur, M.Tissu, "Lisere"))
+		O.decor(O.bloc(t, Vector3.new(16.4, 0.32, 0.6), cf * CFrame.new(0, y + hausse, z0 - 0.1), couleur, M.Tissu, "Lisere"))
 	end
 	for _, x in {-8.6, 8.6} do
-		O.bloc(t, Vector3.new(0.5, 2.6, 0.5), cf * CFrame.new(x, 10.6, z0 - 0.1), C.BoisFonce, M.Bois, "Support")
+		O.bloc(t, Vector3.new(0.5, 2.6, 0.5), cf * CFrame.new(x, 10.6 + hausse, z0 - 0.1), C.BoisFonce, M.Bois, "Support")
 	end
 	return t
 end
@@ -848,23 +861,35 @@ local function boutiques(v, rng, obstacles)
 	-- ===== La taverne (Margot) : la plus grande, terrasse couverte et guirlandes =====
 	local dore = Color3.fromRGB(196, 150, 44)
 	dir = Vector3.new(57, 0, 36)
+	local ensembleTaverne = O.modele(m, "EnsembleTaverne")
 	local taverne
-	taverne, cf, largeur, facade = batimentVendeur(m, dir, STAND + 9, {largeur = 26, echelle = 0.98, mur = Color3.fromRGB(238, 222, 196),
+	taverne, cf, largeur, facade = batimentVendeur(ensembleTaverne, dir, STAND + 9 + TAVERNE_RECUL, {largeur = 26, echelle = 0.98, mur = Color3.fromRGB(238, 222, 196),
 		toit = C.ToitRouge, volet = C.Volet, nom = "Taverne", rng = rng, modele = 1, prestige = true, couleur = dore})
 	table.insert(obstacles, cf.Position)
 	local devant = cf * CFrame.new(0, 0, facade) -- pied de la façade
-	terrasseTaverne(m, devant, 8.5, 22, dore)
+	terrasseTaverne(ensembleTaverne, devant, 8.5, 22, dore)
+	-- Applique sur le mur latéral, côté sombre entre la taverne et le chemin.
+	local applique = O.modele(ensembleTaverne, "AppliqueCoteTaverne")
+	local lanterneCote = B.applique(applique, devant * CFrame.new(TAVERNE_LANTERNE_COTE) * CFrame.Angles(0, -math.pi / 2, 0))
+	local lumiereCote = lanterneCote:FindFirstChildWhichIsA("PointLight", true)
+	if lumiereCote then lumiereCote.Range = TAVERNE_LANTERNE_PORTEE end
 	taverne:SetAttribute("Accueil", sol((devant * CFrame.new(0, 0, -11.5)).Position))
 	taverne:SetAttribute("LargeurAllee", 7)
-	for _, x in {-7, 0, 7} do
-		B.tableTaverne(m, devant * CFrame.new(x, 0, -5.2))
+	for _, x in {-TERRASSE_ESPACEMENT_TABLES, 0, TERRASSE_ESPACEMENT_TABLES} do
+		B.tableTaverne(ensembleTaverne, devant * CFrame.new(x, 0, -5.2 - TERRASSE_AVANCE_TABLES))
 	end
-	for i, x in {-12.8, 12.8} do
-		B.tonneau(m, devant * CFrame.new(x, 0, -1.5))
-		B.tonneau(m, devant * CFrame.new(x, 0, -4))
-		B.tonneau(m, devant * CFrame.new(x, 3.25, -2.75) * CFrame.Angles(0, i, 0)) -- posé sur les deux autres (sans les traverser)
+	for i, x in {-TERRASSE_ECART_TONNEAUX, TERRASSE_ECART_TONNEAUX} do
+		B.tonneau(ensembleTaverne, devant * CFrame.new(x, 0, -1.5 - TERRASSE_AVANCE_TABLES))
+		B.tonneau(ensembleTaverne, devant * CFrame.new(x, 0, -4 - TERRASSE_AVANCE_TABLES))
+		local repereHaut = devant * CFrame.new(x, 3.25, -2.75 - TERRASSE_AVANCE_TABLES) * CFrame.Angles(0, i, 0)
+		local tonneauHaut = B.tonneau(ensembleTaverne, repereHaut) -- posé sur les deux autres
+		if i == 1 then
+			-- Parentée au tonneau pour suivre ses éventuels ajustements au sol.
+			local lanterne = Lampadaires.lanterne(tonneauHaut, repereHaut * CFrame.new(0, 3.81, 0), nil, 18)
+			lanterne.Name = "LanterneTonneauxMargot"
+		end
 	end
-	pnj = B.pnj(m, devant * CFrame.new(-4, 0, -1.6), "Margot", "Aubergiste",
+	pnj = B.pnj(ensembleTaverne, devant * CFrame.new(TERRASSE_POSITION_MARGOT), "Margot", "Aubergiste",
 		tenue(Color3.fromRGB(70, 50, 36), Color3.fromRGB(76, 58, 42), {
 			tablier = Color3.fromRGB(230, 220, 200), coiffure = "long", cheveux = Color3.fromRGB(172, 72, 32),
 			peau = Color3.fromRGB(232, 180, 150), outil = "chope",

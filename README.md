@@ -156,6 +156,7 @@ Les stands des PNJ sont tous à la même distance de la place, juste devant la r
 L'enseigne est montée sur les poteaux du stand, au-dessus de l'auvent (`enseigneStand`) : elle ne touche aucun mur.
 Chaque vendeur a son annexe : **tour de comptoir** en pierre (Gaspard), **atelier ouvert** avec meule, râtelier et grande
 pioche-enseigne (Liesel), **terrasse couverte** avec guirlandes lumineuses et enseigne (Margot). La forge de Brom est inchangée.
+À la taverne, les tables et les tonneaux sont installés devant la terrasse, et Margot accueille les joueurs près de l'allée. L'ensemble est en retrait de la rue circulaire ; son ancien raccord pavé est supprimé pour dégager le mobilier. Les réglages de placement et de hauteur de l'auvent sont en tête de `src/monde/Village.lua`.
 
 ## Boutique de pioches (Liesel)
 
