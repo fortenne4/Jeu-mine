@@ -16,6 +16,8 @@ local Grottes = require(Partage:WaitForChild("Grottes"))
 local D = require(script.Parent.Disposition)
 local O = require(script.Parent.Outils)
 local Cercle = require(script.Parent.CercleLumineux)
+local GrotteDecor = require(script.Parent.GrotteDecor)
+local GrotteLueurs = require(script.Parent.GrotteLueurs) -- thème du palier 1 (−50 m)
 local M, C = O.M, O.C
 
 local Generateur = {}
@@ -30,7 +32,7 @@ local Y_MIN, Y_MAX = -24, 30                   -- sols des salles (départ à 0)
 local PENTE = 0.42                             -- dénivelé max / longueur d'une galerie (pente moyenne ≤ ~23°)
 local MARCHE = 2                               -- hauteur des marches (galeries en escalier)
 local PAS = 4.5                                -- espacement des boules d'air le long d'une galerie
-local MAX_LUMIERES = 30
+local MAX_LUMIERES = 48
 local DISTANCE_MOBS = Grottes.ZONE_SURE
 -- Gisements (« zones de chaleur ») : 3-4 grappes de 2 à 5 nœuds dans une même salle / alcôve, hors zone sûre
 local GISEMENTS = {3, 4}
@@ -687,31 +689,20 @@ function Generateur.construire(niveau, index, graine, proprietaire, invite, essa
 	local total = rng:NextInteger(niveau.nombreMinerais[1], niveau.nombreMinerais[2])
 	local listeGisements = gisements(ctx, sites, interdits, total)
 
-	-- 6. Décor : cristaux aux parois (un amas par salle + le long des galeries), stalactites, stalagmites
-	for _, s in lieux do
-		local a = rng:NextNumber(0, 2 * math.pi)
-		local hit = paroi(s.p, Vector3.new(math.cos(a), 0, math.sin(a)), rng:NextNumber(1, 5), s.r * 1.6)
-		if hit then cristaux(ctx, hit.Position, hit.Normal, if s.boss then 1.6 else 1.2) end
-	end
+	-- 6. Décor (GrotteDecor.lua) : stalactites/stalagmites/colonnes/cristaux modélisés, bassins, mousse,
+	-- champignons lumineux, racines, restes d'une ancienne mine, torches de balisage, salle du boss habillée
+	m:SetAttribute("Centre", base + CENTRE_BOITE) -- boîte de la grotte : lue par AmbianceGrotte.client.lua
+	m:SetAttribute("DemiTaille", TAILLE_BOITE / 2)
 	if #chemin > 0 then
-		for _ = 1, 40 do
-			if ctx.lumieres >= MAX_LUMIERES then break end
-			local pt = chemin[rng:NextInteger(1, #chemin)]
-			local lat = Vector3.new(-pt.t.Z, 0, pt.t.X) * (if rng:NextNumber() < 0.5 then -1 else 1)
-			local hit = paroi(pt.p, lat, rng:NextNumber(0.5, 6), pt.r + 6)
-			if hit and (hit.Position - depart.p).Magnitude > 18 then cristaux(ctx, hit.Position, hit.Normal, 1) end
-		end
-		for _ = 1, 45 do
-			local pt = chemin[rng:NextInteger(1, #chemin)]
-			local hit = lancer(pt.p + Vector3.new(rng:NextNumber(-3, 3), 2, rng:NextNumber(-3, 3)), Vector3.new(0, 60, 0))
-			if hit and hit.Normal.Y < -0.3 then pointe(ctx, hit.Position, -1, rng:NextNumber(0.7, 1.4)) end
-		end
-		for _ = 1, 30 do
-			local pt = chemin[rng:NextInteger(1, #chemin)]
-			local lat = Vector3.new(-pt.t.Z, 0, pt.t.X) * (if rng:NextNumber() < 0.5 then -1 else 1)
-			local hit = solSous(pt.p + lat * pt.r * 0.7)
-			if hit and (hit.Position - depart.p).Magnitude > 16 then pointe(ctx, hit.Position, 1, rng:NextNumber(0.6, 1.2)) end
-		end
+		local theme = if niveau.id == 1 then GrotteLueurs else GrotteDecor
+		local ok, err = pcall(theme.decorer, ctx, {
+			depart = depart, boss = boss, chemin = chemin, lieux = lieux, galeries = galeries,
+			gisements = listeGisements, salleBoss = salleBoss, avantBoss = (function() for _, l in liens do if l.principal and l[2] == boss then return l[1].p end end return nil end)(),
+		}, {
+			lancer = lancer, paroi = paroi, solSous = solSous, plat = plat, axeVers = axeVers,
+			lumiere = lumiere, torche = torche, pointe = pointe, cristaux = cristaux,
+		})
+		if not ok then warn("[Grottes] décor incomplet : " .. tostring(err)) end
 	end
 
 	m.Parent = dossier

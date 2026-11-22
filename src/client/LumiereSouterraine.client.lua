@@ -61,6 +61,10 @@ local function estSousTerre(): boolean
 end
 
 while true do
+	-- dans une grotte profonde, AmbianceGrotte gère tout l'éclairage (et le restaure en sortant)
+	while Lighting:GetAttribute("GrotteActive") do
+		task.wait(PERIODE)
+	end
 	local s = estSousTerre()
 	if s ~= sousTerre then
 		if s then

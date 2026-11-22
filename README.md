@@ -425,11 +425,44 @@ le serveur pose `CoupDirection` puis `DernierCoup` sur le mob (avant `PV`) et le
 | −350 m | Zombie mutant 650 / 50, zombie à lame 520 / 44, brute 1200 / 70, chauve-souris 140 / 26 | 11–14 |
 | −500 m | Zombie mutant 1400 / 80, brute 2300 / 105, zombie à lame 1100 / 72 + boss Exécuteur 9000 / 170 | 12–14 |
 
+**Décor et ambiance** (appelé à la fin de `GrotteGenerateur.construire`, purement décoratif, jamais dans les
+gisements ni à l'arrivée) :
+- **Palier 1 (−50 m) « Le Lac des Lueurs »** (`src/monde/GrotteLueurs.lua`, direction artistique dans le coffre
+  Obsidian : *01 - Game Design / Grotte 50 m - Le Lac des Lueurs*) : grotte noyée bioluminescente. Camp des mineurs
+  à l'arrivée (tente, brasero, table et carte) ; lacs turquoise lumineux creusés dans les salles (là où les gisements
+  laissent le plus de place) avec nénuphars, algues, poissons, brume et galets lumineux ; cascade qui tombe du
+  plafond dans le grand lac (son « Waterfall », Pro Sound Effects) ; forêt de champignons géants à spores ; voûte de
+  vers luisants et fils perlés ; rais de lumière ; géodes cyan / améthyste ; lanternes à vers luisants ; rideaux de
+  mousse ; méduses de spores qui flottent ; ruines naines (dallages, colonnes brisées) ; **arche runique** devant la
+  salle du boss, gardée par **deux statues géantes de nains** (modèle de Gaspard en pierre) ; temple du boss
+  (géode géante, braseros, ossements, cercle de runes, brume violette). **Lisibilité** : chaque salle a une lumière de
+  voûte douce teintée par sa zone (plus des relais dans les grandes salles), les galeries un relais tous les 22 studs
+  (`MAX_REMPLISSAGE`), les parois sont parcourues de **veines de cristal** néon ramifiées et le pied des parois est
+  semé de galets lumineux. Le dossier `Guide` du modèle garde les points du chemin principal (départ → boss) pour les
+  feux follets. Modèles : `blender/grotte_lueurs.py` →
+  `assets/GrotteLueurs.fbx`, à importer dans `ServerStorage.Modeles3D`.
+- **Autres paliers** (`src/monde/GrotteDecor.lua`) : stalactites (gouttes), stalagmites, colonnes, cristaux,
+  champignons (`blender/grotte_decor.py` → `assets/GrotteDecor.fbx`), bassins, mousse, racines, restes de mine,
+  torches, salle du boss. Le palier 1 réutilise ce module (options) pour les concrétions et les restes de mine.
+- Côté joueur : `src/client/AmbianceGrotte.client.lua` (éclairage souterrain en fondu, bloom, réverbération de grotte,
+  lueur de lanterne autour du joueur ; au palier 1, couleurs de la roche et de l'eau changées localement et teinte
+  qui suit les zones « GrotteZone » : camp ambré, lacs cyan, forêt magenta, temple violet ; tout est restauré à la
+  sortie) et `src/client/VieGrotte.client.lua` (méduses, poissons, pulsation des néons, papillons de nuit autour des
+  lanternes, gouttes sonores) et `src/client/FeuxFollets.client.lua` (palier 1 : trois feux follets guides qui
+  flottent devant le joueur jusqu'au boss, lucioles errantes, onde lumineuse sous chaque pas, lueur des méduses).
+  Dans une grotte, AmbianceGrotte pose l'attribut `GrotteActive` sur Lighting et `LumiereSouterraine` se met en
+  retrait (les deux scripts ne se battent plus pour l'éclairage).
+
 | Fichier | Rôle |
 |---|---|
 | `src/partage/Grottes.lua` | Paliers, équipement conseillé, calcul du danger, noms des RemoteEvents. |
 | `src/server/Grottes.server.lua` | Entrée (panneau + cercle 0/2), groupe, invitations, lancement, sortie, nettoyage ; stats d'équipement (`StatPioche`, `StatEpee`, `StatDefense`). |
 | `src/monde/GrotteGenerateur.lua` | Grotte aléatoire en terrain (galeries, salles, décor, minerais, cercle de sortie). |
+| `src/monde/GrotteLueurs.lua` + `blender/grotte_lueurs.py` | Thème du palier 1 « Le Lac des Lueurs » (lacs, cascade, forêt de champignons, ruines naines, statues, temple). |
+| `src/monde/GrotteDecor.lua` + `blender/grotte_decor.py` | Décor des grottes (modèles 3D, eau, mousse, restes de mine, salle du boss). |
+| `src/client/VieGrotte.client.lua` | Faune et animations des grottes (méduses, poissons, néons, papillons, gouttes). |
+| `src/client/AmbianceGrotte.client.lua` | Éclairage souterrain, couleurs et teintes de zone quand le joueur est dans une grotte. |
+| `src/client/FeuxFollets.client.lua` | Feux follets guides, lucioles, pas lumineux et lueur des méduses (palier 1). |
 | `src/server/MobsGrotte.lua` + `src/client/MobsGrotte.client.lua` | IA des mobs, coups d'épée, renforts, boss ; animations et barres de vie. |
 | `src/client/InterfaceGrottes.client.lua` | Choix de profondeur (barre, minerais du palier en silhouettes / couleurs), groupe, invitations. |
 
