@@ -11,6 +11,10 @@ local COULEUR_FER = Color3.fromRGB(48, 44, 42)
 local COULEUR_LUMIERE = Color3.fromRGB(255, 177, 92)
 local PORTEE_LUMIERE = 22
 local INTENSITE_LUMIERE = 1
+local RESERVE_ORIGINE = Vector3.new(4985, 0, 270)
+local RESERVE_COLONNES = 6
+local RESERVE_ECART = 6
+local RESERVE_ECART_RANGEES = 11
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
@@ -35,6 +39,43 @@ end
 local dossier = Instance.new("Folder")
 dossier.Name = "PorteArmures"
 dossier.Parent = workspace
+local reserve = Instance.new("Folder")
+reserve.Name = "ReservePlaine"
+reserve.Parent = dossier
+local forge = workspace:FindFirstChild("Forge", true)
+local anciens = {}
+if forge then
+	for _, objet in forge:GetChildren() do
+		if objet:IsA("Model") and objet.Name == "Armure" and objet:FindFirstChild("Socle") then table.insert(anciens, objet) end
+	end
+end
+table.sort(anciens, function(a, b) return a.Socle.Position.Z > b.Socle.Position.Z end)
+local emplacements = {}
+if #anciens == 2 then
+	for i, ancien in anciens do
+		local socle = ancien.Socle
+		emplacements[i] = CFrame.new(socle.Position.X, 2, socle.Position.Z) * socle.CFrame.Rotation
+	end
+else
+	warn("[ExpositionArmures] Nombre d'emplacements de forge inattendu : " .. #anciens)
+end
+local indexReserve = 0
+local function positionReserve()
+	local colonne = indexReserve % RESERVE_COLONNES
+	local rang = math.floor(indexReserve / RESERVE_COLONNES)
+	indexReserve += 1
+	return RESERVE_ORIGINE + Vector3.new(colonne * RESERVE_ECART, 0, rang * RESERVE_ECART_RANGEES)
+end
+if #emplacements == 2 then
+	for i, ancien in anciens do
+		local pos = positionReserve()
+		local socle = ancien.Socle
+		local base = socle.Position - Vector3.new(0, socle.Size.Y / 2, 0)
+		ancien:PivotTo(ancien:GetPivot() + (pos - base))
+		ancien.Name = "AncienneArmureForge_" .. i
+		ancien.Parent = reserve
+	end
+end
 
 local function plaque(modele: Model, cf: CFrame, nom: string)
 	local p = Instance.new("Part")
@@ -62,11 +103,14 @@ for _, palier in Forge.ECHELLES.Casque do
 end
 
 for index, entree in modeles do
-	local rang = math.floor((index - 1) / NOMBRE_PREMIERE_RANGEE)
-	local colonne = (index - 1) % NOMBRE_PREMIERE_RANGEE
-	local position = ORIGINE + Vector3.new(colonne * ECART_MANNEQUINS, 0, -rang * ECART_RANGEES)
-	local cf = CFrame.new(position) * CFrame.Angles(0, math.pi, 0) -- face vers la forge et le village (+Z)
-	local mannequin = PorteArmure.creer(dossier, cf, ECHELLE_SUPPORT, {Bois = COULEUR_BOIS, Fer = COULEUR_FER})
+	local choisi = entree.modele == "Casque" and 1 or (entree.modele == "CasqueBronze" and 2 or nil)
+	local cf, parent
+	if choisi and emplacements[choisi] then
+		cf, parent = emplacements[choisi], dossier
+	else
+		cf, parent = CFrame.new(positionReserve()) * CFrame.Angles(0, math.pi, 0), reserve
+	end
+	local mannequin = PorteArmure.creer(parent, cf, ECHELLE_SUPPORT, {Bois = COULEUR_BOIS, Fer = COULEUR_FER})
 	mannequin.Name = "PorteArmure_" .. entree.modele
 	mannequin:SetAttribute("ModeleArmure", entree.modele)
 	mannequin:SetAttribute("NomArmure", entree.nom)
