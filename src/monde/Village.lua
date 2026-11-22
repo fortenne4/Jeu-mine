@@ -589,7 +589,7 @@ function Village.preparerSentiers(village)
 		end
 		return meilleur, distance, axe
 	end
-	local allees = {} -- allées vers les portes : 2 lampadaires face à face, de part et d'autre
+	local allees = {} -- allées vers les portes (seules celles des entrepôts reçoivent 2 lampadaires face à face)
 	for _, d in village:GetDescendants() do
 		if d:IsA("Model") then
 			local accueil = d:GetAttribute("Accueil")
@@ -597,7 +597,7 @@ function Village.preparerSentiers(village)
 				local p = Vector2.new(accueil.X, accueil.Z)
 				local q, distance, axe = plusProche(p)
 				if q and distance > 2.5 and distance < 70 then
-					table.insert(allees, {rue(q, p, math.min(5, d:GetAttribute("LargeurAllee") or 4.5)), axe[3]})
+					table.insert(allees, {rue(q, p, math.min(5, d:GetAttribute("LargeurAllee") or 4.5)), axe[3], d.Name == "Entrepot"})
 				end
 			end
 		end
@@ -605,7 +605,12 @@ function Village.preparerSentiers(village)
 	for _, c in tous do
 		relier(c)
 	end
+	-- Lampadaires d'allée : uniquement les deux longues allées des entrepôts (les autres allées sont courtes,
+	-- déjà éclairées par les lampadaires des rues : des lampadaires devant chaque porte encombraient le village)
 	for _, a in allees do
+		if not a[3] then
+			continue
+		end
 		local c, demiRue = a[1], a[2]
 		local direction = c[2] - c[1]
 		local longueur = direction.Magnitude
