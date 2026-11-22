@@ -49,10 +49,10 @@ local function auSol(cf, ignorer)
 	return cf + Vector3.new(0, haut - cf.Position.Y, 0)
 end
 
--- cf : centre du cercle, au sol. opts.texte remplace le compteur (ex. « Sortie »).
+-- cf : centre du cercle, au sol. opts.texte remplace le compteur (ex. « Sortie »), opts.rayon le rayon (défaut RAYON).
 function Cercle.construire(parent, cf, nom, opts)
 	opts = opts or {}
-	local R = Cercle.RAYON
+	local R = opts.rayon or Cercle.RAYON
 	local m = O.modele(parent, nom or "Cercle")
 	cf = auSol(cf, m) + Vector3.new(0, 0.1, 0)
 	-- Anneau blanc, creux au centre

@@ -425,8 +425,8 @@ local function creerPioche(def: Pioches.Pioche): Tool
 			end
 		end
 		if minerai and minerai:GetAttribute("Proprietaire") then minerai = nil end -- nœud privé : jamais via la zone
-		if noeudVise and joueur and noeudVise:GetAttribute("Proprietaire") == joueur.UserId then
-			minerai = noeudVise -- seul le propriétaire de la mine peut le casser
+		if noeudVise and joueur and (noeudVise:GetAttribute("Proprietaire") == joueur.UserId or noeudVise:GetAttribute("Invite") == joueur.UserId) then
+			minerai = noeudVise -- seul le propriétaire de la mine (ou son invité dans une grotte) peut le casser
 		end
 
 		local aTouche = minerai ~= nil

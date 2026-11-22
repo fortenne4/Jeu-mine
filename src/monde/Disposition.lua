@@ -44,6 +44,12 @@ D.MINES_PRIVEES_ORIGINE = Vector3.new(1400, 40, -1200)
 D.MINES_PRIVEES_ECART = 400
 D.MINES_PRIVEES_COLONNES = 6 -- x de 1400 à 3400
 
+-- Grottes profondes (expéditions) : une par groupe, grille au sud-ouest, loin de tout (carte x/z ±600,
+-- mines privées x ≥ 1400 / z ≤ -1200, plaine des mobs x 4700..5300). Bloc de 240 × 80 × 240 par grotte.
+D.GROTTES_ORIGINE = Vector3.new(-2600, -300, 2600)
+D.GROTTES_ECART = 700
+D.GROTTES_COLONNES = 4 -- x de -2600 à -4700, rangs vers +z
+
 -- Minerais de démonstration au sol de la caverne (en attendant les tunnels privés)
 D.MINERAIS = {
 	Vector3.new(18, -60, -418),

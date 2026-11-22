@@ -341,6 +341,40 @@ Le cercle « Sortie » derrière le point d'apparition ramène le joueur devant 
 | `src/server/CerclesTunnels.server.lua` | Détection serveur des cercles (boucle 0,1 s, morts ignorés, délai 2,5 s), streaming puis téléportation aller et retour. |
 | `src/monde/Mine.lua` | Portes encastrées (`portes`, version 2) et grand cristal ; `preparerPortes` / `preparerCristal` mettent à jour une carte figée. |
 
+## Grottes profondes (expéditions à 1 ou 2)
+
+Dans la caverne, à droite du Tunnel VI, un panneau « Grottes profondes » et un **cercle lumineux « 0/2 »**
+(1,25 × plus grand que celui des tunnels privés). Le premier joueur qui entre dans le cercle devient le **chef** :
+l'interface de choix de profondeur s'ouvre. Très peu de texte : seulement les niveaux (−50 m … −500 m) et une
+**barre de difficulté** calculée selon SON équipement (pioche, épée, défense casque + plastron + jambières) ; au survol,
+le niveau s'agrandit. Le chef peut **inviter** un joueur (amis en premier dans la liste) ; un 2e joueur peut aussi
+simplement entrer dans le cercle (« 2/2 »). Quand le chef choisit un niveau, une **grotte aléatoire** est générée
+et le groupe y est téléporté. Le cercle « Sortie » de la grotte ramène devant l'entrée ; la grotte est détruite
+quand plus personne n'est dedans (sortie, mort ou départ du jeu).
+
+5 paliers (réglages dans `src/partage/Grottes.lua`) : plus on descend, plus les minerais sont **rares et résistants**
+(du charbon à −50 m jusqu'à l'or seul à −500 m) et plus les **mobs** sont dangereux (chauves-souris, zombies,
+rampants, brutes, et l'Exécuteur maudit en boss à −500 m). Chaque palier a un équipement **conseillé** :
+
+| Palier | Pioche (puissance) | Épée (dégâts) | Défense |
+|---|---|---|---|
+| −50 m Galeries humides | 1 | 6 | 0 |
+| −100 m Cavernes oubliées | 1,6 | 19 | 10 |
+| −200 m Abîme de fer | 2 | 49 | 25 |
+| −350 m Profondeurs ardentes | 4 | 124 | 55 |
+| −500 m Cœur maudit | 8 | 230 | 100 |
+
+Combat : les mobs (sans Humanoid, déplacés par le serveur) se battent à l'épée ; la défense réduit les dégâts reçus
+(`défense / (défense + 60)`). Les nœuds de minerai se cassent à la pioche, par le chef ou son invité.
+
+| Fichier | Rôle |
+|---|---|
+| `src/partage/Grottes.lua` | Paliers, équipement conseillé, calcul du danger, noms des RemoteEvents. |
+| `src/server/Grottes.server.lua` | Entrée (panneau + cercle 0/2), groupe, invitations, lancement, sortie, nettoyage ; stats d'équipement (`StatPioche`, `StatEpee`, `StatDefense`). |
+| `src/monde/GrotteGenerateur.lua` | Grotte aléatoire en terrain (galeries, salles, décor, minerais, cercle de sortie). |
+| `src/server/MobsGrotte.lua` + `src/client/MobsGrotte.client.lua` | IA des mobs, coups d'épée, renforts, boss ; animations et barres de vie. |
+| `src/client/InterfaceGrottes.client.lua` | Choix de profondeur, groupe, invitations. |
+
 ## Bordures de la carte (château fort, sommets, cascades)
 
 `src/monde/Bordures.lua` habille le tour de la vallée (pur décor, aucune collision) :
