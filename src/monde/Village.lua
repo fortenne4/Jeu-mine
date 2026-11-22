@@ -1017,6 +1017,7 @@ end
 -- Moulin de la rive sud (B.moulin, en blocs), dos à la rivière ; la roue tourne dans l'eau
 -- et entraîne le moulin par l'arbre, le rouet et la lanterne.
 local MOULIN_SUD_X, MOULIN_SUD_Z = -54, 104
+local PONTON_X = 24 -- ponton de pêche, rive nord de la rivière
 local ROUE_SUD_Y, ROUE_SUD_Z = 3.2, 88
 local AXE_ROUE_SUD = CFrame.new(MOULIN_SUD_X, ROUE_SUD_Y, ROUE_SUD_Z) * CFrame.Angles(0, math.pi / 2, 0) -- axe X local = nord-sud
 local function moulinSud(parent)
@@ -1307,6 +1308,8 @@ function Village.preparerCheminMoulin(village)
 		Vector2.new(-8.6, 112.1), Vector2.new(-8.6, 115.8)}
 	-- et le lampadaire de rue au milieu du côté est
 	table.insert(LAMPADAIRES_RETIRES, Vector2.new(5.9, 117.5))
+	-- et celui de l'allée du pont (cartes figées)
+	table.insert(LAMPADAIRES_RETIRES, Vector2.new(4.4, 50))
 	for _, nom in {"SentiersFontaine", "Eclairage"} do
 		local dossier = village:FindFirstChild(nom)
 		for _, l in (if dossier then dossier:GetChildren() else {}) do
@@ -1354,6 +1357,19 @@ local function riviere(v, rng)
 		end
 	end
 
+	-- Ponton de pêche sur la rive nord, devant les saules (eau à y = -4)
+	local departPonton = Vector3.new(PONTON_X, 2.3, z - demi - 10)
+	B.pontonPeche(m, CFrame.lookAt(departPonton, departPonton + Vector3.zAxis), 6.3, 9)
+	-- coin des pêcheurs sur la berge : petit fumoir à l'est de la passerelle, un séchoir à l'ouest
+	local posFumoir = Vector3.new(PONTON_X + 8, 0, z - demi - 7)
+	posFumoir = Vector3.new(posFumoir.X, solVisible(posFumoir.X, posFumoir.Z), posFumoir.Z)
+	B.fumoir(m, CFrame.lookAt(posFumoir, posFumoir - Vector3.xAxis))
+	for i, dz in {-6.5} do
+		local p = Vector3.new(PONTON_X - 8, 0, z - demi + dz)
+		p = Vector3.new(p.X, solVisible(p.X, p.Z), p.Z)
+		B.sechoirPoissons(m, CFrame.lookAt(p, p + Vector3.xAxis), i)
+	end
+
 	-- Moulin à eau
 	local cfMoulin = CFrame.lookAt(Vector3.new(-34, 0, 60), Vector3.new(-34, 0, 0))
 	local moulin, porteMoulin = B.maison(m, cfMoulin, {largeur = 16, profondeur = 14, etages = 1, mur = C.Ocre, toit = C.Toit, nom = "Moulin", rng = rng, modele = 4})
@@ -1390,7 +1406,7 @@ local function riviere(v, rng)
 	for _ = 1, 16 do
 		local s = if rng:NextNumber() < 0.5 then -1 else 1
 		local x = rng:NextNumber(-200, 200)
-		if math.abs(x) > 12 and math.abs(x + 34) > 10 and math.abs(x - MOULIN_SUD_X) > 10 then
+		if math.abs(x) > 12 and math.abs(x + 34) > 10 and math.abs(x - MOULIN_SUD_X) > 10 and math.abs(x - PONTON_X) > 12 then
 			B.rocher(m, Vector3.new(x, -0.8, z + s * (demi + rng:NextNumber(0, 2))), rng:NextNumber(1.5, 3.5), rng)
 		end
 	end
@@ -1421,8 +1437,7 @@ local function lanternes(v)
 	} do
 		B.lanterne(m, vers(p, Vector3.new(p.X, 0, if p.X < 0 then R.OUEST_Z else R.EST_Z)))
 	end
-	-- allée du pont et rue du sud
-	B.lanterne(m, vers(Vector3.new(6, 0, 50), Vector3.new(0, 0, 50)), 9)
+	-- rue du sud (le lampadaire de l'allée du pont a été retiré)
 	B.lanterne(m, vers(Vector3.new(7.5, 0, 117.5), Vector3.new(0, 0, 117.5)), 9)
 end
 

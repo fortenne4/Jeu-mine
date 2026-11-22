@@ -1907,6 +1907,266 @@ function B.caisseLanterne(parent, cf, numero)
 	return m
 end
 
+--[[ Ponton de pêche : passerelle sur pilotis, plateforme avec la cabane du pêcheur (colombages, toit
+	rouge, cheminée qui fume), filets qui sèchent et coin de pêche.
+	cf : départ de la passerelle sur la berge, au niveau du plancher ; -Z part au-dessus de l'eau.
+	eau : distance du plancher jusqu'à la surface de l'eau (1.6 par défaut) ; longueur : passerelle (16). ]]
+function B.pontonPeche(parent, cf, eau, longueur)
+	eau = eau or 1.6
+	local m = O.modele(parent, "PontonPeche")
+	local rng = Random.new(7)
+	local function a(x, y, z) return cf * CFrame.new(x, y, z) end
+	local BOIS_MOUILLE = Color3.fromRGB(64, 50, 40)
+	local PLANCHE = {Color3.fromRGB(134, 98, 64), Color3.fromRGB(120, 88, 58), Color3.fromRGB(146, 108, 72), Color3.fromRGB(112, 82, 56)}
+
+	-- Passerelle : planches posées en travers, un peu irrégulières, sur deux longerons
+	local LONG, LARGE = longueur or 16, 4
+	for i = 0, LONG - 1 do
+		local planche = O.bloc(m, Vector3.new(LARGE + rng:NextNumber(-0.15, 0.15), 0.3, 0.92),
+			a(rng:NextNumber(-0.06, 0.06), -0.15, -0.5 - i) * CFrame.Angles(0, math.rad(rng:NextNumber(-1.2, 1.2)), 0),
+			PLANCHE[rng:NextInteger(1, #PLANCHE)], M.Planches, "Planche")
+		planche.TopSurface = Enum.SurfaceType.Smooth
+	end
+	for _, x in {-1.5, 1.5} do
+		O.decor(O.bloc(m, Vector3.new(0.5, 0.5, LONG), a(x, -0.55, -LONG / 2), BOIS_MOUILLE, M.Bois, "Longeron"))
+	end
+	-- Plateforme du bout (cabane à droite, coin de pêche à gauche)
+	local PD, PX = 7.5, 5.5
+	local PZ0, PZ1 = -LONG, -LONG - PD
+	for i = 0, math.ceil(PD) - 1 do
+		O.bloc(m, Vector3.new(PX * 2 + rng:NextNumber(-0.1, 0.1), 0.3, 0.92), a(0, -0.15, PZ0 - 0.5 - i),
+			PLANCHE[rng:NextInteger(1, #PLANCHE)], M.Planches, "Planche")
+	end
+	for _, x in {-PX + 0.4, 0, PX - 0.4} do
+		O.decor(O.bloc(m, Vector3.new(0.5, 0.5, PD), a(x, -0.55, PZ0 - PD / 2), BOIS_MOUILLE, M.Bois, "Longeron"))
+	end
+	O.decor(O.bloc(m, Vector3.new(PX * 2 + 0.4, 0.45, 0.4), a(0, -0.1, PZ1 - 0.1), BOIS_MOUILLE, M.Bois, "Bordure"))
+
+	-- Pilotis : troncs sombres qui plongent dans l'eau, cerclés de fer, un peu de mousse au ras de l'eau
+	local pieux = {}
+	for z = -3, -LONG, -4.5 do
+		table.insert(pieux, Vector2.new(-2.15, z)); table.insert(pieux, Vector2.new(2.15, z))
+	end
+	for _, x in {-PX + 0.3, 0, PX - 0.3} do
+		table.insert(pieux, Vector2.new(x, PZ0 - 0.4)); table.insert(pieux, Vector2.new(x, PZ1 + 0.3))
+	end
+	for _, p in pieux do
+		local depasse = rng:NextNumber(0.2, 0.7)
+		O.cylindre(m, 9 + depasse, 0.75, a(p.X, -4.5 + depasse / 2, p.Y), BOIS_MOUILLE, M.Bois, "Pieu")
+		O.decor(O.cylindre(m, 0.2, 0.85, a(p.X, -0.9, p.Y), C.Fer, M.Metal, "Cercle"))
+		O.decor(O.cylindre(m, 0.35, 0.82, a(p.X, -eau + 0.05, p.Y), Color3.fromRGB(62, 92, 48), M.Herbe, "Mousse"))
+	end
+
+	-- Cabane du pêcheur (porte vers la passerelle)
+	local CX, CZ, CW, CD, CH = 2.6, PZ0 - 3.9, 5.4, 6, 4.6
+	local function cabane(x, y, z) return a(CX + x, y, CZ + z) end
+	O.bloc(m, Vector3.new(CW, 0.5, CD), cabane(0, 0.25, 0), C.PierreFoncee, M.Ardoise, "Soubassement")
+	O.bloc(m, Vector3.new(CW - 0.6, CH, CD - 0.6), cabane(0, 0.5 + CH / 2, 0), C.Platre, M.Platre, "Murs")
+	-- colombages : poteaux d'angle, sablière, traverses et croix de Saint-André
+	for _, sx in {-1, 1} do
+		for _, sz in {-1, 1} do
+			O.decor(O.bloc(m, Vector3.new(0.5, CH, 0.5), cabane(sx * (CW / 2 - 0.3), 0.5 + CH / 2, sz * (CD / 2 - 0.3)), C.BoisFonce, M.Bois, "Poteau"))
+		end
+	end
+	for _, y in {0.75, 0.5 + CH / 2, 0.5 + CH - 0.2} do
+		O.decor(O.bloc(m, Vector3.new(CW + 0.05, 0.35, CD + 0.05), cabane(0, y, 0), C.BoisFonce, M.Bois, "Traverse"))
+	end
+	for _, sz in {-1, 1} do
+		for _, s in {-1, 1} do
+			O.decor(O.bloc(m, Vector3.new(0.3, 2.6, 0.3), cabane(sz * (CW / 2 + 0.01), 0.5 + CH * 0.75, s * 1.6) * CFrame.Angles(math.rad(s * 38), 0, 0),
+				C.BoisFonce, M.Bois, "Croix"))
+		end
+	end
+	-- porte (face -X, côté passerelle), fenêtre éclairée côté eau et côté berge
+	O.bloc(m, Vector3.new(0.25, 3.4, 1.8), cabane(-CW / 2 + 0.2, 0.5 + 1.7, 1), C.Bois, M.Planches, "Porte")
+	O.decor(O.bloc(m, Vector3.new(0.3, 0.2, 2.1), cabane(-CW / 2 + 0.2, 0.5 + 3.5, 1), C.BoisFonce, M.Bois, "Linteau"))
+	O.decor(O.bloc(m, Vector3.new(0.3, 0.25, 0.25), cabane(-CW / 2 + 0.05, 0.5 + 1.7, 0.4), C.Fer, M.Metal, "Poignee"))
+	for _, f in {{cabane(0, 0.5 + 3, -CD / 2 + 0.25), Vector3.new(1.8, 1.4, 0.2)}, {cabane(-CW / 2 + 0.25, 0.5 + 3, -1.8), Vector3.new(0.2, 1.4, 1.6)}} do
+		local vitre = O.decor(O.bloc(m, f[2], f[1], C.Fenetre, M.Neon, "Fenetre"))
+		vitre.Transparency = 0.15
+		O.decor(O.bloc(m, Vector3.new(f[2].X > 1 and f[2].X + 0.4 or 0.6, 0.2, f[2].Z > 1 and f[2].Z + 0.4 or 0.6), f[1] * CFrame.new(0, -0.8, 0), C.Bois, M.Bois, "Appui"))
+	end
+	O.lumiere(O.decor(O.bloc(m, Vector3.new(0.4, 0.4, 0.4), cabane(0, 3, 0), C.Fenetre, M.Neon, "Lueur")), C.Lumiere, 1.2, 12)
+	-- toit à deux pans en tuiles rouges, faîtage dans la longueur, pignons en planches
+	local pente = math.rad(34)
+	local demi = CW / 2 + 0.7
+	local yToit = 0.5 + CH
+	for _, s in {-1, 1} do
+		O.bloc(m, Vector3.new(demi / math.cos(pente) + 0.1, 0.4, CD + 1.4),
+			cabane(s * demi / 2, yToit + math.tan(pente) * demi / 2, 0) * CFrame.Angles(0, 0, -s * pente), C.ToitRouge, M.Tuiles, "Toit")
+	end
+	O.decor(O.bloc(m, Vector3.new(0.5, 0.5, CD + 1.6), cabane(0, yToit + math.tan(pente) * demi + 0.1, 0), C.BoisFonce, M.Bois, "Faitage"))
+	local hauteurPignon = math.tan(pente) * (CW / 2)
+	for _, sz in {-1, 1} do
+		for i = 0, 3 do
+			local h = hauteurPignon * (i + 0.5) / 4
+			local w = (CW - 0.4) * (1 - (i + 0.5) / 4)
+			O.decor(O.bloc(m, Vector3.new(w, hauteurPignon / 4, 0.3), cabane(0, yToit + h, sz * (CD / 2 - 0.2)), C.BoisClair, M.Planches, "Pignon"))
+		end
+	end
+	-- cheminée de tôle qui fume
+	local tuyau = O.cylindre(m, 3, 0.6, cabane(CW / 4, yToit + 2.3, -CD / 4), C.Fer, M.Metal, "Cheminee")
+	O.decor(O.cylindre(m, 0.25, 0.9, cabane(CW / 4, yToit + 3.8, -CD / 4), C.Fer, M.Metal, "Chapeau"))
+	O.fumee(tuyau, 1.2)
+	-- bouée rouge et blanche accrochée à la façade côté passerelle
+	for i = 0, 7 do
+		local ang = i * math.pi / 4
+		O.decor(O.bloc(m, Vector3.new(0.35, 0.45, 0.6), cabane(-CW / 2 - 0.15, 0.5 + 3.3 + math.sin(ang) * 0.75, -1.8 + math.cos(ang) * 0.75) * CFrame.Angles(ang, 0, 0),
+			if i % 2 == 0 then Color3.fromRGB(200, 52, 42) else Color3.fromRGB(236, 232, 224), M.Lisse, "Bouee"))
+	end
+	-- lanterne au coin de la cabane
+	O.decor(O.bloc(m, Vector3.new(0.25, 0.25, 1), cabane(-CW / 2 - 0.1, 0.5 + 4.6, CD / 2 - 0.9), C.Fer, M.Metal, "Potence"))
+	cage(m, cabane(-CW / 2 - 0.1, 0.5 + 3.8, CD / 2 - 1.4), C.Lumiere, 16)
+
+	-- Filets qui sèchent sur une perche, côté pêche
+	local fx, fz = -PX + 0.5, PZ0 - 2.2
+	for _, dz in {-1.6, 1.6} do
+		O.decor(O.bloc(m, Vector3.new(0.3, 3.6, 0.3), a(fx, 1.8, fz + dz), C.Bois, M.Bois, "Perche"))
+	end
+	O.decor(O.bloc(m, Vector3.new(0.25, 0.25, 3.8), a(fx, 3.55, fz), C.Bois, M.Bois, "Perche"))
+	local filet = O.decor(O.bloc(m, Vector3.new(0.08, 2.4, 3), a(fx, 2.25, fz) * CFrame.Angles(0, 0, math.rad(4)), Color3.fromRGB(196, 186, 156), M.Tissu, "Filet"))
+	filet.Transparency = 0.45
+	for i = 0, 5 do
+		O.decor(O.bloc(m, Vector3.new(0.1, 2.5, 0.06), a(fx + 0.02, 2.25, fz - 1.4 + i * 0.56), Color3.fromRGB(150, 140, 112), M.Tissu, "Maille"))
+	end
+	for i = 0, 3 do
+		O.decor(O.bloc(m, Vector3.new(0.1, 0.06, 3), a(fx + 0.02, 1.3 + i * 0.6, fz), Color3.fromRGB(150, 140, 112), M.Tissu, "Maille"))
+	end
+	for _, dz in {-1, 0.2, 1.2} do
+		O.decor(O.disque(m, 0.2, 0.32, a(fx + 0.1, 1.05, fz + dz), Color3.fromRGB(228, 150, 52), M.Lisse, "Flotteur"))
+	end
+
+	-- Coin de pêche : tabouret, canne sur son support, seau, caisse de poissons, tonneau
+	local tx, tz = -PX + 2.3, PZ1 + 1.2
+	O.bloc(m, Vector3.new(1.2, 0.25, 1.2), a(tx, 1, tz), C.BoisClair, M.Bois, "Tabouret")
+	for _, d in {Vector2.new(-0.4, -0.4), Vector2.new(0.4, -0.4), Vector2.new(-0.4, 0.4), Vector2.new(0.4, 0.4)} do
+		O.decor(O.bloc(m, Vector3.new(0.2, 0.9, 0.2), a(tx + d.X, 0.45, tz + d.Y), C.Bois, M.Bois, "Pied"))
+	end
+	O.decor(O.bloc(m, Vector3.new(0.25, 1.2, 0.25), a(-PX + 0.35, 0.6, tz - 0.3), C.BoisFonce, M.Bois, "Support"))
+	local canne = a(-PX + 0.35, 1.1, tz - 0.3) * CFrame.Angles(math.rad(-20), 0, math.rad(55)) * CFrame.new(0, 3.2, 0)
+	O.decor(O.bloc(m, Vector3.new(0.14, 6.4, 0.14), canne, Color3.fromRGB(92, 66, 40), M.Bois, "Canne"))
+	local bout = (canne * CFrame.new(0, 3.2, 0)).Position
+	local surface = (a(0, -eau, 0)).Position.Y
+	local fil = O.decor(O.bloc(m, Vector3.new(0.04, bout.Y - surface, 0.04), CFrame.new(bout.X, (bout.Y + surface) / 2, bout.Z), Color3.fromRGB(230, 226, 214), M.Lisse, "Fil"))
+	fil.Transparency = 0.2
+	O.decor(O.ellipsoide(m, Vector3.new(0.35, 0.45, 0.35), CFrame.new(bout.X, surface + 0.1, bout.Z), Color3.fromRGB(214, 50, 40), M.Lisse, "Bouchon"))
+	O.cylindre(m, 0.9, 0.9, a(tx - 1.0, 0.45, tz + 1.1), Color3.fromRGB(120, 122, 126), M.Metal, "Seau")
+	O.decor(O.cylindre(m, 0.06, 0.75, a(tx - 1.0, 0.85, tz + 1.1), C.Eau, M.Verre, "EauSeau"))
+	local caisse = B.caisse(m, a(-1.4, 0, PZ1 + 1), 1.5)
+	caisse.Name = "CaissePoissons"
+	for i = 0, 3 do
+		O.decor(O.ellipsoide(m, Vector3.new(0.4, 0.28, 1.1), a(-1.4 + (i % 2) * 0.55 - 0.27, 1.55, PZ1 + 1 + (i < 2 and -0.3 or 0.35)) * CFrame.Angles(0, math.rad(rng:NextNumber(-30, 30)), 0),
+			Color3.fromRGB(150, 168, 176), M.Lisse, "Poisson"))
+	end
+	B.tonneau(m, a(-PX + 1.2, 0, PZ0 - 4.6), 1.8)
+
+	-- poteau de lanterne au départ de la passerelle
+	O.bloc(m, Vector3.new(0.45, 4.2, 0.45), a(2.25, 1.7, -0.6), C.BoisFonce, M.Bois, "PoteauLanterne")
+	O.decor(O.bloc(m, Vector3.new(0.25, 0.25, 1.2), a(2.25, 3.6, -1.1), C.BoisFonce, M.Bois, "Bras"))
+	cage(m, a(2.25, 2.75, -1.6), C.Lumiere, 18)
+
+	return m
+end
+
+local POISSONS = {Color3.fromRGB(104, 110, 112), Color3.fromRGB(150, 108, 56), Color3.fromRGB(116, 78, 46), Color3.fromRGB(134, 118, 86)}
+
+-- Poisson suspendu par la queue à une barre (fil + corps + nageoire)
+local function poissonPendu(m, haut, rng, couleur)
+	local taille = rng:NextNumber(0.85, 1.25)
+	O.decor(O.bloc(m, Vector3.new(0.04, 0.35, 0.04), haut * CFrame.new(0, -0.17, 0), Color3.fromRGB(176, 150, 104), M.Tissu, "Ficelle"))
+	local corps = haut * CFrame.new(0, -0.33 - 0.45 * taille, 0) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0)
+	O.decor(O.ellipsoide(m, Vector3.new(0.16, 0.9 * taille, 0.34 * taille), corps, couleur, M.Metal, "Poisson"))
+	O.decor(O.coin(m, Vector3.new(0.08, 0.3, 0.35 * taille), corps * CFrame.new(0, 0.5 * taille, 0) * CFrame.Angles(math.pi / 2, 0, 0), couleur, M.Metal, "Queue"))
+end
+
+-- Petit fumoir à poissons : soubassement de pierre, planches noircies, toit à deux pans, cheminée qui fume,
+-- lueur du feu par la trappe et poissons qui sèchent sous l'avant-toit. cf : au sol, façade vers -Z.
+function B.fumoir(parent, cf)
+	local m = O.modele(parent, "Fumoir")
+	local rng = Random.new(11)
+	local function a(x, y, z) return cf * CFrame.new(x, y, z) end
+	local NOIRCI, SUIE = Color3.fromRGB(70, 52, 40), Color3.fromRGB(44, 36, 32)
+	local W, D, H = 3.8, 3.6, 3.4
+	O.bloc(m, Vector3.new(W + 0.4, 0.8, D + 0.4), a(0, 0.4, 0), C.PierreFoncee, M.Pierre, "Soubassement")
+	O.bloc(m, Vector3.new(W, H, D), a(0, 0.8 + H / 2, 0), NOIRCI, M.Planches, "Murs")
+	for _, sx in {-1, 1} do
+		for _, sz in {-1, 1} do
+			O.decor(O.bloc(m, Vector3.new(0.35, H + 0.1, 0.35), a(sx * (W / 2 - 0.1), 0.8 + H / 2, sz * (D / 2 - 0.1)), SUIE, M.Bois, "Poteau"))
+		end
+	end
+	-- porte en planches et trappe du foyer, rougeoyante
+	O.bloc(m, Vector3.new(1.4, 2.4, 0.2), a(-0.6, 0.8 + 1.2, -D / 2 - 0.05), C.Bois, M.Planches, "Porte")
+	for _, y in {0.5, 1.9} do
+		O.decor(O.bloc(m, Vector3.new(1.5, 0.15, 0.25), a(-0.6, 0.8 + y, -D / 2 - 0.12), C.Fer, M.Metal, "Penture"))
+	end
+	O.decor(O.bloc(m, Vector3.new(0.9, 0.6, 0.15), a(0.95, 1.25, -D / 2 - 0.05), Color3.fromRGB(255, 120, 40), M.Neon, "Braises"))
+	O.decor(O.bloc(m, Vector3.new(1.1, 0.12, 0.25), a(0.95, 1.6, -D / 2 - 0.1), C.Fer, M.Metal, "Trappe"))
+	O.lumiere(O.decor(O.bloc(m, Vector3.new(0.3, 0.3, 0.3), a(0.95, 1.25, -D / 2 - 0.4), Color3.fromRGB(255, 120, 40), M.Neon, "Lueur")), Color3.fromRGB(255, 130, 60), 1, 10)
+	-- fente sous le toit d'où s'échappe la fumée
+	local fente = O.decor(O.bloc(m, Vector3.new(W - 0.6, 0.2, 0.1), a(0, 0.8 + H - 0.3, -D / 2 - 0.02), SUIE, M.Bois, "Fente"))
+	O.fumee(fente, 0.8)
+	-- toit à deux pans (faîtage de gauche à droite)
+	local pente = math.rad(36)
+	local demi = D / 2 + 0.6
+	local yToit = 0.8 + H
+	for _, s in {-1, 1} do
+		O.bloc(m, Vector3.new(W + 1, 0.3, demi / math.cos(pente) + 0.1),
+			a(0, yToit + math.tan(pente) * demi / 2, s * demi / 2) * CFrame.Angles(s * pente, 0, 0), C.Toit, M.Tuiles, "Toit")
+	end
+	O.decor(O.bloc(m, Vector3.new(W + 1.1, 0.35, 0.35), a(0, yToit + math.tan(pente) * demi + 0.05, 0), SUIE, M.Bois, "Faitage"))
+	for _, sx in {-1, 1} do
+		for i = 0, 2 do
+			local h = math.tan(pente) * (D / 2) * (i + 0.5) / 3
+			O.decor(O.bloc(m, Vector3.new(0.25, math.tan(pente) * (D / 2) / 3, D * (1 - (i + 0.5) / 3)), a(sx * (W / 2 - 0.1), yToit + h, 0), NOIRCI, M.Planches, "Pignon"))
+		end
+	end
+	-- cheminée de pierre à l'arrière
+	local chem = O.bloc(m, Vector3.new(1, H + 2.6, 1), a(W / 2 - 0.6, 0.8 + (H + 2.6) / 2, D / 2 + 0.3), C.Pierre, M.Pierre, "Cheminee")
+	O.decor(O.bloc(m, Vector3.new(1.2, 0.25, 1.2), a(W / 2 - 0.6, 0.8 + H + 2.7, D / 2 + 0.3), C.PierreFoncee, M.Pierre, "Couronne"))
+	local bouche = O.decor(O.bloc(m, Vector3.new(0.6, 0.2, 0.6), a(W / 2 - 0.6, 0.8 + H + 2.9, D / 2 + 0.3), SUIE, M.Lisse, "Bouche"))
+	bouche.Transparency = 1
+	O.fumee(bouche, 2)
+	-- poissons fumés suspendus sous l'avant-toit, côté gauche
+	O.decor(O.bloc(m, Vector3.new(0.2, 0.2, D + 0.4), a(-W / 2 - 0.55, yToit - 0.1, 0), SUIE, M.Bois, "Barre"))
+	for i = 0, 3 do
+		poissonPendu(m, a(-W / 2 - 0.55, yToit - 0.2, -1.3 + i * 0.86), rng, POISSONS[3])
+	end
+	-- tas de bûches contre le mur droit
+	for r = 0, 2 do
+		for i = 0, 3 - r do
+			O.decor(O.disque(m, 1.6, 0.5, a(W / 2 + 1.1, 0.25 + r * 0.45, -1.1 + i * 0.52 + r * 0.26),
+				Color3.fromRGB(110 + rng:NextInteger(-12, 12), 78, 50), M.Bois, "Buche"))
+		end
+	end
+	return m
+end
+
+-- Petit séchoir à poissons : deux montants, trois barres garnies de poissons, petit auvent de planches.
+-- cf : au sol, barres parallèles à l'axe X.
+function B.sechoirPoissons(parent, cf, numero)
+	local m = O.modele(parent, "SechoirPoissons")
+	local rng = Random.new(numero or 1)
+	local function a(x, y, z) return cf * CFrame.new(x, y, z) end
+	local L = 3.6
+	for _, x in {-L / 2, L / 2} do
+		O.bloc(m, Vector3.new(0.35, 3.4, 0.35), a(x, 1.7, 0), C.Bois, M.Bois, "Montant")
+		for _, s in {-1, 1} do
+			O.decor(O.bloc(m, Vector3.new(0.25, 1.4, 0.25), a(x, 0.55, s * 0.45) * CFrame.Angles(s * math.rad(-28), 0, 0), C.BoisFonce, M.Bois, "Jambe"))
+		end
+	end
+	for _, y in {3.1, 1.75} do
+		O.decor(O.bloc(m, Vector3.new(L + 0.5, 0.18, 0.18), a(0, y, 0), C.BoisFonce, M.Bois, "Barre"))
+		for i = 0, 5 do
+			poissonPendu(m, a(-L / 2 + 0.35 + i * (L - 0.7) / 5, y - 0.1, 0), rng, POISSONS[rng:NextInteger(1, #POISSONS)])
+		end
+	end
+	-- petit auvent de planches
+	O.decor(O.bloc(m, Vector3.new(L + 0.9, 0.2, 1.4), a(0, 3.55, 0) * CFrame.Angles(math.rad(12), 0, 0), C.BoisClair, M.Planches, "Auvent"))
+	-- panier au pied
+	O.cylindre(m, 0.7, 1, a(L / 2 + 0.6, 0.35, 0.4), Color3.fromRGB(176, 140, 86), M.Tissu, "Panier")
+	return m
+end
+
 function B.tableTaverne(parent, cf)
 	local m = O.modele(parent, "Table")
 	m:SetAttribute("VersionTableTaverne", 2)

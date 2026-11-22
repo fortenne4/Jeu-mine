@@ -4,16 +4,18 @@ local O = require(script.Parent.Outils)
 
 local MineursDecor = {}
 
-local EMPLACEMENTS = {
-	{position = Vector3.new(-36, 0, -28), cible = Vector3.new(-44, 0, -12),
-		haut = Color3.fromRGB(96, 70, 62), bas = Color3.fromRGB(53, 47, 48), barbe = Color3.fromRGB(86, 57, 38)},
-	{position = Vector3.new(34, 0, 25), cible = Vector3.new(47, 0, 22),
-		haut = Color3.fromRGB(77, 77, 68), bas = Color3.fromRGB(57, 48, 44), barbe = Color3.fromRGB(66, 53, 46)},
-}
+-- Les deux figurants (près de la boutique de minerais et sous l'auvent est) ont été retirés :
+-- ajouter une entrée ici pour en remettre un.
+local EMPLACEMENTS = {}
 
 function MineursDecor.construire(carte)
 	local ancien = carte:FindFirstChild("MineursDecoratifs")
-	if ancien then return ancien end
+	if ancien then
+		-- carte figée : on enlève aussi les figurants déjà enregistrés dans la place
+		if #EMPLACEMENTS == 0 then ancien:Destroy() return nil end
+		return ancien
+	end
+	if #EMPLACEMENTS == 0 then return nil end
 	local groupe = O.modele(carte, "MineursDecoratifs")
 	for index, e in EMPLACEMENTS do
 		local cf = CFrame.lookAt(e.position, e.cible)
