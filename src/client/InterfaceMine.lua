@@ -6,8 +6,55 @@
 local TweenService = game:GetService("TweenService")
 local SoundService = game:GetService("SoundService")
 local Debris = game:GetService("Debris")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 
 local UI = {}
+
+-- Touche d'interaction des PNJ (celle qui ouvre les fenêtres) : sert aussi à les fermer
+local TOUCHES_INTERACTION = {[Enum.KeyCode.E] = true, [Enum.KeyCode.ButtonX] = true}
+-- Invites (ProximityPrompt) actuellement affichées chez ce joueur, pour pouvoir les couper sans parcourir le workspace
+local invitesVisibles: {[ProximityPrompt]: boolean} = {}
+-- Pendant qu'une fenêtre de PNJ est ouverte, les invites E proches sont coupées chez ce joueur (E sert alors
+-- à fermer, sans rouvrir la fenêtre derrière). État partagé par toutes les fenêtres du module.
+local invitesCoupees: {[ProximityPrompt]: boolean} = {}
+local fenetresOuvertes = 0
+local function couperInvite(p: ProximityPrompt)
+	if p.Enabled and TOUCHES_INTERACTION[p.KeyboardKeyCode] then
+		p.Enabled = false
+		invitesCoupees[p] = true
+	end
+end
+ProximityPromptService.PromptShown:Connect(function(p)
+	invitesVisibles[p] = true
+	if fenetresOuvertes > 0 then
+		couperInvite(p) -- invite apparue pendant qu'une fenêtre est ouverte
+	end
+end)
+ProximityPromptService.PromptHidden:Connect(function(p)
+	invitesVisibles[p] = nil
+end)
+local function couperInvites()
+	fenetresOuvertes += 1
+	for p in invitesVisibles do
+		couperInvite(p)
+	end
+end
+local function reactiverInvites()
+	fenetresOuvertes = math.max(0, fenetresOuvertes - 1)
+	task.delay(0.25, function()
+		if fenetresOuvertes > 0 then
+			return -- une fenêtre est (re)ouverte : on les rendra à la dernière fermeture
+		end
+		for p in invitesCoupees do
+			if p.Parent then
+				p.Enabled = true
+			end
+		end
+		table.clear(invitesCoupees)
+	end)
+end
 
 UI.T = {
 	Voile = Color3.fromRGB(6, 4, 3),
@@ -368,13 +415,104 @@ function UI.toast(gui: ScreenGui): (string, boolean) -> ()
 end
 
 -- ================= Portrait 3D du PNJ =================
+local pnjConnus: {[string]: Instance} = {} -- mémoire : on ne parcourt le workspace qu'une fois par PNJ
 local function trouverPNJ(service: string): Instance?
+	local connu = pnjConnus[service]
+	if connu and connu:IsDescendantOf(workspace) then
+		return connu
+	end
 	for _, d in workspace:GetDescendants() do
 		if d:GetAttribute("Service") == service then
+			pnjConnus[service] = d
 			return d
 		end
 	end
 	return nil
+end
+
+-- Étendue (min, max) d'un ensemble de pièces le long d'un axe du monde (pièces orientées incluses)
+local function etendue(pieces: {BasePart}, axe: Vector3): (number, number)
+	local mn, mx = math.huge, -math.huge
+	for _, p in pieces do
+		local cf, s = p.CFrame, p.Size / 2
+		local c = cf.Position:Dot(axe)
+		local r = math.abs(cf.RightVector:Dot(axe)) * s.X + math.abs(cf.UpVector:Dot(axe)) * s.Y + math.abs(cf.LookVector:Dot(axe)) * s.Z
+		mn, mx = math.min(mn, c - r), math.max(mx, c + r)
+	end
+	return mn, mx
+end
+
+-- Cadrage « photo de profil » : visage entier + haut des épaules, calculé depuis la tête du modèle.
+-- Marche pour les nains Blender (« <Nom>_Tete_Peau » dans le sous-modèle « Tete ») et les avatars R15 (« Head »).
+local function cadragePortrait(copie: Model, fov: number): (CFrame, Vector3, Vector3, boolean)
+	local tete: BasePart? = nil
+	local nez: BasePart? = nil
+	for _, d in copie:GetDescendants() do
+		if d:IsA("BasePart") then
+			if d.Name == "Head" or string.match(d.Name, "_Tete_Peau$") then
+				tete = tete or d
+			elseif string.match(d.Name, "_Nez$") then
+				nez = nez or d
+			end
+		end
+	end
+	-- Direction du regard : vers le nez si on l'a, sinon le HumanoidRootPart, sinon la tête R15, sinon le pivot
+	local racine = copie:FindFirstChild("HumanoidRootPart")
+	local avant: Vector3
+	if tete and nez then
+		avant = nez.Position - tete.Position
+	elseif racine and racine:IsA("BasePart") then
+		avant = racine.CFrame.LookVector
+	elseif tete and tete.Name == "Head" then
+		avant = tete.CFrame.LookVector
+	else
+		avant = copie:GetPivot().LookVector
+	end
+	avant = Vector3.new(avant.X, 0, avant.Z)
+	avant = if avant.Magnitude > 0.01 then avant.Unit else Vector3.zAxis
+	local droite = avant:Cross(Vector3.yAxis)
+	local haut = Vector3.yAxis
+
+	local bas0, haut0 = 0, 0
+	if tete then
+		bas0, haut0 = etendue({tete}, haut)
+	end
+	local hTete = haut0 - bas0
+	if not tete or hTete < 0.2 or hTete > 8 then
+		-- Pas de tête reconnue : ancien cadrage approximatif sur le haut de la boîte
+		local cf, taille = copie:GetBoundingBox()
+		local h = math.clamp(taille.Y, 3, 9)
+		local cible = cf.Position + haut * h * 0.3
+		return CFrame.lookAt(cible + avant * (h * 0.22 / math.tan(math.rad(fov / 2))), cible), avant, droite, false
+	end
+	local t = tete :: BasePart
+	-- Coiffe : chapeau, cheveux, casque, cornes (sous-modèle « Tete » ou accessoires collés à la tête)
+	local coiffe: {BasePart} = {t}
+	local groupe = t.Parent
+	if groupe and groupe:IsA("Model") and groupe ~= copie then
+		for _, d in groupe:GetDescendants() do
+			if d:IsA("BasePart") and d.Transparency < 0.95 then
+				table.insert(coiffe, d)
+			end
+		end
+	end
+	for _, acc in copie:GetDescendants() do
+		if acc:IsA("Accessory") then
+			local poignee = acc:FindFirstChild("Handle")
+			if poignee and poignee:IsA("BasePart") and (poignee.Position - t.Position).Magnitude < t.Size.Magnitude * 1.2 then
+				table.insert(coiffe, poignee)
+			end
+		end
+	end
+	local _, hautCoiffe = etendue(coiffe, haut)
+	local gL, gR = etendue(coiffe, droite)
+	local sommet = math.min(math.max(haut0, hautCoiffe), haut0 + hTete * 0.9) + hTete * 0.06
+	local pied = bas0 - hTete * 0.42 -- coupé au niveau des épaules
+	local largeur = math.min(gR - gL, hTete * 2.2)
+	local demi = math.max((sommet - pied) / 2, largeur / 2) * 1.1 -- marge : le médaillon est rond
+	local cible = t.Position + haut * ((sommet + pied) / 2 - t.Position:Dot(haut))
+	local dir = (avant * math.cos(math.rad(18)) + droite * math.sin(math.rad(18)) + haut * 0.1).Unit
+	return CFrame.lookAt(cible + dir * (demi / math.tan(math.rad(fov / 2))), cible), avant, droite, true
 end
 
 function UI.portrait(service: string, vp: ViewportFrame): boolean
@@ -400,27 +538,16 @@ function UI.portrait(service: string, vp: ViewportFrame): boolean
 			d.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 		end
 	end
-	copie.Name = "Objet"
-	local cfBoite, taille = copie:GetBoundingBox()
-	local tete = copie:FindFirstChild("Head", true) or copie:FindFirstChild("Tete", true)
-	local centre: Vector3
-	if tete and tete:IsA("BasePart") then
-		centre = tete.Position
-	elseif tete and tete:IsA("Model") then
-		centre = (tete:GetBoundingBox()).Position
-	else
-		centre = cfBoite.Position + Vector3.yAxis * taille.Y * 0.36
-	end
-	local racine = copie:FindFirstChild("HumanoidRootPart")
-	local avant = (if racine and racine:IsA("BasePart") then racine.CFrame else copie:GetPivot()).LookVector
-	avant = Vector3.new(avant.X, 0, avant.Z)
-	avant = if avant.Magnitude > 0.01 then avant.Unit else Vector3.zAxis
-	local h = math.clamp(taille.Y, 3, 9)
-	local cible = centre - Vector3.yAxis * h * 0.07
 	local cam = vp.CurrentCamera or creer("Camera", {FieldOfView = 30, Parent = vp})
 	vp.CurrentCamera = cam
-	local droite = avant:Cross(Vector3.yAxis)
-	cam.CFrame = CFrame.lookAt(cible + avant * (h * 0.22 / math.tan(math.rad(15))) + droite * h * 0.08 + Vector3.yAxis * h * 0.03, cible)
+	local cfCam, avant, droite, teteTrouvee = cadragePortrait(copie, cam.FieldOfView)
+	cam.CFrame = cfCam
+	-- Gardé en cache (« Objet ») seulement si la tête a été trouvée ; sinon portrait provisoire, retenté à la prochaine ouverture
+	local ancien = vp:FindFirstChild("ObjetProvisoire")
+	if ancien then
+		ancien:Destroy()
+	end
+	copie.Name = if teteTrouvee then "Objet" else "ObjetProvisoire"
 	vp.Ambient, vp.LightColor = Color3.fromRGB(150, 128, 110), Color3.fromRGB(255, 214, 170)
 	vp.LightDirection = (-avant + droite * 0.6 - Vector3.yAxis).Unit
 	copie.Parent = vp
@@ -455,39 +582,42 @@ function UI.fenetre(gui: ScreenGui, o: Opts): Fenetre
 		{creer("UIAspectRatioConstraint", {AspectRatio = 1.62}), creer("UISizeConstraint", {MaxSize = Vector2.new(1000, 617)})})
 	local echelle = echelleDe(racine)
 
-	-- Cadre en planches de bois sombre (grain horizontal)
-	local grain = {}
-	for i = 0, 10 do
-		local v = if i % 2 == 0 then 255 - (i * 7) % 30 else 196 + (i * 13) % 26
-		table.insert(grain, ColorSequenceKeypoint.new(i / 10, Color3.fromRGB(v, v * 0.97, v * 0.94)))
-	end
-	creer("Frame", {Name = "Cadre", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.Bois, Parent = racine},
-		{coin(0.03), trait(Color3.fromRGB(18, 10, 6), 4), creer("UIGradient", {Rotation = 90, Color = ColorSequence.new(grain)})})
-	-- Équerres de fer aux coins
-	for _, c in {Vector2.new(0, 0), Vector2.new(1, 0), Vector2.new(0, 1), Vector2.new(1, 1)} do
-		local eq = creer("Frame", {AnchorPoint = c, Position = UDim2.fromScale(c.X, c.Y), Size = UDim2.fromScale(0.085, 0.085),
-			SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = T.Fer, ZIndex = 4, Parent = racine},
-			{coin(0.18), trait(T.FerSombre, 2), creer("UIGradient", {Rotation = 45, Color = ColorSequence.new(Color3.fromRGB(220, 220, 228), Color3.fromRGB(80, 80, 88))})})
-		UI.rivet(eq, UDim2.fromScale(0.5 + (0.5 - c.X) * 0.4, 0.5 + (0.5 - c.Y) * 0.4), 0.28)
-	end
-	for i = 1, 9 do
-		UI.rivet(racine, UDim2.fromScale(0.08 + i * 0.084, 0.012), 0.014)
-		UI.rivet(racine, UDim2.fromScale(0.08 + i * 0.084, 0.988), 0.014)
-	end
+	-- Cadre : bois sombre de couleur unie (ni vis ni équerres), liseré chaud discret à l'intérieur
+	creer("Frame", {Name = "Cadre", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(56, 34, 21), Parent = racine},
+		{coin(0.03), trait(Color3.fromRGB(18, 10, 6), 4)})
 
-	-- Intérieur : pierre chaude, lueur de forge en bas
+	-- Intérieur : pierre chaude (dégradé brun → ambre), appareil de pierres très léger, vignettage, lueur de forge en bas
 	local interieur = creer("Frame", {Name = "Interieur", Position = UDim2.fromScale(0.016, 0.026), Size = UDim2.fromScale(0.968, 0.948),
 		BackgroundColor3 = T.Pierre, ClipsDescendants = true, ZIndex = 1, Parent = racine},
-		{coin(0.02), trait(T.FerSombre, 3), creer("UIGradient", {Rotation = 90, Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(200, 200, 205)), ColorSequenceKeypoint.new(0.6, Color3.fromRGB(255, 240, 225)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 190, 140))})})})
+		{coin(0.02), trait(Color3.fromRGB(20, 13, 9), 3), creer("UIGradient", {Rotation = 90, Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(176, 166, 166)), ColorSequenceKeypoint.new(0.45, Color3.fromRGB(236, 220, 206)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 196, 150))})})})
+	-- Appareil de pierres taillées (statique, construit une seule fois) : rangées décalées, teintes à peine différentes
 	local rng = Random.new(42)
-	for _ = 1, 22 do
-		local s = rng:NextNumber(0.06, 0.16)
-		creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(rng:NextNumber(0, 1), rng:NextNumber(0, 1)),
-			Size = UDim2.fromScale(s * rng:NextNumber(1, 1.6), s), SizeConstraint = Enum.SizeConstraint.RelativeYY, Rotation = rng:NextNumber(-20, 20),
-			BackgroundColor3 = if rng:NextNumber() < 0.5 then Color3.new(0, 0, 0) else Color3.fromRGB(120, 100, 86),
-			BackgroundTransparency = rng:NextNumber(0.86, 0.94), BorderSizePixel = 0, Parent = interieur}, {coin(rng:NextNumber(0.2, 0.45))})
+	local RANGEES = 7
+	for r = 0, RANGEES - 1 do
+		local x = if r % 2 == 0 then 0 else -0.06
+		while x < 1 do
+			local l = rng:NextNumber(0.1, 0.17)
+			creer("Frame", {Position = UDim2.new(x, 2, r / RANGEES, 2), Size = UDim2.new(l, -4, 1 / RANGEES, -4),
+				BackgroundColor3 = if rng:NextNumber() < 0.5 then Color3.fromRGB(150, 120, 96) else Color3.new(0, 0, 0),
+				BackgroundTransparency = rng:NextNumber(0.9, 0.95), BorderSizePixel = 0, Parent = interieur}, {coin(0.12)})
+			x += l
+		end
+	end
+	-- Lumière chaude au centre (comme une lanterne) et vignettage sombre sur les bords
+	creer("Frame", {Name = "Lanterne", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromScale(1.1, 1.3),
+		BackgroundColor3 = Color3.fromRGB(255, 178, 96), BorderSizePixel = 0, Parent = interieur}, {coin(0.5),
+		creer("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.9),
+			NumberSequenceKeypoint.new(1, 1)})})})
+	-- {rotation du dégradé (côté opaque d'abord), ancre, taille} : haut, bas, gauche, droite
+	for _, v in {{90, Vector2.new(0, 0), UDim2.fromScale(1, 0.22)}, {-90, Vector2.new(0, 1), UDim2.fromScale(1, 0.22)},
+		{0, Vector2.new(0, 0), UDim2.fromScale(0.14, 1)}, {180, Vector2.new(1, 0), UDim2.fromScale(0.14, 1)}} do
+		local rot, ancre, taille = v[1] :: number, v[2] :: Vector2, v[3] :: UDim2
+		creer("Frame", {Name = "Vignette", AnchorPoint = ancre, Position = UDim2.fromScale(ancre.X, ancre.Y), Size = taille,
+			BackgroundColor3 = Color3.fromRGB(8, 5, 3), BorderSizePixel = 0, Parent = interieur},
+			{creer("UIGradient", {Rotation = rot, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.45),
+				NumberSequenceKeypoint.new(1, 1)})})})
 	end
 	local lueur = creer("Frame", {Name = "LueurForge", AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.fromScale(1, 0.42),
 		BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, Parent = interieur})
@@ -529,20 +659,32 @@ function UI.fenetre(gui: ScreenGui, o: Opts): Fenetre
 
 	local droite = creer("Frame", {Name = "Droite", AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(0.905, 0.18),
 		Size = UDim2.fromScale(0.3, 0.6), BackgroundTransparency = 1, ZIndex = 4, Parent = entete})
-	local fermer = creer("TextButton", {Name = "Fermer", Text = "✕", Font = Enum.Font.GothamBlack, TextScaled = true, TextColor3 = T.Parchemin,
-		AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(0.99, 0.16), Size = UDim2.fromScale(0.6, 0.6),
-		SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = Color3.fromRGB(140, 46, 34), AutoButtonColor = false, ZIndex = 4,
-		Parent = entete}, {coin(0.5), trait(T.Fer, 3), UI.degrade(Color3.new(1, 1, 1), Color3.fromRGB(150, 150, 150)),
-		creer("UIPadding", {PaddingTop = UDim.new(0.22, 0), PaddingBottom = UDim.new(0.22, 0)})})
+	-- Bouton fermer : croix dessinée avec deux barres (aucun glyphe de police → jamais de rectangle vide)
+	local fermer = creer("TextButton", {Name = "Fermer", Text = "", AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(0.99, 0.16),
+		Size = UDim2.fromScale(0.6, 0.6), SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = Color3.fromRGB(150, 44, 32),
+		AutoButtonColor = false, ZIndex = 4, Parent = entete}, {coin(0.5), trait(Color3.fromRGB(60, 16, 10), 3),
+		UI.degrade(Color3.new(1, 1, 1), Color3.fromRGB(150, 150, 150))})
+	local barres: {Frame} = {}
+	for _, angle in {45, -45} do
+		table.insert(barres, creer("Frame", {Name = "Croix", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(0.56, 0.13), Rotation = angle, BackgroundColor3 = T.Parchemin, BorderSizePixel = 0, ZIndex = 5,
+			Parent = fermer}, {coin(0.5), trait(Color3.fromRGB(60, 16, 10), 1.5, 0.3)}))
+	end
 	UI.reactif(fermer, 1.1)
 	fermer.MouseEnter:Connect(function()
-		TweenService:Create(fermer, FAST, {Rotation = 90}):Play()
+		TweenService:Create(barres[1], FAST, {Rotation = 135}):Play()
+		TweenService:Create(barres[2], FAST, {Rotation = 45}):Play()
 	end)
 	fermer.MouseLeave:Connect(function()
-		TweenService:Create(fermer, FAST, {Rotation = 0}):Play()
+		TweenService:Create(barres[1], FAST, {Rotation = 45}):Play()
+		TweenService:Create(barres[2], FAST, {Rotation = -45}):Play()
 	end)
 
-	UI.bandeFer(interieur, UDim2.fromScale(0, 0.205), UDim2.fromScale(1, 0.018), 14)
+	-- Séparateur de l'en-tête : bande unie (plus de rivets)
+	creer("Frame", {Name = "Separateur", Position = UDim2.fromScale(0, 0.205), Size = UDim2.fromScale(1, 0.012),
+		BackgroundColor3 = Color3.fromRGB(26, 17, 11), BorderSizePixel = 0, ZIndex = 5, Parent = interieur})
+	creer("Frame", {Position = UDim2.new(0, 0, 0.217, 0), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = T.OrFonce,
+		BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 5, Parent = interieur})
 	local contenu = creer("Frame", {Name = "Contenu", Position = UDim2.fromScale(0.018, 0.25), Size = UDim2.fromScale(0.964, 0.725),
 		BackgroundTransparency = 1, ZIndex = 3, Parent = interieur})
 
@@ -577,6 +719,7 @@ function UI.fenetre(gui: ScreenGui, o: Opts): Fenetre
 		if tweenVoile then
 			tweenVoile:Cancel()
 		end
+		reactiverInvites()
 		jouer("ouvrir", 1.3)
 		TweenService:Create(echelle, FAST, {Scale = 0.88}):Play()
 		TweenService:Create(racine, FAST, {Position = UDim2.fromScale(0.5, 0.56)}):Play()
@@ -593,14 +736,17 @@ function UI.fenetre(gui: ScreenGui, o: Opts): Fenetre
 		end)
 	end
 
+	local session = 0 -- jeton : une seule boucle de braises vivante, même après fermer/rouvrir rapide
 	local function ouvrir()
-		UI.portrait(o.service, vpPortrait)
-		initiale.Visible = vpPortrait:FindFirstChild("Objet") == nil
+		initiale.Visible = not UI.portrait(o.service, vpPortrait)
 		if ouverte then
 			return
 		end
 		ouverte = true
+		session += 1
+		local maSession = session
 		gui.Enabled = true
+		couperInvites()
 		for _, t in boucles do
 			t:Play()
 		end
@@ -630,17 +776,28 @@ function UI.fenetre(gui: ScreenGui, o: Opts): Fenetre
 		TweenService:Create(bulle, TweenInfo.new(n * 0.025, Enum.EasingStyle.Linear), {MaxVisibleGraphemes = n}):Play()
 		pop(cadrePortrait, 0.6)
 		task.spawn(function()
-			while ouverte do
+			while ouverte and session == maSession do
 				braise()
 				task.wait(0.07 + math.random() * 0.1)
 			end
 		end)
 	end
 
-	voile.Activated:Connect(fermerFenetre)
+	-- Fermeture : uniquement le bouton rouge ou la touche d'interaction (E / X manette), plus les fermetures
+	-- automatiques des scripts (on s'éloigne, on meurt). Cliquer à côté de la fenêtre ne la ferme plus.
 	fermer.Activated:Connect(function()
 		jouer("clic", 0.9)
 		fermerFenetre()
+	end)
+	UserInputService.InputBegan:Connect(function(input, procese)
+		if procese or not ouverte or not TOUCHES_INTERACTION[input.KeyCode] then
+			return -- E tapé dans le chat ou une zone de texte : on ignore
+		end
+		if UserInputService:GetFocusedTextBox() or Players.LocalPlayer:GetAttribute("ForgeCinematique") then
+			return -- cinématique de forge en cours : la fenêtre est seulement masquée, on ne la ferme pas
+		end
+		-- petit délai : l'appui est entièrement traité avant qu'une invite redevienne active (sinon elle rouvrirait)
+		task.delay(0.05, fermerFenetre)
 	end)
 
 	return {gui = gui, racine = racine, contenu = contenu, droite = droite, fermer = fermer, boucles = boucles,

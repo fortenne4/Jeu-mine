@@ -4,7 +4,7 @@
 -- construite avec Partage.ArmesVoxels.construire(objet.modele) (EpeeFer si le modèle n'existe pas encore) ;
 -- sinon l'épée de base (Forge.EPEE_BASE). Attributs de l'outil : Epee, Degats, Modele, ObjetId.
 -- Les coups sont animés par chaque client (EpeeAnimation.client) : le serveur ne fait que valider la
--- cadence, prévenir les autres clients et déclencher le hook ServerStorage.CoupEpee (joueur, coup, outil).
+-- cadence, calculer le combo (1-2-3, le 3e frappe plus fort), prévenir les autres clients et déclencher le hook ServerStorage.CoupEpee (joueur, coup, outil).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -190,6 +190,8 @@ local function donner(joueur: Player)
 end
 
 local derniers: {[Player]: number} = {}
+local combos: {[Player]: {n: number, t: number}} = {}
+local FENETRE_COMBO = 1.2 -- s entre deux coups pour enchaîner le combo
 
 remote.OnServerEvent:Connect(function(joueur: Player, coup: any)
 	if coup ~= 0 and coup ~= 1 and coup ~= 2 and coup ~= 3 then
@@ -209,6 +211,13 @@ remote.OnServerEvent:Connect(function(joueur: Player, coup: any)
 		return
 	end
 	derniers[joueur] = t
+	if coup > 0 then
+		-- Combo calculé ici (1 → 2 → 3 → 1, remis à 1 après une pause) : la valeur du client est ignorée
+		local c = combos[joueur]
+		local n = if c and t - c.t < FENETRE_COMBO then c.n % 3 + 1 else 1
+		combos[joueur] = {n = n, t = t}
+		coup = n
+	end
 	for _, p in Players:GetPlayers() do
 		if p ~= joueur then
 			remote:FireClient(p, perso, coup)
@@ -241,6 +250,7 @@ end)
 Players.PlayerAdded:Connect(surJoueur)
 Players.PlayerRemoving:Connect(function(joueur)
 	derniers[joueur] = nil
+	combos[joueur] = nil
 end)
 for _, joueur in Players:GetPlayers() do
 	task.spawn(surJoueur, joueur)

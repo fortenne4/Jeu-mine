@@ -100,6 +100,11 @@ function Monde.construire()
 	if not okDegager then
 		warn("[Monde] Dégagement du village impossible : " .. tostring(errDegager))
 	end
+	-- tout dernier : la mine souterraine reste propre (aucun décor extérieur, matériaux d'origine)
+	local okMine, errMine = pcall(Terrain.delimiterMine, carte)
+	if not okMine then
+		warn("[Monde] Délimitation de la mine impossible : " .. tostring(errMine))
+	end
 
 	carte:SetAttribute("Modeles3D", Modeles3D.signature())
 	carte.Parent = workspace

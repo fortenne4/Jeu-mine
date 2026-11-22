@@ -204,13 +204,27 @@ local function cimes(decor, rng)
 		local cf = CFrame.lookAt(pos, Vector3.new(C.X, 0, C.Z)) * CFrame.Angles(0, rng:NextNumber(-0.35, 0.35), 0)
 			- Vector3.new(0, 40 + rng:NextNumber(0, 30), 0)
 		local m = O.modele(f, "Cime")
-		M3.poser(pieces, S, cf, k, m, function(c, teinte)
+		local clones = M3.poser(pieces, S, cf, k, m, function(c, teinte)
 			local t = TEINTES_CIMES[teinte]
 			if t then
 				c.Color, c.Material = t[1], t[2]
 			end
 			decorer(c)
 		end)
+		-- Base enfoncée sous y = 0 : le pied des sommets du nord traversait la grande caverne (dalle à mi-hauteur).
+		-- On recule le sommet vers l'extérieur tant qu'il touche la zone de la mine.
+		local recul = Vector3.new(pos.X - C.X, 0, pos.Z - C.Z).Unit * 20
+		for _ = 1, 60 do
+			if not D.dansZoneMine(M3.boite(clones)) then
+				break
+			end
+			for _, c in clones do
+				c.CFrame += recul
+			end
+		end
+		if D.dansZoneMine(M3.boite(clones)) then
+			warn("[Bordures] Sommet lointain " .. i .. " touche encore la zone de la mine après recul")
+		end
 	end
 	return CONFIG.CIMES_NOMBRE
 end

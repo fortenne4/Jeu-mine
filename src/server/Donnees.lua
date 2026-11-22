@@ -4,7 +4,9 @@
 -- si le joueur rejoint un autre serveur avant la fin de la sauvegarde, rien n'est dupliqué ni perdu.
 --
 -- Ce qui est sauvegardé : les Pièces (leaderstats), les pioches achetées, la pioche équipée,
--- le sac de minerais, les objets forgés chez Brom, l'équipement porté et les quêtes de la Guilde (schéma v4).
+-- le sac de minerais, les objets forgés chez Brom, l'équipement porté et les quêtes de la Guilde (schéma v4),
+-- et les minerais déjà minés une fois (« mineraisDecouverts », champ ajouté sans changer de version : absent d'un
+-- ancien profil, il est déduit du sac et des objets forgés). Répliqué au client par l'attribut « MineraisDecouverts ».
 -- Les autres scripts ne touchent jamais au DataStore : ils lisent/modifient le profil en mémoire.
 --   local Donnees = require(script.Parent.Donnees)
 --   local profil = Donnees.attendre(joueur)   -- nil si le joueur est parti avant le chargement
@@ -50,6 +52,7 @@ export type Profil = {
 	prochainId: number,
 	equipement: {[string]: string}, -- emplacement (type d'objet forgé) → id de l'objet porté
 	quetes: {[string]: any}, -- Guilde des Mineurs (Quetes.server.lua valide le contenu au chargement)
+	mineraisDecouverts: {[string]: boolean}, -- minerais minés au moins une fois (silhouettes du menu des grottes)
 	inconnus: {minerais: {[any]: any}, objets: {any}, equipement: {[any]: any}},
 }
 
@@ -68,7 +71,7 @@ local enAttente: {[Player]: {thread}} = {}
 
 local function profilVide(): Profil
 	return {version = VERSION, pieces = 0, pioches = {[Pioches.DEPART] = true}, equipee = Pioches.DEPART,
-		minerais = {}, objets = {}, prochainId = 1, equipement = {}, quetes = {}, inconnus = {minerais = {}, objets = {}, equipement = {}}}
+		minerais = {}, objets = {}, prochainId = 1, equipement = {}, quetes = {}, mineraisDecouverts = {}, inconnus = {minerais = {}, objets = {}, equipement = {}}}
 end
 
 -- MIGRATIONS[v] transforme une sauvegarde de la version v en v + 1
@@ -178,6 +181,26 @@ local function lire(brut: any): Profil
 		end
 	end
 	p.quetes = if type(brut.quetes) == "table" then brut.quetes else {}
+	-- Minerais découverts : lus tels quels (ids texte courts, y compris inconnus de ce serveur), puis complétés par
+	-- ce que le joueur possède ou a forgé (migration douce des anciens profils, sans changer de version)
+	if type(brut.mineraisDecouverts) == "table" then
+		local n = 0
+		for id, v in brut.mineraisDecouverts do
+			-- pas de virgule : l'attribut « MineraisDecouverts » sépare les ids par des virgules
+			if v == true and type(id) == "string" and #id <= 40 and not id:find(",", 1, true) and n < 64 then
+				p.mineraisDecouverts[id] = true
+				n += 1
+			end
+		end
+	end
+	for id in p.minerais do
+		p.mineraisDecouverts[id] = true
+	end
+	for _, o in p.objets do
+		for _, e in o.composition do
+			p.mineraisDecouverts[e[1]] = true
+		end
+	end
 	p.prochainId = math.max(entier(brut.prochainId, 1e12) or 1, #p.objets + 1)
 	-- Équipement : l'objet doit exister et être du bon type, sinon gardé dans « inconnus »
 	for _, source in {brut.equipement, inconnus.equipement} do
@@ -205,7 +228,7 @@ local function serialiser(p: Profil, verrou: any): any
 	end
 	return {version = VERSION, pieces = p.pieces, pioches = pioches, equipee = p.equipee,
 		minerais = table.clone(p.minerais), objets = table.clone(p.objets), prochainId = p.prochainId,
-		equipement = table.clone(p.equipement), quetes = table.clone(p.quetes), verrou = verrou,
+		equipement = table.clone(p.equipement), quetes = table.clone(p.quetes), mineraisDecouverts = table.clone(p.mineraisDecouverts), verrou = verrou,
 		inconnus = if next(p.inconnus.minerais) or #p.inconnus.objets > 0 or next(p.inconnus.equipement) then p.inconnus else nil}
 end
 
@@ -388,6 +411,28 @@ function Donnees.ajouterMinerai(joueur: Player, id: string, n: number): boolean
 	return true
 end
 
+-- Minerais découverts → attribut joueur « MineraisDecouverts » (ids triés, séparés par des virgules)
+local function publierDecouverts(joueur: Player, p: Profil)
+	local ids = {}
+	for id in p.mineraisDecouverts do
+		table.insert(ids, id)
+	end
+	table.sort(ids)
+	joueur:SetAttribute("MineraisDecouverts", table.concat(ids, ","))
+end
+
+-- Le joueur a miné ce minerai (n'importe où) : il devient « découvert ». Renvoie vrai si c'est une première fois.
+-- Appelé par le serveur seulement (Minerais.server, sur MineraiCasse) : le client ne peut rien y écrire.
+function Donnees.decouvrirMinerai(joueur: Player, id: string): boolean
+	local p = Donnees.profil(joueur)
+	if not p or type(id) ~= "string" or not Forge.MINERAIS[id] or p.mineraisDecouverts[id] then
+		return false
+	end
+	p.mineraisDecouverts[id] = true
+	publierDecouverts(joueur, p)
+	return true
+end
+
 -- Vrai si la session de ce joueur écrit dans le DataStore (faux en partie de test Studio)
 function Donnees.estSauvegarde(joueur: Player): boolean
 	local s = sessions[joueur]
@@ -455,6 +500,7 @@ local function surJoueur(joueur: Player)
 	sessions[joueur] = {profil = p, sauvegarde = sauvegarde, libere = false}
 	compteur(joueur).Value = p.pieces
 	joueur:SetAttribute("Pioche", p.equipee)
+	publierDecouverts(joueur, p)
 
 	if RunService:IsStudio() and CONFIG.ARGENT_TEST_STUDIO > 0 then
 		-- On rend tout de suite la sauvegarde intacte (et son verrou), puis la partie de test ne sauvegarde plus rien

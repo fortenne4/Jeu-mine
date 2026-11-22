@@ -251,7 +251,7 @@ local function suivre(modele: Instance)
 			majBarre(e)
 			if perte > 0 then
 				chiffreDegats(e, perte, modele:GetAttribute("PVMax") or 1)
-				flash(e)
+				if modele:GetAttribute("DernierCoup") == nil then flash(e) end
 				local enAttaque = e.anim:EnCours() == "Attack" and not e.anim:Fini()
 				if pv > 0 and not e.boss and not enAttaque and e.etat ~= "Death" then
 					jouer(e, "Hurt", false, 0.06)
