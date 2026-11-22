@@ -27,6 +27,8 @@ if carte then
 			Village.preparerFontaine(village)
 			Village.preparerToits(village)
 			Village.preparerSentiers(village)
+			local okAteliers, erreurAteliers = pcall(Village.preparerAteliers, village)
+			if not okAteliers then warn("[Monde] Fourneau / puits / enseignes non mis à jour : " .. tostring(erreurAteliers)) end
 			require(monde:WaitForChild("DecorFontaine")).preparer(village)
 		end
 		local mine = carte:FindFirstChild("Mine")
@@ -38,6 +40,7 @@ if carte then
 		if not carte:FindFirstChild("DecorVillage") then require(monde:WaitForChild("DecorVillage")).construire(carte) end
 		require(monde:WaitForChild("MineursDecor")).construire(carte)
 		harmoniserEnseignes(carte)
+		pcall(require(monde:WaitForChild("Batiments")).degagerTonneaux, carte)
 		workspace:SetAttribute("MondeConstruit", true)
 		return
 	end
@@ -52,7 +55,10 @@ if not ok then
 	warn("[Monde] Erreur pendant la construction : " .. tostring(erreur))
 end
 local carteConstruite = workspace:FindFirstChild("Carte")
-if carteConstruite then harmoniserEnseignes(carteConstruite) end
+if carteConstruite then
+	harmoniserEnseignes(carteConstruite)
+	pcall(require(ServerStorage:WaitForChild("Monde"):WaitForChild("Batiments")).degagerTonneaux, carteConstruite)
+end
 workspace:SetAttribute("MondeConstruit", true)
 
 Players.CharacterAutoLoads = true

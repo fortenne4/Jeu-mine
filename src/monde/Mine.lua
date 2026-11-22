@@ -121,7 +121,7 @@ local function gare(f, rng)
 	end
 	O.bloc(m, Vector3.new(1, 1, 14), CFrame.new(30, 15.6, -149), C.Bois, M.Bois, "Fleche")
 	O.decor(O.bloc(m, Vector3.new(0.15, 7, 0.15), CFrame.new(30, 11.6, -143), Color3.fromRGB(150, 130, 100), M.Tissu, "Corde"))
-	O.decor(O.cylindre(m, 1.4, 1.8, CFrame.new(30, 7.4, -143), C.Bois, M.Planches, "Seau"))
+	O.decor(O.cylindre(m, 1.4, 1.8, CFrame.new(30, 7.4, -143), C.Bois, M.Bois, "Seau"))
 
 	for _, z in {-150, -164} do
 		for _, x in {-8, 8} do

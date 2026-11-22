@@ -152,10 +152,125 @@ function Village.preparerFontaine(village)
 	temporaire:Destroy()
 end
 
+-- Pièces de « nom » dans parent dont le centre est à moins de rayon (horizontal) de p
+local function piecesProches(parent, noms, p, rayon)
+	local liste = {}
+	for _, d in parent:GetChildren() do
+		if noms[d.Name] then
+			local pos = if d:IsA("BasePart") then d.Position elseif d:IsA("Model") then d:GetPivot().Position else nil
+			if pos and (Vector2.new(pos.X - p.X, pos.Z - p.Z)).Magnitude < rayon then table.insert(liste, d) end
+		end
+	end
+	return liste
+end
+
+local VERSION_ENSEIGNE = 2
+local Z_ENSEIGNE, Y_ENSEIGNE = -1.55, 11.6
+local enseigneStand -- défini plus bas (boutiques)
+
+-- Cartes figées : remplace l'ancien foyer de la forge, les puits et les enseignes des deux marchands
+-- par les versions actuelles (B.fourneau, B.puits, enseigneStand), une seule fois par version.
+function Village.preparerAteliers(village)
+	-- Fourneau du forgeron
+	local forge = village:FindFirstChild("Forge", true)
+	if forge and forge:IsA("Model") then
+		local actuel = forge:FindFirstChild("Fourneau")
+		if not (actuel and actuel:GetAttribute("VersionFourneau") == B.VERSION_FOURNEAU) then
+			local base = actuel and actuel:GetAttribute("Base")
+			local ancien = forge:FindFirstChild("Foyer")
+			if typeof(base) ~= "CFrame" and ancien and ancien:IsA("BasePart") then
+				base = ancien.CFrame * CFrame.new(0, -2, 0) -- l'ancien bloc était posé en foyer * (0, 2, 0)
+			end
+			if typeof(base) == "CFrame" then
+				for _, d in piecesProches(forge, {Foyer = true, Braises = true, Hotte = true, Cheminee = true, Chapeau = true, Soufflet = true}, base.Position, 7) do
+					d:Destroy()
+				end
+				if actuel then actuel:Destroy() end
+				local f = B.fourneau(forge, base)
+				f:SetAttribute("Base", base)
+			end
+		end
+	end
+	-- Puits
+	for _, puits in village:GetDescendants() do
+		if puits:IsA("Model") and puits.Name == "Puits" and puits:GetAttribute("VersionPuits") ~= B.VERSION_PUITS then
+			local eau = puits:FindFirstChild("Eau")
+			local base = puits:GetAttribute("Base")
+			if typeof(base) ~= "CFrame" and eau and eau:IsA("BasePart") then
+				base = CFrame.new(eau.Position - Vector3.new(0, 1.2, 0)) -- ancien puits : eau en cf * (0, 1.2, 0)
+			end
+			if typeof(base) == "CFrame" then
+				local parent = puits.Parent
+				puits:Destroy()
+				B.puits(parent, base):SetAttribute("Base", base)
+			end
+		end
+	end
+	-- Tonneaux enfoncés dans d'autres pièces (scintillement) : celui de l'atelier de Liesel (mur, plancher,
+	-- râtelier) va sur le plancher ; ceux qui mordent sur le dallage d'un puits sont repoussés à côté
+	local atelier = village:FindFirstChild("AtelierOutils", true)
+	local plancher = atelier and atelier:FindFirstChild("Plancher")
+	local tonneauAtelier = atelier and atelier:FindFirstChild("Tonneau")
+	local corpsAtelier = tonneauAtelier and tonneauAtelier:FindFirstChild("Corps")
+	if plancher and plancher:IsA("BasePart") and corpsAtelier and corpsAtelier:IsA("BasePart") then
+		local cible = (plancher.CFrame * CFrame.new(3.6, 0.25, 1.6)).Position -- = atelier * (3.6, 0.5, 1.6)
+		tonneauAtelier:TranslateBy(cible - (corpsAtelier.Position - Vector3.new(0, 1.6, 0)))
+	end
+	for _, puits in village:GetDescendants() do
+		local dallage = puits:IsA("Model") and puits.Name == "Puits" and puits:FindFirstChild("Dallage")
+		if dallage and dallage:IsA("BasePart") then
+			for _, tonneau in village:GetDescendants() do
+				local corps = tonneau:IsA("Model") and tonneau.Name == "Tonneau" and tonneau:FindFirstChild("Corps")
+				if corps and corps:IsA("BasePart") then
+					local ecart = (corps.Position - dallage.Position) * Vector3.new(1, 0, 1)
+					if ecart.Magnitude > 0.1 and ecart.Magnitude < 6.1 then
+						tonneau:TranslateBy(ecart.Unit * (6.1 - ecart.Magnitude))
+					end
+				end
+			end
+		end
+	end
+	-- Tonneaux, seaux, baquets, chopes : cylindres en bois au lieu de « planches » (rayures sur les cylindres)
+	for _, p in village:GetDescendants() do
+		if p:IsA("Part") and p.Shape == Enum.PartType.Cylinder and p.Material == Enum.Material.WoodPlanks and p.Name ~= "Porte" then
+			p.Material = Enum.Material.Wood
+		end
+	end
+	-- Enseignes des marchands (Comptoir des minerais, Pioches & outils)
+	local textes = {["COMPTOIR DES MINERAIS"] = true, ["PIOCHES & OUTILS"] = true}
+	for _, planche in village:GetDescendants() do
+		if planche:IsA("BasePart") and planche.Name == "Enseigne" and planche.Parent then
+			local gui = planche:FindFirstChild("TexteFront")
+			local label = gui and gui:FindFirstChild("Label")
+			local texte = label and label:IsA("TextLabel") and label.Text
+			local groupe = planche.Parent
+			local dejaAJour = groupe.Name == "EnseigneStand" and groupe:GetAttribute("VersionEnseigne") == VERSION_ENSEIGNE
+			if texte and textes[texte] and not dejaAJour then
+				local e, couleur, parent
+				if groupe.Name == "EnseigneStand" then
+					e, couleur, parent = groupe:GetAttribute("Base"), groupe:GetAttribute("Couleur"), groupe.Parent
+					groupe:Destroy()
+				else
+					e, parent = planche.CFrame * CFrame.new(0, -12.45, -5.05), groupe -- ancienne enseigne : e * (0, 12.45, 5.05)
+					for _, d in piecesProches(groupe, {PoteauEnseigne = true, Pommeau = true, Lisere = true, Suspension = true}, e.Position, 8) do
+						if d.Name == "Lisere" and d:IsA("BasePart") then couleur = d.Color end
+						if d:IsA("BasePart") and d.Position.Y < e.Position.Y + 5 and d.Name ~= "PoteauEnseigne" then continue end
+						d:Destroy()
+					end
+					planche:Destroy()
+				end
+				if typeof(e) == "CFrame" and parent then
+					enseigneStand(parent, e, texte, 10, if typeof(couleur) == "Color3" then couleur else C.BoisFonce)
+				end
+			end
+		end
+	end
+end
+
 -- Chemins décoratifs posés sur le terrain réel, y compris sur les cartes figées.
 function Village.preparerSentiers(village)
 	local anciens = village:FindFirstChild("SentiersFontaine")
-	if anciens and anciens:GetAttribute("VersionSentiers") == 12 then
+	if anciens and anciens:GetAttribute("VersionSentiers") == 13 then
 		return
 	end
 	local sentiers = O.modele(village, "SentiersEnConstruction")
@@ -407,26 +522,27 @@ function Village.preparerSentiers(village)
 		table.insert(axes, c)
 	end
 	local function plusProche(p)
-		local meilleur, distance = nil, math.huge
+		local meilleur, distance, axe = nil, math.huge, nil
 		for _, c in axes do
 			local d = c[2] - c[1]
 			local t = math.clamp((p - c[1]):Dot(d) / d:Dot(d), 0, 1)
 			local q = c[1] + d * t
 			local dist = (p - q).Magnitude
 			if dist < distance then
-				meilleur, distance = q, dist
+				meilleur, distance, axe = q, dist, c
 			end
 		end
-		return meilleur, distance
+		return meilleur, distance, axe
 	end
+	local allees = {} -- allées vers les portes : 2 lampadaires face à face, de part et d'autre
 	for _, d in village:GetDescendants() do
 		if d:IsA("Model") then
 			local accueil = d:GetAttribute("Accueil")
 			if typeof(accueil) == "Vector3" then
 				local p = Vector2.new(accueil.X, accueil.Z)
-				local q, distance = plusProche(p)
+				local q, distance, axe = plusProche(p)
 				if q and distance > 2.5 and distance < 70 then
-					rue(q, p, math.min(5, d:GetAttribute("LargeurAllee") or 4.5))
+					table.insert(allees, {rue(q, p, math.min(5, d:GetAttribute("LargeurAllee") or 4.5)), axe[3]})
 				end
 			end
 		end
@@ -434,7 +550,23 @@ function Village.preparerSentiers(village)
 	for _, c in tous do
 		relier(c)
 	end
-	sentiers:SetAttribute("VersionSentiers", 12)
+	for _, a in allees do
+		local c, demiRue = a[1], a[2]
+		local direction = c[2] - c[1]
+		local longueur = direction.Magnitude
+		-- au milieu de la partie de l'allée hors de la rue, sans toucher la façade
+		local t = math.clamp((demiRue + 1 + longueur - 1.5) / 2, math.min(demiRue + 1, longueur - 1.5), longueur - 1.5)
+		local centre = c[1] + direction.Unit * t
+		local normal = Vector2.new(-direction.Unit.Y, direction.Unit.X)
+		for _, signe in {-1, 1} do
+			local pos = centre + normal * signe * (c[3] + 1.2)
+			local h = hauteur(pos.X, pos.Y)
+			if h then
+				B.lanterne(sentiers, vers(Vector3.new(pos.X, h, pos.Y), Vector3.new(centre.X, h, centre.Y)))
+			end
+		end
+	end
+	sentiers:SetAttribute("VersionSentiers", 13)
 	if anciens then anciens:Destroy() end
 	sentiers.Name = "SentiersFontaine"
 end
@@ -511,22 +643,30 @@ local function batimentVendeur(m, direction, facadeR, o)
 	return maison, cf, largeur, -(cf.Position:Dot(u) - facadeR)
 end
 
--- Enseigne montée sur les poteaux arrière du stand, au-dessus de l'auvent : elle ne touche aucun mur.
-local function enseigneStand(m, e, texte, largeur, couleur)
+-- Enseigne à l'AVANT du stand, au-dessus du bord de l'auvent (avant : derrière l'auvent, cachée de près) :
+-- deux poteaux montés sur les poteaux avant du comptoir, planche face à la rue, lanternes devant.
+-- Modèle « EnseigneStand » (attributs Texte, VersionEnseigne) : Village.preparerAteliers le pose aussi sur les cartes figées.
+function enseigneStand(m, e, texte, largeur, couleur)
+	local g = O.modele(m, "EnseigneStand")
+	g:SetAttribute("Texte", texte)
+	g:SetAttribute("Couleur", couleur)
+	g:SetAttribute("VersionEnseigne", VERSION_ENSEIGNE)
 	local l = largeur
 	for _, x in {-l / 2, l / 2} do
-		O.bloc(m, Vector3.new(0.6, 14.4, 0.6), e * CFrame.new(x, 7.2, 5.6), C.BoisFonce, M.Bois, "PoteauEnseigne") -- derrière la planche : ne cache pas le texte
-		O.decor(O.bloc(m, Vector3.new(0.9, 0.9, 0.9), e * CFrame.new(x, 14.6, 5.6), C.Or, M.Metal, "Pommeau"))
+		O.bloc(g, Vector3.new(0.7, Y_ENSEIGNE + 1.9, 0.7), e * CFrame.new(x, (Y_ENSEIGNE + 1.9) / 2, -1.2), C.BoisFonce, M.Bois, "PoteauEnseigne")
+		O.decor(O.bloc(g, Vector3.new(0.9, 0.9, 0.9), e * CFrame.new(x, Y_ENSEIGNE + 2.3, -1.2), C.Or, M.Metal, "Pommeau"))
 	end
-	local planche = O.bloc(m, Vector3.new(l + 1.6, 2.7, 0.45), e * CFrame.new(0, 12.45, 5.05), C.BoisFonce, M.Planches, "Enseigne")
+	local planche = O.bloc(g, Vector3.new(l + 1.6, 2.7, 0.45), e * CFrame.new(0, Y_ENSEIGNE, Z_ENSEIGNE), C.BoisFonce, M.Planches, "Enseigne")
 	O.texte(planche, Enum.NormalId.Front, texte)
-	for _, y in {10.95, 13.95} do
-		O.decor(O.bloc(m, Vector3.new(l + 2, 0.32, 0.6), e * CFrame.new(0, y, 5.05), couleur, M.Tissu, "Lisere"))
+	for _, y in {Y_ENSEIGNE - 1.5, Y_ENSEIGNE + 1.5} do
+		O.decor(O.bloc(g, Vector3.new(l + 2, 0.32, 0.6), e * CFrame.new(0, y, Z_ENSEIGNE), couleur, M.Tissu, "Lisere"))
 	end
-	-- deux lanternes suspendues qui éclairent l'enseigne
-	for _, x in {-l / 2 - 0.1, l / 2 + 0.1} do
-		B.suspension(m, (e * CFrame.new(x, 10.6, 4.4)).Position, 0.8, C.Fenetre, 14)
+	-- deux lanternes suspendues à des bras de fer, qui éclairent l'enseigne
+	for _, s in {-1, 1} do
+		O.decor(O.bloc(g, Vector3.new(1.3, 0.18, 0.18), e * CFrame.new(s * (l / 2 + 0.55), Y_ENSEIGNE - 0.35, -1.4), C.Fer, M.Metal, "Bras"))
+		B.suspension(g, (e * CFrame.new(s * (l / 2 + 1.1), Y_ENSEIGNE - 0.4, -1.4)).Position, 0.8, C.Fenetre, 14)
 	end
+	g:SetAttribute("Base", e)
 	return planche
 end
 
@@ -579,7 +719,7 @@ local function atelierOutils(m, cf, couleur)
 	O.decor(O.bloc(a, Vector3.new(0.7, 7, 0.7), tete * CFrame.new(0, -1.5, -0.7), C.BoisClair, M.Bois, "ManchePioche"))
 	O.decor(O.bloc(a, Vector3.new(6, 1, 0.9), tete * CFrame.new(0, 2, -0.7), C.Fer, M.Metal, "TetePioche"))
 	O.decor(O.bloc(a, Vector3.new(2.6, 3.6, 0.2), mat * CFrame.new(1.6, 11, 0), couleur, M.Tissu, "Fanion"))
-	B.tonneau(a, cf * CFrame.new(4.5, 0, 3))
+	B.tonneau(a, cf * CFrame.new(3.6, 0.5, 1.6)) -- posé sur le plancher, loin du mur, du râtelier et des poteaux
 	return a
 end
 
@@ -722,7 +862,7 @@ local function boutiques(v, rng, obstacles)
 	for i, x in {-12.8, 12.8} do
 		B.tonneau(m, devant * CFrame.new(x, 0, -1.5))
 		B.tonneau(m, devant * CFrame.new(x, 0, -4))
-		B.tonneau(m, devant * CFrame.new(x, 2.9, -2.75) * CFrame.Angles(0, i, 0))
+		B.tonneau(m, devant * CFrame.new(x, 3.25, -2.75) * CFrame.Angles(0, i, 0)) -- posé sur les deux autres (sans les traverser)
 	end
 	pnj = B.pnj(m, devant * CFrame.new(-4, 0, -1.6), "Margot", "Aubergiste",
 		tenue(Color3.fromRGB(70, 50, 36), Color3.fromRGB(76, 58, 42), {
@@ -903,7 +1043,7 @@ local function decor(v, rng, obstacles)
 	local puits = Vector3.new(-15, 0, 64)
 	table.insert(obstacles, puits)
 	B.puits(m, CFrame.new(puits))
-	B.tonneau(m, CFrame.new(-10, 0, 67))
+	B.tonneau(m, CFrame.new(-8.6, 0, 67.6)) -- hors du dallage du puits
 	B.caisse(m, CFrame.new(-19.5, 0, 68.5) * CFrame.Angles(0, 0.4, 0))
 
 	-- Lueurs qui flottent au-dessus de la place

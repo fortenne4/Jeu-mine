@@ -1178,6 +1178,118 @@ function B.armure(parent, cf, couleur, mat, lisere)
 	return O.decorModele(m)
 end
 
+-- Fourneau du forgeron. cf = centre du foyer au sol, -Z = la gueule (vers l'atelier). Encombrement ≈ 9 × 6 au sol ;
+-- la cheminée monte à (0, 16.5, 1) comme l'ancien foyer (elle traverse le toit au même endroit).
+-- Modèle « Fourneau » (attribut VersionFourneau) : Village.preparerAteliers le pose aussi sur les cartes figées.
+B.VERSION_FOURNEAU = 1
+function B.fourneau(parent, cf)
+	local m = O.modele(parent, "Fourneau")
+	m:SetAttribute("VersionFourneau", B.VERSION_FOURNEAU)
+	m:SetAttribute("Base", cf)
+	local rng = Random.new(905)
+	local BRIQUE = Color3.fromRGB(122, 64, 46)
+	local BRIQUE_SOMBRE = Color3.fromRGB(78, 42, 34)
+	local FEU = Color3.fromRGB(255, 120, 30)
+	local BRAISE = Color3.fromRGB(255, 70, 16)
+	local FER = Color3.fromRGB(52, 50, 54)
+	local function brique() return BRIQUE:Lerp(BRIQUE_SOMBRE, rng:NextNumber(0, 0.6)) end
+
+	-- Socle de pierre à deux degrés
+	O.bloc(m, Vector3.new(9.2, 0.5, 6.4), cf * CFrame.new(0, 0.25, 0), COUL_AUBERGE.PierreSombre, M.Pierre, "Socle")
+	O.bloc(m, Vector3.new(8.6, 0.5, 5.8), cf * CFrame.new(0, 0.75, 0.1), COUL_AUBERGE.Pierre, M.Pierre, "Socle")
+	-- Corps en briques : côtés, fond, et façade autour de la gueule (assises décalées)
+	local Y0, H = 1, 5
+	for _, s in {-1, 1} do
+		for k = 0, 4 do
+			O.bloc(m, Vector3.new(1.8, 1, 5.2), cf * CFrame.new(s * 3.3 + (k % 2) * 0.06 * s, Y0 + 0.5 + k, 0.2), brique(), M.Brique, "Foyer")
+		end
+	end
+	O.bloc(m, Vector3.new(5, H, 1.2), cf * CFrame.new(0, Y0 + H / 2, 2.2), BRIQUE_SOMBRE, M.Brique, "Foyer")
+	-- Linteau de la gueule : arche de pierres claires (7 voussoirs + clé)
+	local centreArche = cf * CFrame.new(0, Y0 + 2.4, -2.45)
+	for k = 0, 6 do
+		local a = (k + 0.5) / 7 * math.pi
+		local p = Vector3.new(math.cos(a) * 2.05, math.sin(a) * 2.05, 0)
+		O.bloc(m, Vector3.new(0.9, 0.95, 1.1), centreArche * CFrame.new(p) * CFrame.Angles(0, 0, a), COUL_AUBERGE.PierreClaire:Lerp(COUL_AUBERGE.Pierre, rng:NextNumber(0, 0.5)), M.Pierre, "Voussoir")
+	end
+	O.bloc(m, Vector3.new(1.1, 1.2, 1.3), centreArche * CFrame.new(0, 2.3, -0.05), COUL_AUBERGE.PierreClaire, M.Pierre, "Cle")
+	for _, s in {-1, 1} do -- jambages de la gueule et écoinçons au-dessus de l'arche
+		O.bloc(m, Vector3.new(0.9, 2.4, 1.1), cf * CFrame.new(s * 2.05, Y0 + 1.2, -2.45), COUL_AUBERGE.PierreClaire, M.Pierre, "Jambage")
+		O.bloc(m, Vector3.new(1.6, 2.2, 1.1), cf * CFrame.new(s * 3.3, Y0 + 3.9, -2.45), brique(), M.Brique, "Foyer")
+	end
+	O.bloc(m, Vector3.new(3, 0.6, 1.1), cf * CFrame.new(0, Y0 + 4.7, -2.45), brique(), M.Brique, "Foyer")
+	-- Dessus en pierre et cerclage de fer riveté
+	O.bloc(m, Vector3.new(8.4, 0.7, 6), cf * CFrame.new(0, Y0 + H + 0.35, 0.1), COUL_AUBERGE.Pierre, M.Pierre, "Plateau")
+	for _, y in {Y0 + 0.9, Y0 + 4.2} do
+		O.decor(O.bloc(m, Vector3.new(8.5, 0.28, 0.15), cf * CFrame.new(0, y, -2.98), FER, M.Metal, "Cerclage"))
+		for _, x in {-3.9, -2.8, 2.8, 3.9} do
+			O.decor(O.ellipsoide(m, Vector3.new(0.24, 0.24, 0.14), cf * CFrame.new(x, y, -3.06), Color3.fromRGB(120, 116, 112), M.Metal, "Rivet"))
+		end
+	end
+
+	-- Intérieur incandescent : fond de braises, lit de charbons rougeoyants, flammes
+	local interieur = O.decor(O.bloc(m, Vector3.new(3.6, 3.6, 3.4), cf * CFrame.new(0, Y0 + 1.9, 0), FEU, M.Neon, "Braises"))
+	interieur.Transparency = 0.15
+	O.lumiere(interieur, Color3.fromRGB(255, 130, 50), 4, 34, true)
+	for _ = 1, 14 do
+		local chaud = rng:NextNumber() < 0.55
+		local s = rng:NextNumber(0.5, 0.9)
+		O.decor(O.ellipsoide(m, Vector3.new(s, s * 0.7, s), cf * CFrame.new(rng:NextNumber(-1.4, 1.4), Y0 + 0.35 + rng:NextNumber(0, 0.3), rng:NextNumber(-2, 1.2)),
+			if chaud then BRAISE else Color3.fromRGB(34, 26, 24), if chaud then M.Neon else M.Ardoise, "Charbon"))
+	end
+	local flammes = O.decor(O.bloc(m, Vector3.new(2.6, 0.4, 2.4), cf * CFrame.new(0, Y0 + 0.8, -0.8), FEU, M.Neon, "Flammes"))
+	flammes.Transparency = 1
+	O.feu(flammes, 4.5)
+	O.etincelles(flammes, Color3.fromRGB(255, 190, 90), 10)
+	-- Fissures de chaleur dans les briques de façade
+	for _ = 1, 6 do
+		local s = if rng:NextNumber() < 0.5 then -1 else 1
+		O.decor(O.bloc(m, Vector3.new(rng:NextNumber(0.5, 1.1), 0.08, 0.06), cf * CFrame.new(s * rng:NextNumber(2.7, 3.8), Y0 + rng:NextNumber(0.6, 4.5), -2.53)
+			* CFrame.Angles(0, 0, rng:NextNumber(-0.6, 0.6)), FEU, M.Neon, "Fissure"))
+	end
+
+	-- Hotte en gradins de pierre, cerclée de fer, puis la cheminée
+	local hY = Y0 + H + 0.7
+	for k, t in {{7.6, 1.3, 5.2}, {6.2, 1.3, 4.4}, {4.8, 1.3, 3.8}} do
+		local y = hY + (k - 1) * 1.3 + 0.65
+		O.bloc(m, Vector3.new(t[1], t[2], t[3]), cf * CFrame.new(0, y, 0.3 + (k - 1) * 0.25), COUL_AUBERGE.Pierre:Lerp(COUL_AUBERGE.PierreClaire, (k - 1) * 0.25), M.Pierre, "Hotte")
+		O.decor(O.bloc(m, Vector3.new(t[1] + 0.12, 0.22, t[3] + 0.12), cf * CFrame.new(0, y - 0.5, 0.3 + (k - 1) * 0.25), FER, M.Metal, "Bande"))
+	end
+	O.bloc(m, Vector3.new(3, 12, 3), cf * CFrame.new(0, 16.5, 1), COUL_AUBERGE.PierreClaire, M.Pierre, "Cheminee")
+	for _, y in {12, 15.5, 19} do
+		O.decor(O.bloc(m, Vector3.new(3.15, 0.25, 3.15), cf * CFrame.new(0, y, 1), FER, M.Metal, "Bande"))
+	end
+	local chapeau = O.bloc(m, Vector3.new(3.8, 0.6, 3.8), cf * CFrame.new(0, 22.8, 1), COUL_AUBERGE.PierreSombre, M.Pierre, "Chapeau")
+	O.fumee(chapeau, 4, Color3.fromRGB(110, 102, 98))
+	-- Écusson à l'enclume sur la hotte (fer forgé + braise)
+	O.decor(O.bloc(m, Vector3.new(1.8, 1.2, 0.2), cf * CFrame.new(0, hY + 1.2, -2.4), FER, M.Metal, "Ecusson"))
+	O.decor(O.bloc(m, Vector3.new(1.2, 0.35, 0.1), cf * CFrame.new(0, hY + 1.35, -2.52), BRAISE, M.Neon, "EcussonBraise"))
+
+	-- Soufflet de cuir sur le côté droit, avec sa buse dans le foyer
+	local s = cf * CFrame.new(5.6, 2.4, 0) * CFrame.Angles(0, 0, math.rad(-12))
+	O.bloc(m, Vector3.new(2.6, 0.2, 2), s * CFrame.new(0, 0.55, 0), C.Bois, M.Planches, "Soufflet")
+	O.bloc(m, Vector3.new(2.6, 0.2, 2), s * CFrame.new(0, -0.55, 0), C.Bois, M.Planches, "Soufflet")
+	O.ellipsoide(m, Vector3.new(2.3, 0.95, 1.8), s, Color3.fromRGB(96, 60, 38), M.Cuir, "Soufflet")
+	O.decor(O.bloc(m, Vector3.new(1.6, 0.25, 0.25), s * CFrame.new(2, 0.6, 0), C.BoisFonce, M.Bois, "Poignee"))
+	O.decor(O.cylindre(m, 1.4, 0.35, s * CFrame.new(-1.7, 0, 0) * CFrame.Angles(0, 0, math.pi / 2), FER, M.Metal, "Buse"))
+	O.bloc(m, Vector3.new(0.5, 1.8, 0.5), cf * CFrame.new(5.6, 0.9, 0), C.BoisFonce, M.Bois, "Pied")
+
+	-- Tisonnier et pince contre le jambage gauche, seau et tas de charbon
+	for k, t in {{-4.5, 0.2}, {-4.85, -0.18}} do
+		O.decor(O.bloc(m, Vector3.new(0.14, 3.6, 0.14), cf * CFrame.new(t[1], 1.9, -3.4) * CFrame.Angles(0, 0, t[2]), FER, M.Metal, if k == 1 then "Tisonnier" else "Pince"))
+	end
+	O.cylindre(m, 1.1, 1.3, cf * CFrame.new(-3.4, 0.55, -4.1), Color3.fromRGB(70, 66, 64), M.Metal, "Seau")
+	for _ = 1, 4 do
+		O.decor(O.ellipsoide(m, Vector3.new(0.5, 0.4, 0.5), cf * CFrame.new(-3.4 + rng:NextNumber(-0.3, 0.3), 1.15, -4.1 + rng:NextNumber(-0.3, 0.3)), Color3.fromRGB(30, 28, 30), M.Ardoise, "Charbon"))
+	end
+	for _ = 1, 9 do
+		local t = rng:NextNumber(0.5, 1)
+		O.decor(O.ellipsoide(m, Vector3.new(t, t * 0.7, t), cf * CFrame.new(rng:NextNumber(2.8, 4.6), t * 0.25, rng:NextNumber(-4.4, -3.2)),
+			Color3.fromRGB(32, 30, 34), M.Ardoise, "TasCharbon"))
+	end
+	return m
+end
+
 -- La forge du forgeron : atelier ouvert (même structure qu'avant), dans le style des maisons du village :
 -- murs de pierre et colombages, toit de tuiles à deux pans, pignon de façade avec l'enseigne, bannières et lanternes.
 function B.forge(parent, cf)
@@ -1241,19 +1353,8 @@ function B.forge(parent, cf)
 	B.fronton(m, cf * CFrame.new(0, 15.9, -10.0), "FORGERON", 9)
 	K.bannieres({-9.4, 9.4}, -9.4, 12.6)
 
-	-- Foyer, hotte et cheminée de pierre
-	local foyer = cf * CFrame.new(-5, 1, 6)
-	O.bloc(m, Vector3.new(7, 4, 5), foyer * CFrame.new(0, 2, 0), C.PierreFoncee, M.Brique, "Foyer")
-	local braises = O.bloc(m, Vector3.new(5.6, 0.5, 3.6), foyer * CFrame.new(0, 4.1, -0.2), Color3.fromRGB(255, 96, 24), M.Neon, "Braises")
-	O.feu(braises, 5)
-	O.lumiere(braises, Color3.fromRGB(255, 130, 50), 4, 34, true)
-	O.etincelles(braises, Color3.fromRGB(255, 180, 80), 8)
-	O.coin(m, Vector3.new(7.4, 4, 4.4), foyer * CFrame.new(0, 9.2, 0.3), COUL_AUBERGE.Pierre, M.Pierre, "Hotte")
-	O.bloc(m, Vector3.new(3, 12, 3), foyer * CFrame.new(0, 16.5, 1), COUL_AUBERGE.PierreClaire, M.Pierre, "Cheminee")
-	local chapeau = O.bloc(m, Vector3.new(3.8, 0.6, 3.8), foyer * CFrame.new(0, 22.8, 1), COUL_AUBERGE.PierreSombre, M.Pierre, "Chapeau")
-	O.fumee(chapeau, 4, Color3.fromRGB(110, 102, 98))
-	-- Soufflet
-	O.coin(m, Vector3.new(2.2, 1.6, 3), foyer * CFrame.new(4.6, 2.6, 0) * CFrame.Angles(0, -math.pi / 2, 0), C.BoisFonce, M.Cuir, "Soufflet")
+	-- Fourneau (foyer voûté, hotte, cheminée, soufflet)
+	B.fourneau(m, cf * CFrame.new(-5, 1, 6))
 
 	-- Enclume sur billot
 	local enclume = cf * CFrame.new(2, 1, -1)
@@ -1264,7 +1365,7 @@ function B.forge(parent, cf)
 	O.decor(O.bloc(m, Vector3.new(0.3, 0.3, 1.6), enclume * CFrame.new(0.5, 4.35, 0.2), C.BoisFonce, M.Bois, "Marteau"))
 	O.decor(O.bloc(m, Vector3.new(0.6, 0.5, 0.5), enclume * CFrame.new(0.5, 4.35, -0.6), C.Fer, M.Metal, "TeteMarteau"))
 	-- Baquet de trempe
-	O.cylindre(m, 2, 3, cf * CFrame.new(6.5, 2, 5.5), C.Bois, M.Planches, "Baquet")
+	O.cylindre(m, 2, 3, cf * CFrame.new(6.5, 2, 5.5), C.Bois, M.Bois, "Baquet")
 	O.decor(O.cylindre(m, 0.2, 2.6, cf * CFrame.new(6.5, 2.9, 5.5), C.Eau, M.Verre, "Eau"))
 
 	-- Râtelier d'épées (mur de droite, tourné vers l'intérieur)
@@ -1348,13 +1449,138 @@ end
 
 -- ================= Accessoires =================
 
+-- Tonneau : corps en bois (la matière « planches » se déforme en rayures sur un cylindre), couvercle, 3 cercles de fer
 function B.tonneau(parent, cf)
 	local m = O.modele(parent, "Tonneau")
-	O.cylindre(m, 3.2, 2.4, cf * CFrame.new(0, 1.6, 0), C.Bois, M.Planches, "Corps")
-	for _, y in {0.5, 2.7} do
-		O.decor(O.cylindre(m, 0.25, 2.55, cf * CFrame.new(0, y, 0), C.Fer, M.Metal, "Cercle"))
+	O.cylindre(m, 3.2, 2.4, cf * CFrame.new(0, 1.6, 0), C.Bois, M.Bois, "Corps")
+	O.decor(O.cylindre(m, 0.08, 2.1, cf * CFrame.new(0, 3.22, 0), C.BoisFonce, M.Bois, "Couvercle"))
+	for _, y in {0.45, 1.6, 2.75} do
+		O.decor(O.cylindre(m, 0.22, 2.52, cf * CFrame.new(0, y, 0), C.Fer, M.Metal, "Cercle"))
 	end
 	return m
+end
+
+-- Tonneaux qui traversent une autre pièce (mur, poteau, plancher…) : les surfaces se croisent et scintillent.
+-- On décale chacun vers la place libre la plus proche (8 directions, jusqu'à 4 studs), toujours posée sur un sol.
+function B.degagerTonneaux(racine)
+	local corrige = 0
+	-- Tonneaux 3D des maisons importées (un seul mesh par façade) : presque entièrement enterrés sous le terrain,
+	-- on ne voyait que leur couvercle (mesh « Colombage ») et leurs cercles (mesh « Fer ») au ras de l'herbe, en
+	-- scintillant. On repère chaque tonneau du mesh (rayons verticaux), on retire le mesh et on pose à sa place
+	-- un vrai tonneau sur l'herbe (il recouvre le couvercle et les cercles restants).
+	local nosTonneaux = {}
+	for _, t in racine:GetDescendants() do
+		local corps = t:IsA("Model") and t.Name == "Tonneau" and t:FindFirstChild("Corps")
+		if corps and corps:IsA("BasePart") then table.insert(nosTonneaux, corps.Position) end
+	end
+	for _, mesh in racine:GetDescendants() do
+		if mesh:IsA("BasePart") and mesh.Name == "Auberge_Decor_Tonneau" and mesh.Parent then
+			mesh.CanQuery = true
+			local seul = RaycastParams.new()
+			seul.FilterType = Enum.RaycastFilterType.Include
+			seul.FilterDescendantsInstances = {mesh}
+			local groupes = {} -- {somme, nombre}
+			local demi = mesh.Size / 2
+			for x = -demi.X, demi.X, 0.6 do
+				for z = -demi.Z, demi.Z, 0.6 do
+					local p = (mesh.CFrame * CFrame.new(x, 0, z)).Position
+					local touche = workspace:Raycast(p + Vector3.new(0, demi.Y + 2, 0), Vector3.new(0, -(mesh.Size.Y + 4), 0), seul)
+					if touche then
+						local q = touche.Position * Vector3.new(1, 0, 1)
+						local g = nil
+						for _, e in groupes do
+							if (e[1] / e[2] - q).Magnitude < 1.8 then g = e; break end
+						end
+						if g then g[1] += q; g[2] += 1 else table.insert(groupes, {q, 1}) end
+					end
+				end
+			end
+			local parent = mesh.Parent
+			local yBasMesh = mesh.Position.Y - demi.Y
+			mesh:Destroy()
+			corrige += 1
+			for _, g in groupes do
+				local c = g[1] / g[2]
+				local dejaLa = false
+				for _, p in nosTonneaux do
+					if (p * Vector3.new(1, 0, 1) - c).Magnitude < 2.6 then dejaLa = true; break end
+				end
+				if not dejaLa and g[2] >= 3 then
+					B.tonneau(parent, CFrame.new(c.X, yBasMesh, c.Z)) -- remonté sur l'herbe juste après
+					table.insert(nosTonneaux, c)
+				end
+			end
+		end
+	end
+	-- Tonneaux enfoncés dans le terrain (sol plus haut que prévu) : on les remonte sur l'herbe
+	local terrain = RaycastParams.new()
+	terrain.FilterType = Enum.RaycastFilterType.Include
+	terrain.FilterDescendantsInstances = {workspace.Terrain}
+	for _, tonneau in racine:GetDescendants() do
+		local corps = tonneau.Parent and tonneau:IsA("Model") and tonneau.Name == "Tonneau" and tonneau:FindFirstChild("Corps")
+		if corps and corps:IsA("BasePart") then
+			local bas = corps.Position.Y - corps.Size.X / 2
+			local sol = workspace:Raycast(Vector3.new(corps.Position.X, bas + 3, corps.Position.Z), Vector3.new(0, -6, 0), terrain)
+			if sol and sol.Position.Y > bas + 0.05 then
+				local monte = sol.Position.Y - bas
+				local haut = bas + corps.Size.X
+				-- les tonneaux empilés dessus montent avec lui
+				for _, autre in racine:GetDescendants() do
+					local c2 = autre ~= tonneau and autre:IsA("Model") and autre.Name == "Tonneau" and autre:FindFirstChild("Corps")
+					if c2 and c2:IsA("BasePart") then
+						local deja = autre:GetAttribute("Monte") or 0 -- posé sur deux tonneaux : on suit le plus haut, sans cumuler
+						local bas2 = c2.Position.Y - c2.Size.X / 2 - deja
+						if math.abs(bas2 - haut) < 0.4 and ((c2.Position - corps.Position) * Vector3.new(1, 0, 1)).Magnitude < 2.5 and monte > deja then
+							autre:TranslateBy(Vector3.new(0, monte - deja, 0))
+							autre:SetAttribute("Monte", monte)
+						end
+					end
+				end
+				tonneau:TranslateBy(Vector3.new(0, monte, 0))
+				corrige += 1
+			end
+		end
+	end
+	for _, tonneau in racine:GetDescendants() do
+		local corps = tonneau.Parent and tonneau:IsA("Model") and tonneau.Name == "Tonneau" and tonneau:FindFirstChild("Corps")
+		if corps and corps:IsA("BasePart") then
+			local filtre = OverlapParams.new()
+			filtre.FilterType = Enum.RaycastFilterType.Exclude
+			filtre.FilterDescendantsInstances = {tonneau}
+			-- vrai si le corps, décalé de « decal », ne traverse aucune pièce visible
+			local function libre(decal)
+				local origine = corps.CFrame
+				corps.CFrame = origine + decal
+				local touche = false
+				for _, p in workspace:GetPartsInPart(corps, filtre) do
+					if p.Transparency < 1 then touche = true; break end
+				end
+				corps.CFrame = origine
+				return not touche
+			end
+			if not libre(Vector3.zero) then
+				local rayons = RaycastParams.new()
+				rayons.FilterType = Enum.RaycastFilterType.Exclude
+				rayons.FilterDescendantsInstances = {tonneau}
+				local trouve = nil
+				for d = 0.5, 4, 0.5 do
+					for k = 0, 7 do
+						local a = k * math.pi / 4
+						local decal = Vector3.new(math.cos(a), 0, math.sin(a)) * d
+						local bas = corps.Position + decal - Vector3.new(0, corps.Size.X / 2 - 0.3, 0)
+						local sol = workspace:Raycast(bas + Vector3.new(0, 0.5, 0), Vector3.new(0, -1.5, 0), rayons)
+						if sol and libre(decal) then trouve = decal; break end
+					end
+					if trouve then break end
+				end
+				if trouve then
+					tonneau:TranslateBy(trouve)
+					corrige += 1
+				end
+			end
+		end
+	end
+	return corrige
 end
 
 function B.caisse(parent, cf, s)
@@ -1411,7 +1637,7 @@ function B.tableTaverne(parent, cf)
 	for _, o in {{-1.25, 0.35}, {1.15, -0.45}} do
 		local tasse = O.modele(m, "Chope")
 		local t = cf * CFrame.new(o[1], 3.26, o[2])
-		O.decor(O.cylindre(tasse, 1.1, 0.95, t * CFrame.new(0, 0.55, 0), Color3.fromRGB(137, 82, 39), M.Planches, "Corps"))
+		O.decor(O.cylindre(tasse, 1.1, 0.95, t * CFrame.new(0, 0.55, 0), Color3.fromRGB(137, 82, 39), M.Bois, "Corps"))
 		for _, y in {0.12, 0.92} do
 			O.decor(O.cylindre(tasse, 0.12, 1.0, t * CFrame.new(0, y, 0), fer, M.Metal, "Cercle"))
 		end
@@ -1425,20 +1651,110 @@ function B.tableTaverne(parent, cf)
 	return m
 end
 
+-- Seau de bois cerclé de fer (cf = fond du seau) ; plein = disque d'eau sur le dessus
+local function seau(m, cf, plein)
+	O.cylindre(m, 1.1, 1.2, cf * CFrame.new(0, 0.55, 0), C.Bois, M.Bois, "Seau")
+	for _, y in {0.2, 0.9} do
+		O.decor(O.cylindre(m, 0.12, 1.28, cf * CFrame.new(0, y, 0), Color3.fromRGB(70, 68, 72), M.Metal, "Cercle"))
+	end
+	O.decor(O.bloc(m, Vector3.new(1.3, 0.08, 0.08), cf * CFrame.new(0, 1.5, 0), Color3.fromRGB(70, 68, 72), M.Metal, "Anse"))
+	for _, x in {-0.62, 0.62} do
+		O.decor(O.bloc(m, Vector3.new(0.08, 0.5, 0.08), cf * CFrame.new(x, 1.27, 0), Color3.fromRGB(70, 68, 72), M.Metal, "Anse"))
+	end
+	if plein then
+		local eau = O.decor(O.cylindre(m, 0.06, 1.05, cf * CFrame.new(0, 1.02, 0), Color3.fromRGB(60, 140, 180), M.Verre, "EauSeau"))
+		eau.Transparency = 0.2
+	end
+end
+
+-- Puits du village : dallage, double margelle de pierres taillées (mousse), eau qui scintille au fond,
+-- toit de bardeaux sur poteaux contreventés, treuil à manivelle, seau suspendu, seau plein, lanterne.
+-- Modèle « Puits » (attribut VersionPuits) : Village.preparerAteliers le remplace aussi sur les cartes figées.
+B.VERSION_PUITS = 1
 function B.puits(parent, cf)
 	local m = O.modele(parent, "Puits")
+	m:SetAttribute("VersionPuits", B.VERSION_PUITS)
+	m:SetAttribute("Base", cf)
+	local rng = Random.new(2718)
+	-- Posé sur le vrai sol (terrain), puis le terrain est creusé à l'intérieur de la margelle : l'eau se voit au fond
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = {workspace.Terrain}
+	local sol = workspace:Raycast(cf.Position + Vector3.new(0, 20, 0), Vector3.new(0, -40, 0), params)
+	if sol then
+		cf = CFrame.new(sol.Position) * cf.Rotation
+	end
+	workspace.Terrain:FillCylinder(cf * CFrame.new(0, 0.6, 0), 4, 2.3, Enum.Material.Air)
+	local PIERRE = COUL_AUBERGE.Pierre
+	-- Dallage circulaire
+	O.cylindre(m, 0.3, 9.4, cf * CFrame.new(0, 0.15, 0), COUL_AUBERGE.PierreSombre, M.Pierre, "Dallage")
+	for i = 0, 11 do
+		local a = i * math.pi / 6
+		O.decor(O.bloc(m, Vector3.new(1.6, 0.08, 1.3), cf * CFrame.Angles(0, a, 0) * CFrame.new(0, 0.33, -4.1), PIERRE:Lerp(COUL_AUBERGE.PierreClaire, rng:NextNumber(0, 0.5)), M.Pierre, "Dalle"))
+	end
+	-- Margelle : assise basse + chaperon débordant, pierres légèrement inégales
 	for i = 0, 7 do
-		O.bloc(m, Vector3.new(2.3, 2.8, 0.9), cf * CFrame.Angles(0, i * math.pi / 4, 0) * CFrame.new(0, 1.4, -2.6), C.Pierre, M.Pierre, "Margelle")
+		local tour = cf * CFrame.Angles(0, i * math.pi / 4, 0)
+		O.bloc(m, Vector3.new(2.45, 2.3, 1.1), tour * CFrame.new(0, 1.45, -2.75), PIERRE:Lerp(COUL_AUBERGE.PierreSombre, rng:NextNumber(0, 0.6)), M.Pierre, "Margelle")
+		O.bloc(m, Vector3.new(2.7, 0.5, 1.5), tour * CFrame.new(0, 2.85, -2.8), COUL_AUBERGE.PierreClaire:Lerp(PIERRE, rng:NextNumber(0, 0.4)), M.Pierre, "Chaperon")
+		if rng:NextNumber() < 0.5 then
+			O.decor(O.ellipsoide(m, Vector3.new(rng:NextNumber(0.8, 1.4), 0.3, 0.5), tour * CFrame.new(rng:NextNumber(-0.6, 0.6), rng:NextNumber(0.6, 1.4), -3.32),
+				Color3.fromRGB(70, 104, 52), M.Herbe, "Mousse"))
+		end
 	end
-	O.decor(O.cylindre(m, 0.2, 4.6, cf * CFrame.new(0, 1.2, 0), Color3.fromRGB(20, 34, 40), M.Verre, "Eau"))
-	for _, x in {-2.9, 2.9} do
-		O.bloc(m, Vector3.new(0.6, 6.4, 0.6), cf * CFrame.new(x, 3.2, 0), C.BoisFonce, M.Bois, "Poteau")
+	-- Le fond : puits sombre, eau bleue qui reflète, lueur et reflets
+	O.decor(O.cylindre(m, 0.2, 4.7, cf * CFrame.new(0, 0.45, 0), Color3.fromRGB(10, 14, 18), M.Lisse, "Fond"))
+	local lueur = O.decor(O.cylindre(m, 0.1, 4.7, cf * CFrame.new(0, 1.15, 0), Color3.fromRGB(60, 170, 210), M.Neon, "LueurEau"))
+	lueur.Transparency = 0.55
+	local eau = O.decor(O.cylindre(m, 0.2, 4.75, cf * CFrame.new(0, 1.3, 0), Color3.fromRGB(46, 120, 160), M.Verre, "Eau"))
+	eau.Transparency = 0.2
+	eau.Reflectance = 0.25
+	O.lumiere(eau, Color3.fromRGB(110, 200, 255), 0.8, 9)
+	local reflets = O.decor(O.bloc(m, Vector3.new(3.4, 0.2, 3.4), cf * CFrame.new(0, 1.5, 0), Color3.new(1, 1, 1), M.Lisse, "Reflets"))
+	reflets.Transparency = 1
+	O.lucioles(reflets, Color3.fromRGB(170, 230, 255), 1.5)
+
+	-- Poteaux, contreventements, sablière
+	for _, x in {-3.5, 3.5} do
+		O.bloc(m, Vector3.new(0.8, 7.6, 0.8), cf * CFrame.new(x, 3.8, 0), COUL_AUBERGE.Bois, M.Bois, "Poteau")
+		O.bloc(m, Vector3.new(1.2, 0.6, 1.2), cf * CFrame.new(x, 0.6, 0), COUL_AUBERGE.PierreSombre, M.Pierre, "Pied")
+		for _, z in {-1, 1} do
+			O.decor(O.bloc(m, Vector3.new(0.35, 2.2, 0.35), cf * CFrame.new(x, 6.5, z * 0.7) * CFrame.Angles(z * math.rad(40), 0, 0), COUL_AUBERGE.Bois, M.Bois, "Contrevent"))
+		end
 	end
-	O.decor(O.cylindre(m, 6.4, 0.5, cf * CFrame.new(0, 5.4, 0) * CFrame.Angles(0, 0, math.pi / 2), C.Bois, M.Bois, "Treuil"))
-	O.coin(m, Vector3.new(7, 1.6, 2.2), cf * CFrame.new(0, 7.2, -1.1), C.Toit, M.Tuiles, "Toit")
-	O.coin(m, Vector3.new(7, 1.6, 2.2), cf * CFrame.new(0, 7.2, 1.1) * CFrame.Angles(0, math.pi, 0), C.Toit, M.Tuiles, "Toit")
-	O.decor(O.bloc(m, Vector3.new(0.1, 2, 0.1), cf * CFrame.new(0.6, 4.2, 0), Color3.fromRGB(150, 130, 100), M.Tissu, "Corde"))
-	O.decor(O.cylindre(m, 1, 1, cf * CFrame.new(0.6, 2.9, 0), C.Bois, M.Planches, "Seau"))
+	O.bloc(m, Vector3.new(8.2, 0.6, 0.7), cf * CFrame.new(0, 7.75, 0), COUL_AUBERGE.Bois, M.Bois, "Faitiere")
+	-- Toit : 3 rangées de bardeaux par pan, faîtage
+	for _, cote in {-1, 1} do
+		for r = 0, 2 do
+			local d = 0.6 + r * 1.05
+			local teinte = C.Toit:Lerp(C.ToitRouge, if r % 2 == 0 then 0.25 else 0.05)
+			O.bloc(m, Vector3.new(8.8, 0.28, 1.35), cf * CFrame.new(0, 8.35 - d * 0.62, cote * d) * CFrame.Angles(cote * math.rad(32), 0, 0), teinte, M.Tuiles, "Bardeaux")
+		end
+	end
+	O.bloc(m, Vector3.new(9, 0.45, 0.6), cf * CFrame.new(0, 8.55, 0), C.Toit, M.Tuiles, "Faitage")
+	for _, x in {-4.45, 4.45} do
+		O.decor(O.bloc(m, Vector3.new(0.3, 0.9, 0.3), cf * CFrame.new(x, 8.7, 0), COUL_AUBERGE.Bois, M.Bois, "Epi"))
+	end
+
+	-- Treuil avec corde enroulée et manivelle
+	O.decor(O.cylindre(m, 6.6, 0.6, cf * CFrame.new(0, 5.7, 0) * CFrame.Angles(0, 0, math.pi / 2), C.Bois, M.Bois, "Treuil"))
+	O.decor(O.cylindre(m, 2, 1, cf * CFrame.new(0, 5.7, 0) * CFrame.Angles(0, 0, math.pi / 2), Color3.fromRGB(160, 136, 100), M.Tissu, "CordeEnroulee"))
+	O.decor(O.bloc(m, Vector3.new(0.25, 1.6, 0.25), cf * CFrame.new(4.15, 5.1, 0), Color3.fromRGB(70, 68, 72), M.Metal, "Manivelle"))
+	O.decor(O.bloc(m, Vector3.new(0.9, 0.25, 0.25), cf * CFrame.new(4.5, 4.35, 0), C.BoisFonce, M.Bois, "Poignee"))
+	-- Corde et seau suspendu au-dessus de l'eau, seau plein posé sur le chaperon
+	O.decor(O.bloc(m, Vector3.new(0.1, 0.9, 0.1), cf * CFrame.new(0, 4.95, 0.45), Color3.fromRGB(160, 136, 100), M.Tissu, "Corde"))
+	seau(m, cf * CFrame.new(0, 3.35, 0.45), false)
+	seau(m, cf * CFrame.new(2.1, 3.1, -1.9) * CFrame.Angles(0, 0.4, 0), true)
+	-- Lanterne sous le toit
+	B.suspension(m, (cf * CFrame.new(-1.9, 7.4, 0)).Position, 0.9, C.Fenetre, 14)
+	-- Touffes de fleurs au pied
+	for _, p in {{-4.6, 1.8}, {4.4, -2.2}, {-1.8, 4.6}} do
+		O.decor(O.ellipsoide(m, Vector3.new(1.6, 0.9, 1.4), cf * CFrame.new(p[1], 0.45, p[2]), COUL_AUBERGE.Feuillage, M.Herbe, "Touffe"))
+		for k = 1, 4 do
+			O.decor(O.ellipsoide(m, Vector3.new(0.3, 0.3, 0.3), cf * CFrame.new(p[1] + rng:NextNumber(-0.6, 0.6), 0.9, p[2] + rng:NextNumber(-0.5, 0.5)),
+				if k % 2 == 0 then COUL_AUBERGE.Fleur else COUL_AUBERGE.FleurJaune, M.Tissu, "Fleur"))
+		end
+	end
 	return m
 end
 
@@ -1731,7 +2047,7 @@ local function outil(g, main, genre)
 		O.decor(O.bloc(g, Vector3.new(0.22, 3.4, 0.22), main * CFrame.new(0, 0.2, -0.15), C.Bois, M.Bois, "Manche"))
 		O.decor(O.bloc(g, Vector3.new(0.3, 0.32, 2.8), main * CFrame.new(0, 1.85, -0.15), Color3.fromRGB(150, 154, 162), M.Metal, "TetePioche"))
 	elseif genre == "chope" then
-		O.decor(O.cylindre(g, 0.85, 0.7, main * CFrame.new(0, 0.3, -0.35), C.Bois, M.Planches, "Chope"))
+		O.decor(O.cylindre(g, 0.85, 0.7, main * CFrame.new(0, 0.3, -0.35), C.Bois, M.Bois, "Chope"))
 		O.decor(O.cylindre(g, 0.16, 0.72, main * CFrame.new(0, 0.8, -0.35), Color3.fromRGB(246, 236, 210), M.Lisse, "Mousse"))
 		O.decor(O.cylindre(g, 0.1, 0.74, main * CFrame.new(0, 0.05, -0.35), C.Fer, M.Metal, "Cercle"))
 	elseif genre == "registre" then
