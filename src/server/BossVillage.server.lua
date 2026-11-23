@@ -1348,12 +1348,37 @@ Players.PlayerRemoving:Connect(function(joueur)
 	end
 end)
 
+-- « Rejoindre le portail » (annonce en haut d'écran, BossAnnonce.client) : téléporte le joueur dans le grand
+-- cercle pendant l'annonce. Seulement depuis la carte principale (village, mine publique), jamais depuis une mine
+-- privée, une grotte ou une arène ; vivant, pas pendant un départ ou un combat.
+local function rejoindre(joueur: Player)
+	if depart or combat or dossier:GetAttribute("Etat") ~= "Attente" then return end
+	local reste = finAttente - os.clock()
+	if reste <= 1 or reste > Config.ANNONCE + 1 then return end
+	if joueur:GetAttribute("DansArene") then return end
+	local _, racine, humain = vivant(joueur)
+	if not racine or not humain or typeof(centreCercle) ~= "Vector3" then return end
+	local p = racine.Position
+	if math.abs(p.X) > 700 or math.abs(p.Z) > 700 or p.Y < -200 then return end
+	if plat(p - centreCercle).Magnitude < RAYON and math.abs(p.Y - centreCercle.Y) < 10 then return end -- déjà dedans
+	humain.Sit = false
+	local a = rng:NextNumber(0, 2 * math.pi)
+	local r = rng:NextNumber(0, RAYON * 0.55)
+	local cible = centreCercle + Vector3.new(math.cos(a) * r, 3.5, math.sin(a) * r)
+	local perso = racine.Parent :: Model
+	perso:PivotTo(CFrame.lookAt(cible, Vector3.new(centreCercle.X, cible.Y, centreCercle.Z)))
+end
+
 -- Retour anticipé au village depuis l'écran de résultats (combat fini, joueur encore dans l'arène)
 action.OnServerEvent:Connect(function(joueur, type_)
-	if type_ ~= "Retour" then return end
+	if type_ ~= "Retour" and type_ ~= "Rejoindre" then return end
 	local t = os.clock()
 	if t - (derniereAction[joueur] or 0) < 1 then return end
 	derniereAction[joueur] = t
+	if type_ == "Rejoindre" then
+		rejoindre(joueur)
+		return
+	end
 	local c = combat
 	if not c or not c.fini or c.ferme or not c.joueurs[joueur] then return end
 	c.joueurs[joueur] = nil

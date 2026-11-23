@@ -9,6 +9,8 @@
 --    étincelles aux couleurs de la pioche ;
 --  • minerais (tag "Minerai", attribut "PV") : ils se fissurent à chaque coup puis éclatent.
 --    Le BindableEvent ServerStorage.MineraiCasse prévient Minerais.server.lua (récompenses).
+--  • clic maintenu = minage continu ; une série sans pause accélère les coups (jusqu'à +30 %) ;
+--    un minerai cassé d'une seule série donne un éclat parfait (+1 minerai). Affichage : ComboMinage.client.
 
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
@@ -28,7 +30,6 @@ local PiochesModeles = require(script.Parent:WaitForChild("PiochesModeles"))
 local MinePrivee = require(ServerStorage:WaitForChild("Monde"):WaitForChild("MinePrivee"))
 -- Sac du joueur : les minerais extraits de la mine privée y vont (vendus ensuite au marchand)
 local Donnees = require(script.Parent:WaitForChild("Donnees"))
-local SON_COLLECTE = "rbxasset://sounds/electronicpingshort.wav"
 
 local CONFIG = {
 	DEGATS_COUP = 12, -- dégâts directs du coup (PNJ hostiles)
@@ -36,12 +37,33 @@ local CONFIG = {
 	PVP = false, -- true = la pioche touche aussi les autres joueurs
 	DEGATS_MINERAI = 1, -- PV retirés à un minerai par coup (multiplié par la puissance de la pioche)
 	TAG_MINERAI = "Minerai",
+	-- Clic maintenu = minage continu. Série de coups sans pause : la cadence accélère à chaque coup.
+	ACCEL_PAR_COUP = 0.035, -- +3,5 % de vitesse par coup enchaîné…
+	ACCEL_MAX = 0.3, -- …jusqu'à +30 % (la cadence reste bornée par le verrou de 0,35 s du geste)
+	PAUSE_SERIE = 0.3, -- secondes de pause tolérées (au-delà de la recharge) avant que la série retombe
+	-- Éclat parfait : minerai cassé d'une seule série (commencée sur le minerai intact, sans viser ailleurs)
+	BONUS_ECLAT = 1, -- minerai(s) en plus dans le sac
+	COUPS_MIN_ECLAT = 3, -- le minerai doit demander au moins 3 coups (pas de bonus sur ceux cassés d'un coup)
 }
 
 -- Sons intégrés à Roblox. Remplace-les par tes propres ID (rbxassetid://...) si tu veux.
 local SONS = {
-	EQUIPER = "rbxasset://sounds/unsheath.wav",
-	FRAPPE = "rbxasset://sounds/swordslash.wav",
+	EQUIPER = "rbxassetid://9119742466", -- Sword Draw Clang Unsheathing 1 : on dégaine la pioche
+	-- Sons de la bibliothèque Pro Sound Effects (offerte par Roblox : marchent chez tous les collaborateurs)
+	ELAN = "rbxassetid://9120972444", -- Wood Whoosh Quick Swings 1 : la pioche fend l'air
+	PIERRE = "rbxassetid://9117841516", -- Pop Airy 2 : pierre, charbon, roche de la mine privée
+	METAL = "rbxassetid://9116652350", -- Metal Hits 14 : minerais métalliques
+	ECLAT = "rbxassetid://9118587701", -- Rock Drop On Concrete Breaks 4 : le minerai éclate
+}
+-- Minerais qui sonnent comme du métal à l'impact (les autres sonnent comme de la pierre)
+local MINERAIS_METAL = {Bronze = true, Fer = true, Gold = true}
+-- Éclat de tout minerai cassé : « Cloche d'or » + « Pièce légère » (banc d'écoute V7).
+-- {id, volume, hauteur, délai en secondes}
+local ECLAT_MINERAI = {
+	{"rbxassetid://9118587698", 0.44, 1, 0}, -- Rock Drop On Concrete Breaks 3 : la roche cède
+	{"rbxassetid://9119448154", 0.3, 1.1, 0.06}, -- Sparkle Bell Tree Wind Chimes 2 : clochettes
+	{"rbxassetid://9126073026", 0.35, 1, 0.1}, -- Synth Sparkle Bell Tone Ding : ding
+	{"rbxassetid://1169755927", 0.5, 1.2, 0.14}, -- Coin Collect (Everyedit, libre d'utilisation) : pièce
 }
 
 -- Endroit du manche tenu par la main (0 = milieu du manche, -2.2 = bout du manche).
@@ -62,6 +84,11 @@ fxEvent.Parent = ReplicatedStorage
 local coupEvent = Instance.new("RemoteEvent")
 coupEvent.Name = "CoupPioche"
 coupEvent.Parent = ReplicatedStorage
+
+-- Combo de minage (ComboMinage.client) : vitesse de la série, solidité du minerai frappé, éclat parfait
+local comboEvent = Instance.new("RemoteEvent")
+comboEvent.Name = "ComboMinage"
+comboEvent.Parent = ReplicatedStorage
 
 -- Point visé par le viseur du client (ViseurPioche.client) : seule exception au « clients muets ».
 -- Un Vector3 par coup, limité en cadence, validé ici (type, distance) puis utilisé pour creuser.
@@ -159,6 +186,21 @@ local function ancre(position: Vector3, duree: number): Part
 	local p = effetPart({Transparency = 1, Size = Vector3.new(0.2, 0.2, 0.2), Position = position})
 	Debris:AddItem(p, duree)
 	return p
+end
+
+-- Son joué à un endroit du monde (survit au minerai qui disparaît), hauteur un peu variée à chaque coup
+local function sonIci(position: Vector3, id: string, volume: number)
+	son(ancre(position, 4), id, volume, 0.92 + math.random() * 0.16)
+end
+
+-- Plusieurs sons superposés au même endroit, chacun avec son volume, sa hauteur et son délai
+local function melangeIci(position: Vector3, couches: {{any}})
+	local a = ancre(position, 5)
+	for _, c in couches do
+		task.delay(c[4], function()
+			if a.Parent then son(a, c[1], c[2], c[3]) end
+		end)
+	end
 end
 
 local function sol(position: Vector3): Vector3?
@@ -352,6 +394,15 @@ local function creerPioche(def: Pioches.Pioche): Tool
 	-- ===== Frappe =====
 	local dernierCoup = 0
 	local occupe = false
+	local serie = 0 -- coups enchaînés sans pause
+	local mineraiSerie: BasePart? = nil -- minerai frappé par la série en cours
+	local serieIntacte = false -- la série a commencé sur ce minerai encore intact
+	tool:SetAttribute("Vitesse", 1) -- lu par PiocheAnimation.client (cadence du geste)
+
+	-- Recharge réelle : celle de la pioche, raccourcie par l'accélération de la série
+	local function recharge(): number
+		return def.recharge / (tool:GetAttribute("Vitesse") or 1)
+	end
 
 	local function coup()
 		local perso = tool.Parent
@@ -359,13 +410,22 @@ local function creerPioche(def: Pioches.Pioche): Tool
 		local humanoid = perso:FindFirstChildOfClass("Humanoid")
 		local racine = perso:FindFirstChild("HumanoidRootPart")
 		if not humanoid or humanoid.Health <= 0 or not racine then return end
-		if occupe or os.clock() - dernierCoup < def.recharge then return end
-		dernierCoup = os.clock()
+		local maintenant = os.clock()
+		if occupe or maintenant - dernierCoup < recharge() then return end
+		if maintenant - dernierCoup > recharge() + CONFIG.PAUSE_SERIE then
+			serie, mineraiSerie = 0, nil -- pause : la série retombe
+		end
+		serie += 1
+		local vitesse = 1 + math.min(CONFIG.ACCEL_MAX, (serie - 1) * CONFIG.ACCEL_PAR_COUP)
+		tool:SetAttribute("Vitesse", vitesse)
+		dernierCoup = maintenant
 		occupe = true
+		local joueurSerie = Players:GetPlayerFromCharacter(perso)
+		if joueurSerie then comboEvent:FireClient(joueurSerie, "serie", serie, vitesse) end
 
 		-- Geste animé par les clients (PiocheAnimation) ; traînée allumée par eux pendant la frappe
 		coupEvent:FireAllClients(perso)
-		son(handle, SONS.FRAPPE, 0.6, 0.9 + math.random() * 0.2)
+		son(handle, SONS.ELAN, 0.5, 0.9 + math.random() * 0.2)
 		task.delay(0.35, function()
 			occupe = false
 		end)
@@ -441,11 +501,16 @@ local function creerPioche(def: Pioches.Pioche): Tool
 			end
 		end
 
+		if not minerai then
+			mineraiSerie = nil -- on vise ailleurs : l'éclat parfait de ce minerai est perdu
+		end
+
 		if not aTouche and joueur and Donnees.profil(joueur) then
 			-- Dans sa mine privée : la zone de coup retire quelques blocs de roche exposés (0 gain ; les
 			-- nœuds de minerai restent et se cassent comme dans la mine publique)
 			local bloc = MinePrivee.creuser(joueur, racine, cible, origine)
 			if bloc then
+				sonIci(bloc.Position, SONS.PIERRE, 0.62)
 				eclats(bloc, COULEUR)
 				bloc:Destroy()
 				return
@@ -469,15 +534,57 @@ local function creerPioche(def: Pioches.Pioche): Tool
 
 		impact(point or (racine.Position + racine.CFrame.LookVector * 3), 1, COULEUR)
 		if minerai then
-			local prive = minerai:GetAttribute("Proprietaire") ~= nil
+			local degats = CONFIG.DEGATS_MINERAI * def.puissance
+			local pvMax = minerai:GetAttribute("PVMax") or minerai:GetAttribute("PV") or 3
+			local pvAvant = minerai:GetAttribute("PV") or pvMax
+			if minerai ~= mineraiSerie then
+				mineraiSerie = minerai
+				serieIntacte = pvAvant >= pvMax -- la série doit commencer sur le minerai intact
+			end
+			-- Éclat parfait : cassé d'une seule série, et assez solide pour demander plusieurs coups
+			local eclatParfait = serieIntacte and pvAvant - degats <= 0 and pvMax > degats * (CONFIG.COUPS_MIN_ECLAT - 1)
+			if eclatParfait then
+				minerai:SetAttribute("BonusSerie", CONFIG.BONUS_ECLAT) -- lu par Minerais.server (récompense)
+			end
+			local position = minerai.Position
+			sonIci(position, if MINERAIS_METAL[minerai:GetAttribute("Type")] then SONS.METAL else SONS.PIERRE, 0.75)
 			-- Récompense : MineraiCasse → Minerais.server → Donnees.ajouterMinerai (sac)
-			if frapperMinerai(minerai, joueur, CONFIG.DEGATS_MINERAI * def.puissance, COULEUR) and prive then
-				son(racine, SON_COLLECTE, 0.5, 1.1)
+			local casse = frapperMinerai(minerai, joueur, degats, COULEUR)
+			if casse then
+				-- tout minerai cassé : roche + clochettes + ding + pièce (banc d'écoute V7)
+				melangeIci(position, ECLAT_MINERAI)
+				-- le minerai part dans le sac : petit « bloop » joué chez le mineur seulement (ComboMinage.client)
+				if joueur then comboEvent:FireClient(joueur, "ramasse") end
+			end
+			if casse then mineraiSerie = nil end
+			if joueur then
+				comboEvent:FireClient(joueur, "minerai", math.max(0, pvAvant - degats), pvMax, casse and eclatParfait, position)
 			end
 		end
 	end
 
-	tool.Activated:Connect(coup)
+	-- Clic maintenu : le serveur enchaîne les coups tant que le bouton reste enfoncé (même validation
+	-- qu'un clic : recharge, distance, visée). Relâcher arrête après le coup en cours.
+	local tenu = false
+	local boucleActive = false
+	tool.Activated:Connect(function()
+		tenu = true
+		if boucleActive then return end
+		boucleActive = true
+		task.spawn(function()
+			while tenu and tool.Parent and tool.Parent:IsA("Model") do
+				coup()
+				task.wait(0.03)
+			end
+			boucleActive = false
+		end)
+	end)
+	tool.Deactivated:Connect(function()
+		tenu = false
+	end)
+	tool.Unequipped:Connect(function()
+		tenu = false
+	end)
 	tool.Equipped:Connect(function()
 		son(handle, SONS.EQUIPER, 0.5)
 	end)

@@ -2,6 +2,7 @@
 -- Coup de pioche · SCRIPT CLIENT : geste du corps entier (bras droit + main gauche sur le manche + taille).
 -- Anticipation (pioche au-dessus/derrière l'épaule, torse cambré), frappe accélérée vers le minerai visé,
 -- hit-stop + rebond à l'impact, retour en garde. Impact local à 0.20 s (le serveur frappe à 0.17 s + ping).
+-- Deux gestes alternent (au-dessus de la tête / en diagonale, voir VARIANTES), mêmes temps pour les deux.
 -- Joueur local : joué au clic (même cadence que le serveur) ; autres : relais serveur CoupPioche.
 -- Attribut local « PiocheGeste » pendant le geste : PiocheDosAnimation n'écrit alors plus le bras.
 
@@ -16,6 +17,10 @@ local remote = ReplicatedStorage:WaitForChild("CoupPioche") :: RemoteEvent
 local joueur = Players.LocalPlayer
 
 local lisse, sortie = IK.lisse, IK.sortie
+-- Départ en douceur, arrivée franche : mélange des deux courbes (la sortie seule démarre d'un coup sec)
+local function armer(u: number): number
+	return 0.35 * sortie(u) + 0.65 * lisse(u)
+end
 local V = Vector3.new
 
 local OCCUPE = 0.35 -- verrou serveur après un coup
@@ -35,10 +40,26 @@ local POLE_G, POLE_A, POLE_I = V(0.3, -0.6, 0.6), V(0.75, 0.55, 0.2), V(0.35, -0
 local POLEG_G, POLEG_A, POLEG_I = V(-0.5, -0.7, 0.4), V(-0.3, -0.5, -0.8), V(-0.6, -0.75, 0.2)
 local VISEE_DEFAUT, PORTEE_VISEE = 0.75, 7
 
+-- Trois gestes qui alternent à chaque coup, avec exactement les mêmes temps (T_HAUT, T_IMPACT, T_FIGE, T_REBOND) :
+--  1. coup au-dessus de la tête (pioche derrière l'épaule, torse cambré) ;
+--  2. coup en diagonale depuis la droite : buste vrillé, pioche armée à hauteur de l'épaule droite ;
+--  3. coup en diagonale depuis la gauche : la main droite croise devant le torse jusqu'à l'épaule gauche.
+-- Seules les positions d'armé changent ; l'impact vise toujours le minerai (viser).
+type Variante = {hautP: Vector3, hautTh: number, ctrlMontee: Vector3, ctrlFrappe: Vector3,
+	pitchHaut: number, yawHaut: number, pole: Vector3, poleG: Vector3}
+local VARIANTES: {Variante} = {
+	{hautP = HAUT_P, hautTh = HAUT_TH, ctrlMontee = CTRL_MONTEE, ctrlFrappe = CTRL_FRAPPE,
+		pitchHaut = PITCH_HAUT, yawHaut = YAW_HAUT, pole = POLE_A, poleG = POLEG_A},
+	{hautP = V(0.62, 0.42, 0.32), hautTh = math.rad(38), ctrlMontee = V(0.55, -0.1, -0.25), ctrlFrappe = V(0.42, 0.62, -0.55),
+		pitchHaut = 0.08, yawHaut = -0.72, pole = V(0.95, 0.2, 0.35), poleG = V(-0.1, -0.6, -0.8)},
+	{hautP = V(-0.52, 0.4, 0.18), hautTh = math.rad(36), ctrlMontee = V(-0.3, -0.12, -0.4), ctrlFrappe = V(-0.32, 0.6, -0.55),
+		pitchHaut = 0.08, yawHaut = 0.62, pole = V(0.25, -0.35, -0.9), poleG = V(-0.95, 0.15, 0.3)},
+}
+
 type Etat = {
 	perso: Model, bras: IK.Bras?, gauche: IK.Bras?, outil: Instance?, actif: boolean, t: number, duree: number,
 	poids: number, poidsDepart: number, p0: Vector3, th0: number, pitch: number, yaw: number, pitch0: number, yaw0: number,
-	impP: Vector3, impTh: number, yawT: number, grip: CFrame, trail: Trail?, trailOn: boolean,
+	impP: Vector3, impTh: number, yawT: number, grip: CFrame, trail: Trail?, trailOn: boolean, variante: number,
 }
 
 local etats: {[Model]: Etat} = {}
@@ -50,6 +71,7 @@ local function etatDe(perso: Model): Etat
 			perso = perso, bras = nil, gauche = nil, outil = nil, actif = false, t = 0, duree = DUREE_MIN,
 			poids = 0, poidsDepart = 0, p0 = GARDE_P, th0 = GARDE_TH, pitch = 0, yaw = 0, pitch0 = 0, yaw0 = 0,
 			impP = GARDE_P, impTh = GARDE_TH, yawT = 0, grip = CFrame.identity, trail = nil, trailOn = false,
+			variante = #VARIANTES,
 		}
 		etats[perso] = e
 		perso.Destroying:Once(function()
@@ -61,7 +83,9 @@ end
 
 local function cadence(outil: Instance): number
 	local def = Pioches.get(outil:GetAttribute("PiocheId"))
-	return math.max(if def then def.recharge else 0.6, OCCUPE)
+	-- « Vitesse » : accélération de la série de coups (clic maintenu), réglée par le serveur
+	local vitesse = math.max(outil:GetAttribute("Vitesse") or 1, 1)
+	return math.max((if def then def.recharge else 0.6) / vitesse, OCCUPE)
 end
 
 local function trainee(e: Etat, on: boolean)
@@ -135,6 +159,7 @@ local function demarrer(e: Etat, outil: Instance)
 	e.p0 = (b.torse.CFrame:PointToObjectSpace(prise.Position) - S) / L
 	e.th0 = math.clamp(math.atan2(d0.Z, d0.Y), -2.6, 1.6)
 	viser(e, b, S)
+	e.variante = e.variante % #VARIANTES + 1 -- geste suivant
 	e.t = 0
 	e.duree = math.max(cadence(outil), DUREE_MIN)
 	e.poidsDepart, e.pitch0, e.yaw0 = e.poids, e.pitch, e.yaw
@@ -198,9 +223,10 @@ remote.OnClientEvent:Connect(function(perso: any)
 		return
 	end
 	if perso == joueur.Character then
-		-- coup accepté par le serveur mais pas prédit ici
+		-- coup accepté par le serveur mais pas prédit ici (clic maintenu : les coups suivants arrivent
+		-- par ce relais ; marge pour la gigue du réseau)
 		local t = os.clock()
-		if t - dernierLocal < cadence(outil) then
+		if t - dernierLocal < cadence(outil) * 0.6 then
 			return
 		end
 		dernierLocal = t
@@ -220,31 +246,32 @@ local function avancer(e: Etat, dt: number)
 	trainee(e, t >= T_HAUT and t <= T_FIGE + 0.03)
 
 	local w = e.poidsDepart + (1 - e.poidsDepart) * lisse(t / 0.06)
+	local v = VARIANTES[e.variante] or VARIANTES[1]
 	local p: Vector3, th: number, pitch: number, yaw: number, pole: Vector3, poleG: Vector3
 	if t < T_HAUT then
-		local u = sortie(t / T_HAUT)
+		local u = armer(t / T_HAUT)
 		local m = 1 - u
-		p = m * m * e.p0 + 2 * m * u * CTRL_MONTEE + u * u * HAUT_P
-		th = e.th0 + (HAUT_TH - e.th0) * u
-		pitch = e.pitch0 + (PITCH_HAUT - e.pitch0) * u
-		yaw = e.yaw0 + (YAW_HAUT + e.yawT * 0.5 - e.yaw0) * u
-		pole, poleG = POLE_G:Lerp(POLE_A, u), POLEG_G:Lerp(POLEG_A, u)
+		p = m * m * e.p0 + 2 * m * u * v.ctrlMontee + u * u * v.hautP
+		th = e.th0 + (v.hautTh - e.th0) * u
+		pitch = e.pitch0 + (v.pitchHaut - e.pitch0) * u
+		yaw = e.yaw0 + (v.yawHaut + e.yawT * 0.5 - e.yaw0) * u
+		pole, poleG = POLE_G:Lerp(v.pole, u), POLEG_G:Lerp(v.poleG, u)
 	elseif t < T_IMPACT then
 		local u = (t - T_HAUT) / (T_IMPACT - T_HAUT)
 		local s = u * u
 		local m = 1 - s
-		p = m * m * HAUT_P + 2 * m * s * CTRL_FRAPPE + s * s * e.impP
-		th = HAUT_TH + (e.impTh - HAUT_TH) * s * u
-		pitch = PITCH_HAUT + (PITCH_IMPACT - PITCH_HAUT) * s
-		yaw = YAW_HAUT + e.yawT * 0.5 + (e.yawT * 0.5 - YAW_HAUT) * s
-		pole, poleG = POLE_A:Lerp(POLE_I, s), POLEG_A:Lerp(POLEG_I, s)
+		p = m * m * v.hautP + 2 * m * s * v.ctrlFrappe + s * s * e.impP
+		th = v.hautTh + (e.impTh - v.hautTh) * s * u
+		pitch = v.pitchHaut + (PITCH_IMPACT - v.pitchHaut) * s
+		yaw = v.yawHaut + e.yawT * 0.5 + (e.yawT * 0.5 - v.yawHaut) * s
+		pole, poleG = v.pole:Lerp(POLE_I, s), v.poleG:Lerp(POLEG_I, s)
 	elseif t < T_FIGE then
 		local u = (t - T_IMPACT) / (T_FIGE - T_IMPACT)
 		p = e.impP + V(0, 0.02 * math.sin(u * 9.42) * (1 - u), 0)
 		th, pitch, yaw = e.impTh, PITCH_IMPACT, e.yawT
 		pole, poleG = POLE_I, POLEG_I
 	elseif t < T_REBOND then
-		local u = sortie((t - T_FIGE) / (T_REBOND - T_FIGE))
+		local u = armer((t - T_FIGE) / (T_REBOND - T_FIGE))
 		p = e.impP + REBOND_P * u
 		th = e.impTh + REBOND_TH * u
 		pitch = PITCH_IMPACT + (PITCH_REBOND - PITCH_IMPACT) * u

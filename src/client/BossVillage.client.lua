@@ -186,10 +186,13 @@ resultats = Resultats.init(ctx)
 ctx.puceRetour = attente.puceRetour
 ctx.fermerResultats = resultats.fermer
 local cinematique = Cinematique.init(ctx)
+-- Annonce unique du prochain boss en haut d'écran, avec « Rejoindre le portail » / « Ignorer »
+require(script.Parent:WaitForChild("BossAnnonce")).init(ctx)
 
 evenement.OnClientEvent:Connect(function(type_, donnees, extra)
 	if type_ == "Annonce" and type(donnees) == "string" then
-		annoncer(donnees, if typeof(extra) == "Color3" then extra else nil)
+		-- l'annonce du boss est la carte en haut d'écran (BossAnnonce) : plus de bandeau central en doublon
+		local _ = extra
 	elseif type(donnees) == "table" and type_ == "Depart" then
 		attente.masquerFile()
 		cinematique.depart(donnees)

@@ -216,6 +216,19 @@ Test en Studio : chaque Play donne d'office **5 000 000 Pièces** (`ARGENT_TEST_
 Cette partie de test n'est pas sauvegardée : ni l'argent ni les achats ne touchent à la vraie sauvegarde.
 Pour en rajouter pendant le Play : `game.ServerStorage.BoutiqueAPI:Invoke("pieces", game.Players.TonNom, 5000)`.
 
+### Minage continu et combos
+
+- **Clic maintenu** : la pioche frappe toute seule, au rythme de la pioche, et suit le viseur. Relâcher arrête
+  après le coup en cours. C'est le serveur qui enchaîne les coups (mêmes contrôles qu'un clic).
+- **Accélération** : chaque coup enchaîné sans pause ajoute +3,5 % de vitesse, jusqu'à +30 %. Une pause remet à zéro.
+  La cadence ne descend jamais sous 0,35 s par coup (durée du geste).
+- **Éclat parfait** : un minerai cassé d'une seule série (commencée sur le minerai intact, sans viser ailleurs)
+  donne **+1 minerai** dans le sac. Seulement pour les minerais qui demandent au moins 3 coups.
+- Une jauge « Cadence » et la « Solidité » du minerai s'affichent au-dessus de la barre d'objets pendant la série.
+
+Réglages dans `CONFIG` de `src/server/PiocheBraise.server.lua` (`ACCEL_PAR_COUP`, `ACCEL_MAX`, `PAUSE_SERIE`,
+`BONUS_ECLAT`, `COUPS_MIN_ECLAT`). Affichage : `src/client/ComboMinage.client.lua`.
+
 ## Marchand de minerais (Gaspard) et économie
 
 **Changement d'économie** : casser un minerai ne donne plus de Pièces tout de suite. Le minerai va dans le
@@ -314,6 +327,12 @@ renvoyé avec un message plutôt que de jouer sur un profil vide (qui écraserai
 
 Pour la tester dans Studio : **Fichier › Paramètres du jeu › Sécurité › Enable Studio Access to API Services**
 (la place doit être publiée). Sans ça, le jeu marche mais rien n'est enregistré (avertissement dans la sortie).
+
+## Caméra des tunnels privés
+
+Dans les tunnels privés (mines privées), la caméra est forcée en **1re personne**. En ressortant, elle repasse en
+3e personne. La mine publique et les grottes profondes gardent la caméra libre. Zone : `src/client/CameraMine.client.lua`
+(mêmes coordonnées que `src/monde/Disposition.lua`, à mettre à jour ensemble).
 
 ## Tunnels privés (mines privées)
 
@@ -624,10 +643,13 @@ fine et des étincelles aux couleurs du boss s'élèvent du cercle.
 - **Cycle** : toutes les 7 minutes (45 s dans Studio tant que `DEBUT_RAPIDE_STUDIO = true` ; `CYCLE` / `CYCLE_STUDIO`
   dans `src/partage/BossVillage.lua`), les joueurs vivants dans le cercle (20 max, par ordre d'arrivée) partent ensemble
   dans l'arène. Personne : le compte à rebours repart. Un seul combat à la fois (le panneau affiche « Combat en cours »).
-- **Annonce (1 min avant)** : bandeau pour tout le serveur + **puce** en haut d'écran « <Boss> dans 0:42 · Arène des
-  boss » (compte à rebours calculé par le client depuis l'heure serveur `DebutBoss`) ; dernière minute : **chevrons
-  lumineux au sol** devant le joueur, vers le cercle (seulement en surface près du village, pas dans la mine/grottes).
-  Pendant un combat, la puce dit « combat en cours · entre dans le cercle » ; après le retour, « Prochain boss dans 6:12 ».
+- **Annonce (1 min avant)** : une seule **carte en haut d'écran** (`src/client/BossAnnonce.lua`) : emblème du boss,
+  nom doré, titre, grand compte à rebours (depuis l'heure serveur `DebutBoss`), barre de temps, braises ; rouge qui bat
+  les 10 dernières secondes. Bouton **REJOINDRE LE PORTAIL** : le serveur téléporte le joueur dans le grand cercle
+  (seulement depuis le village ou la mine publique, vivant, hors arène) ; **IGNORER** : la carte disparaît jusqu'au
+  boss suivant. Dernière minute aussi : **chevrons lumineux au sol** devant le joueur, vers le cercle (en surface).
+  Pendant un combat, la puce en haut d'écran dit « combat en cours · entre dans le cercle » ; après le retour,
+  « Prochain boss dans 6:12 ».
 - **File d'attente** : dans le cercle, panneau latéral **PRÊT AU COMBAT** (nom et rang du boss, départ, « 7/20 »,
   avatars ronds des participants, son + éclat à chaque arrivée, conseil du boss). Au-delà de 20 : « en réserve ».
 - **Départ** : fondu au noir, **écran de chargement** (nom et titre du boss, anneaux de runes qui tournent, barre de

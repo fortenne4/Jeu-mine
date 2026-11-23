@@ -60,12 +60,29 @@ local branches: {[Tool]: boolean} = {}
 local function brancher(o: Instance)
 	if not (o:IsA("Tool") and o:GetAttribute("PiocheId")) or branches[o] then return end
 	branches[o] = true
-	o.Activated:Connect(function()
+	-- Clic maintenu : le serveur enchaîne les coups, on lui renvoie le point visé régulièrement
+	-- (il limite lui-même la cadence des envois) pour que chaque coup suive le viseur.
+	local tenu = false
+	local appui = 0 -- numéro de l'appui en cours : une seule boucle d'envoi à la fois
+	local function envoyer(): boolean
 		local perso = joueur.Character
-		if not perso or o.Parent ~= perso then return end
+		if not perso or o.Parent ~= perso then return false end
 		local p = pointVise(perso)
 		if p then vise:FireServer(p) end
+		return true
+	end
+	o.Activated:Connect(function()
+		tenu = true
+		appui += 1
+		local numero = appui
+		task.spawn(function()
+			while tenu and appui == numero and envoyer() do
+				task.wait(0.15)
+			end
+		end)
 	end)
+	o.Deactivated:Connect(function() tenu = false end)
+	o.Unequipped:Connect(function() tenu = false end)
 	o.Destroying:Once(function() branches[o] = nil end)
 end
 

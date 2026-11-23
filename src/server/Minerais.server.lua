@@ -335,7 +335,9 @@ task.spawn(function()
 				v.Value += def.valeur
 			end
 		end
-		Donnees.ajouterMinerai(joueur, nom, 1) -- au sac : à vendre chez Gaspard ou à forger chez Brom
+		-- au sac : à vendre chez Gaspard ou à forger chez Brom (+ bonus d'éclat parfait, voir PiocheBraise)
+		local bonus = math.clamp(math.floor(bloc:GetAttribute("BonusSerie") or 0), 0, 3)
+		Donnees.ajouterMinerai(joueur, nom, 1 + bonus)
 		Donnees.decouvrirMinerai(joueur, nom) -- 1re fois : plus de silhouette noire dans le menu des grottes
 	end)
 end)

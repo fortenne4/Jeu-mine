@@ -99,7 +99,7 @@ function Attente.init(ctx)
 		if ctx.etat.cinematique or dansArene() then
 			mode = nil
 		elseif etat == "Attente" and r <= Config.ANNONCE then
-			mode = "annonce"
+			mode = nil -- dernière minute : c'est la carte BossAnnonce (en haut d'écran) qui annonce le boss
 		elseif etat == "Combat" then
 			mode = "combat"
 		elseif etat == "Attente" and os.clock() < finRetour then
