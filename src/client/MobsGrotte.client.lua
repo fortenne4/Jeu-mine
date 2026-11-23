@@ -17,6 +17,9 @@ local NOMS = {
 	ZombieLame = "Zombie à bras-lame",
 	ZombieMutant = "Zombie mutant",
 	ExecuteurMaudit = "Exécuteur maudit",
+	GolemChampignon = "Golem champignon",
+	CrabeLueur = "Crabe des lueurs",
+	SpectreNain = "Spectre nain",
 }
 
 local rng = Random.new()

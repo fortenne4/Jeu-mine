@@ -121,8 +121,12 @@ function MobsVoxels.construire(id: string, place: CFrame?, studs: boolean?): Mod
 		else
 			p.Material = Enum.Material.SmoothPlastic
 		end
+		local transp = d.Transparence and d.Transparence[k] -- mobs écrits avec MobsKit (spectre…)
+		if transp then
+			p.Transparency = transp
+		end
 		p.CanCollide, p.CanQuery, p.CanTouch = false, false, false
-		p.CastShadow = true
+		p.CastShadow = not transp
 		p.Massless = true
 		local w = Instance.new("Weld")
 		w.Part0 = osParts[nomOs]

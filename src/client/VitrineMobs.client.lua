@@ -13,6 +13,9 @@ local NOMS = {
 	ZombieLame = "Zombie à bras-lame",
 	ZombieMutant = "Zombie mutant",
 	ExecuteurMaudit = "Exécuteur maudit",
+	GolemChampignon = "Golem champignon",
+	CrabeLueur = "Crabe des lueurs",
+	SpectreNain = "Spectre nain",
 }
 local ECART, PORTEE = 6, 300
 
@@ -60,7 +63,7 @@ end
 local x = -total / 2
 for _, e in mobs do
 	local m = e.m
-	local y = if m.Name:find("ChauveSouris") then 4 else 0
+	local y = if m.Name:find("ChauveSouris") then 4 elseif m.Name == "SpectreNain" then 3 else 0
 	exposer(m, centre + Vector3.new(x + e.l / 2, y, 0), e.h, NOMS[m.Name] or m.Name)
 	x += e.l + ECART
 end

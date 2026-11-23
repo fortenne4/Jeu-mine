@@ -24,7 +24,7 @@ Grottes.DEFENSE_MOITIE = 60
 -- dominant = false : ce minerai ne fait jamais le type dominant d'un gisement (il n'apparaît que dans les 30 %
 -- de nœuds tirés au poids) → minerai « rare » du palier (ex. un peu de cuivre à −50 m).
 export type MineraiGrotte = {id: string, poids: number, pv: number, dominant: boolean?}
-export type MobGrotte = {id: string, poids: number, pv: number, degats: number, vitesse: number, portee: number, recharge: number, echelle: number?}
+export type MobGrotte = {id: string, poids: number, pv: number, degats: number, vitesse: number, portee: number, recharge: number, echelle: number?, vole: boolean?}
 export type Niveau = {
 	id: number,
 	nom: string,
@@ -37,6 +37,7 @@ export type Niveau = {
 	nombreMobs: {number},          -- {min, max} au départ (gardes des gisements compris), par groupes de 2-3
 	renfortSecondes: number,       -- un mob réapparaît toutes les N s (jusqu'au nombre de départ)
 	boss: MobGrotte?,              -- un seul, dans la dernière salle
+	mobsZones: {[string]: {MobGrotte}}?, -- mobs propres à une zone du décor (Foret, Lac, Temple), palier 1
 	ambiance: {roche: Color3, lumiere: Color3, brouillard: Color3, materiau: string},
 }
 
@@ -56,6 +57,22 @@ Grottes.NIVEAUX = {
 			{id = "ChauveSourisCave", poids = 2, pv = 18, degats = 5, vitesse = 13, portee = 4, recharge = 1.3, echelle = 1},
 		},
 		nombreMobs = {9, 11}, renfortSecondes = 45,
+		-- Mobs à thème (« Le Lac des Lueurs ») : un groupe qui apparaît dans une zone du décor (parts « GrotteZone »
+		-- ZoneForet / ZoneLac / ZoneTemple) tire ses mobs dans cette liste plutôt que dans « mobs »
+		mobsZones = {
+			Foret = {
+				{id = "GolemChampignon", poids = 3, pv = 60, degats = 10, vitesse = 6.5, portee = 5, recharge = 2, echelle = 1},
+				{id = "ChauveSourisCave", poids = 1, pv = 18, degats = 5, vitesse = 13, portee = 4, recharge = 1.3, echelle = 1},
+			},
+			Lac = {
+				{id = "CrabeLueur", poids = 3, pv = 28, degats = 6, vitesse = 10, portee = 4.5, recharge = 1.4, echelle = 1.15},
+				{id = "MineurZombie", poids = 1, pv = 36, degats = 8, vitesse = 8, portee = 4.5, recharge = 1.6, echelle = 1},
+			},
+			Temple = {
+				{id = "SpectreNain", poids = 3, pv = 32, degats = 9, vitesse = 10, portee = 5, recharge = 1.7, echelle = 1, vole = true},
+				{id = "ChauveSourisCave", poids = 1, pv = 18, degats = 5, vitesse = 13, portee = 4, recharge = 1.3, echelle = 1},
+			},
+		},
 		ambiance = {roche = Color3.fromRGB(96, 92, 88), lumiere = Color3.fromRGB(150, 200, 255), brouillard = Color3.fromRGB(30, 40, 52), materiau = "Slate"},
 	},
 	{

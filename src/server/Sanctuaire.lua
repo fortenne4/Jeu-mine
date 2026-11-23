@@ -77,7 +77,7 @@ local function eveiller(exp, modele: Model)
 	-- vague de gardiens : le tirage de MobsGrotte.groupe se fait dans h.niveau.mobs, remplacé le temps de l'appel
 	local avant = #h.mobs
 	local niveau = h.niveau
-	h.niveau = setmetatable({mobs = GARDIENS}, {__index = niveau})
+	h.niveau = setmetatable({mobs = GARDIENS, mobsZones = false}, {__index = niveau}) -- pas les mobs du temple
 	local ok = pcall(MobsGrotte.groupe, h, temple, 3 + math.min(#exp.joueurs - 1, 2), temple)
 	h.niveau = niveau
 	local gardiens = {}

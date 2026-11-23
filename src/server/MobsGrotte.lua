@@ -170,7 +170,7 @@ local function creerMob(h, def, point: Vector3, boss: boolean?, garde: Vector3?)
 
 	local m = {
 		modele = modele, root = modele.PrimaryPart, def = def, boss = boss == true,
-		vole = def.id == "ChauveSourisCave", echelle = echelle, hauteur = hauteur,
+		vole = def.vole == true or def.id == "ChauveSourisCave", echelle = echelle, hauteur = hauteur,
 		rayon = math.clamp(math.max(taille.X, taille.Z) * 0.3, 1, 4),
 		pv = def.pv, pvMax = def.pv, etat = "Idle", allure = 1,
 		origine = pos, pos = pos, yaw = yaw, yawCible = yaw, phase = rng:NextNumber(0, 2 * math.pi), cote = 1,
@@ -495,10 +495,30 @@ end
 
 -- ---------- API ----------
 
+-- Liste de mobs pour un groupe posé en centre : celle de la zone du décor (niveau.mobsZones, parts « GrotteZone »
+-- ZoneForet / ZoneLac / ZoneTemple de la grotte) si le centre est dedans, sinon niveau.mobs
+local function mobsPour(h, centre: Vector3)
+	local zones = h.niveau.mobsZones
+	if type(zones) ~= "table" then return h.niveau.mobs end
+	local meilleure, dmin = nil, math.huge
+	for _, z in CollectionService:GetTagged("GrotteZone") do
+		if z:IsA("BasePart") and z:IsDescendantOf(h.modele) then
+			local liste = zones[(z.Name:gsub("^Zone", ""))]
+			local r = z:GetAttribute("Rayon") or 20
+			local d = (z.Position - centre).Magnitude
+			if liste and d < r and d / r < dmin then
+				meilleure, dmin = liste, d / r
+			end
+		end
+	end
+	return meilleure or h.niveau.mobs
+end
+
 -- Groupe de n mobs autour de centre (décalés de 3-5 studs s'il y a de l'air et du sol) ; garde = gisement défendu
 function MobsGrotte.groupe(h, centre: Vector3, n: number, garde: Vector3?): number
 	local haut = Vector3.new(0, 2, 0)
 	local crees = 0
+	local liste = mobsPour(h, centre)
 	for i = 1, n do
 		local p = centre
 		if i > 1 then
@@ -506,7 +526,7 @@ function MobsGrotte.groupe(h, centre: Vector3, n: number, garde: Vector3?): numb
 			local cand = centre + Vector3.new(math.cos(a), 0, math.sin(a)) * rng:NextNumber(3, 5)
 			if not workspace:Raycast(centre + haut, cand - centre, h.params) and sol(h, cand.X, centre.Y, cand.Z, 2, 6) then p = cand end
 		end
-		if creerMob(h, Grottes.tirer(h.niveau.mobs, rng), p, nil, garde) then crees += 1 end
+		if creerMob(h, Grottes.tirer(liste, rng), p, nil, garde) then crees += 1 end
 	end
 	return crees
 end
@@ -576,6 +596,15 @@ function MobsGrotte.peupler(grotte, niveau, joueurs)
 		if ok then table.insert(centres, p) end
 	end
 	if #centres == 0 then centres = loin end
+	-- les zones à thème du décor (mobsZones : forêt, lacs, temple) sont servies en premier
+	if type(niveau.mobsZones) == "table" then
+		local dedans, dehors = {}, {}
+		for _, c in centres do
+			table.insert(if mobsPour(h, c) ~= niveau.mobs then dedans else dehors, c)
+		end
+		centres = dedans
+		for _, c in dehors do table.insert(centres, c) end
+	end
 	local k = 0
 	while reste > 0 and #centres > 0 do
 		local taille = if reste <= 3 then reste elseif reste == 4 then 2 else rng:NextInteger(2, 3)

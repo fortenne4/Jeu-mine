@@ -486,6 +486,24 @@ gisements ni à l'arrivée) :
   `Guide` ; tout droit quand la cachette est en vue). Il pulse plus vite en approchant, dure 25 s, puis 40 s de
   recharge ; une plaque en bas à gauche donne l'état. La cachette de la salle secrète ne compte qu'une fois la
   porte runique ouverte. (PathfindingService répond « NoPath » dans ces grottes, d'où le réseau des galeries.)
+- **Mobs à thème** (`Grottes.lua` → `mobsZones` du palier 1) : un groupe de mobs qui apparaît dans une zone du
+  décor tire ses mobs dans la liste de la zone (`MobsGrotte.groupe`, parts « GrotteZone ») ; ces zones sont servies
+  en premier au peuplement. Forêt : **Golem champignon** (lent, coriace, frappe des deux poings) ; lacs : **Crabe
+  des lueurs** (rapide, fragile, pinces) ; temple : **Spectre nain** (fantôme translucide qui vole et frappe de sa
+  lanterne). Les gardiens du sanctuaire gardent leur propre liste. Les 3 mobs sont écrits **en Luau** avec
+  `src/partage/MobsKit.lua` (os, boîtes et clips d'animation décrits par du code, même format Data que les mobs
+  exportés de Blender ; `Data.Transparence` pour les pièces translucides) ; ils apparaissent aussi dans la vitrine
+  des mobs de la plaine.
+- **Événements aléatoires** (`src/server/EvenementsGrotte.lua` + `src/client/EvenementsGrotte.client.lua`) : pendant
+  l'expédition (premier après 1 min 30 à 2 min 30, puis toutes les 2 min 30 à 4 min), près d'un joueur hors du camp
+  et jamais pendant le combat du sanctuaire, avec un grand bandeau d'annonce :
+  - **pluie de cristaux** : 12 éclats tombent du plafond, on les ramasse en marchant dessus (+1 pièce, 25 s) ;
+  - **nuée de chauves-souris** : 3-4 chauves-souris jaillissent derrière le joueur ;
+  - **éboulement** : tremblement, poussière, gravats ; une veine apparaît (2 Bronze, ou Bronze + Or 30 %) ;
+  - **luciole dorée** : elle fuit (12 studs/s) ; l'attraper en 30 s rapporte 25 pièces et 25 % de chance d'un
+    fragment de carte.
+  Test depuis la barre de commande (serveur) : `require(game.ServerScriptService.Jeu.EvenementsGrotte).forcer(exp,
+  "pluie" | "nuee" | "eboulement" | "luciole", joueur)`.
 - Le contrôle « chemin bouché » du générateur ne régénère plus la grotte pour une simple bosse du sol (rayons à 3,
   6 et 9 studs : bouché seulement si les trois touchent) : la grotte n'est plus générée trois fois de suite.
 
@@ -503,6 +521,8 @@ gisements ni à l'arrivée) :
 | `src/partage/CarteNaine.lua` + `src/server/CarteNaine.lua` + `src/client/CarteNaine.client.lua` | Fragments de la carte naine : cachettes, récompenses, sauvegarde, parchemin. |
 | `src/server/SecretsGrotte.server.lua` | Énigme des pierres runiques, porte de la salle secrète, récompense des cristaux de lueur (palier 1). |
 | `src/client/SonsGrotte.client.lua` | Ambiance sonore et musique par zone de la grotte −50 m. |
+| `src/server/EvenementsGrotte.lua` + `src/client/EvenementsGrotte.client.lua` | Événements aléatoires du palier 1 (pluie de cristaux, nuée, éboulement, luciole dorée). |
+| `src/partage/MobsKit.lua` + `src/partage/MobsVoxels/GolemChampignon.lua`, `CrabeLueur.lua`, `SpectreNain.lua` | Atelier pour écrire un mob en Luau ; les 3 mobs à thème du palier 1. |
 | `src/client/GrotteReactive.client.lua` | Veines qui s'allument au passage, spores des champignons, onde des coups de pioche (palier 1). |
 | `src/client/BoussoleFeux.client.lua` | Boussole des feux follets (touche F) vers la cachette de fragment la plus proche (palier 1). |
 | `src/server/MobsGrotte.lua` + `src/client/MobsGrotte.client.lua` | IA des mobs, coups d'épée, renforts, boss ; animations et barres de vie. |

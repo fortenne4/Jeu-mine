@@ -100,6 +100,7 @@ local function montrer(id: string, pieces: number, complete: boolean, origine: s
 	local n = Carte.compter(trouves)
 	entete.Text = if origine == "coffre" then "FRAGMENT TROUVÉ DANS LE COFFRE"
 		elseif origine == "cristal" then "UN FRAGMENT ÉTAIT CACHÉ DANS LE CRISTAL"
+		elseif origine == "luciole" then "LA LUCIOLE DORÉE PORTAIT UN FRAGMENT"
 		else "FRAGMENT DE CARTE N° " .. f.numero
 	titre.Text = f.titre
 	corps.Text = "« " .. f.texte .. " »"
