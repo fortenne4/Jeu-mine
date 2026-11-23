@@ -61,7 +61,24 @@ explique en une phrase ce qui s'est passé, et **ne perd jamais le travail de pe
 - Petits commits fréquents > un énorme commit en fin de journée : moins de conflits.
 - On travaille directement sur `main` (équipe petite). Une branche seulement si le collaborateur le demande.
 
-### La place `jeu mine .rbxl` : un seul éditeur à la fois
+### Team Create : la place de référence est en ligne (depuis le 23/11/2026)
+
+Le jeu est publié sur Roblox (expérience de allodoudou92izi, Team Create activé, collaborateurs en « Modifier ») :
+on ouvre **ce jeu en ligne** dans Studio (« Partagés avec moi » / Récents), plus le fichier `jeu mine .rbxl`.
+- Décor, terrain, modèles : modifiés directement dans Studio, visibles en direct par tous, sans commit.
+- Scripts : toujours dans `src/` + Rojo. Règle à chaque séance : **`git pull` AVANT de connecter Rojo**
+  (Rojo aligne la place commune sur les fichiers du disque : des fichiers en retard écrasent ou suppriment les
+  scripts des autres). **Commit + push après chaque fonctionnalité**, pas seulement en fin de séance.
+- Se partager les zones ; prévenir avant de toucher un fichier commun (`Donnees.lua`, `MobsGrotte.lua`,
+  `Grottes.server.lua`…).
+- **Modèles 3D / sons importés** : ils appartiennent au compte qui les importe. Un collaborateur ne peut pas les
+  charger dans son Studio (« User is not authorized to access Asset », même en Team Create et en Team Test) :
+  les casques et épées d'allodoudou92izi n'apparaissent pas chez les autres. Solution définitive : passer
+  l'expérience et les imports sous un **groupe Roblox** commun. En attendant, les imports sont faits par le
+  propriétaire du jeu.
+- `jeu mine .rbxl` : sauvegarde ponctuelle seulement, envoyée par le propriétaire du jeu.
+
+### La place `jeu mine .rbxl` : un seul éditeur à la fois (ancien fonctionnement, avant Team Create)
 
 C'est un fichier binaire : deux personnes qui le modifient en même temps = un des deux perd son travail.
 - Le **code** vit dans `src/` (synchronisé par Rojo) : là, on peut travailler à plusieurs en même temps.
