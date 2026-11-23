@@ -173,7 +173,9 @@ function Attente.init(ctx)
 		local cercle = dossier:GetAttribute("Cercle")
 		local perso = joueur.Character
 		local racine = perso and perso:FindFirstChild("HumanoidRootPart") :: BasePart?
-		if modePuce ~= "annonce" or typeof(cercle) ~= "Vector3" or not racine then
+		local debutBoss = dossier:GetAttribute("DebutBoss")
+		local reste = if type(debutBoss) == "number" then debutBoss - workspace:GetServerTimeNow() else math.huge
+		if modePuce ~= "annonce" or reste > (Config.GUIDE or 40) or typeof(cercle) ~= "Vector3" or not racine then
 			cacherGuide()
 			return
 		end

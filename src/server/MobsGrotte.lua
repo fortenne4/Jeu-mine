@@ -48,8 +48,12 @@ local GARDE_LAISSE = 40 -- … et ne s'en éloigne jamais plus ; il y revient ap
 local VIRAGE = 10 -- rad/s
 local VOL = 3 -- hauteur de vol de la chauve-souris
 local ERRANCE = 8
-local EPEE_PORTEE = 7
-local EPEE_COS = math.cos(math.rad(70))
+-- Hitbox réelle : sphère de frappe devant le joueur (portée ~8) testée contre les boîtes des pièces visibles du mob
+-- (pose de repos : les animations sont jouées par le client), à la CFrame actuelle ou au tick précédent (latence).
+local EPEE_AVANCE = 3.4
+local EPEE_RAYON = 3.6
+local EPEE_TOLERANCE = 1.2
+local HITBOX_DEBUG = RunService:IsStudio() and workspace:GetAttribute("HitboxDebug") == true
 local BONUS_COUP3 = 1.5
 local RENFORT_DISTANCE = 40
 local LOIN_APPARITION = Grottes.ZONE_SURE * 0.7 -- zone sûre de l'arrivée (minimum, cf. GrotteGenerateur)
@@ -147,6 +151,51 @@ local function poser(m, maintenant: number): CFrame
 	return CFrame.new(m.pos.X, y, m.pos.Z) * CFrame.Angles(0, m.yaw, 0)
 end
 
+-- Boîtes {cf, demi-taille} des pièces visibles, dans le repère du Root ; rayon englobant pour le tri rapide
+local function hitbox(modele: Model, root: BasePart, rayon: number, hauteur: number)
+	local pieces, englobe = {}, 0
+	local inv = root.CFrame:Inverse()
+	for _, p in modele:GetChildren() do
+		if p:IsA("BasePart") and p ~= root and p.Transparency < 0.9 and p.Size.Magnitude > 0.4 then
+			local cf, demi = inv * p.CFrame, p.Size / 2
+			table.insert(pieces, {cf, demi})
+			englobe = math.max(englobe, cf.Position.Magnitude + demi.Magnitude)
+		end
+	end
+	if #pieces == 0 then
+		local demi = Vector3.new(rayon, hauteur / 2, rayon)
+		table.insert(pieces, {CFrame.new(0, hauteur / 2, 0), demi})
+		englobe = demi.Magnitude + hauteur / 2
+	end
+	if HITBOX_DEBUG then
+		for _, pc in pieces do
+			local a = Instance.new("BoxHandleAdornment")
+			a.Name = "Hitbox"
+			a.Adornee, a.CFrame, a.Size = root, pc[1], pc[2] * 2
+			a.Color3, a.Transparency, a.ZIndex = Color3.new(1, 0.2, 0.2), 0.7, 1
+			a.Parent = root
+		end
+	end
+	return pieces, englobe
+end
+
+-- Point de la hitbox du mob (posé en cfMob) le plus proche de la sphère de frappe, ou nil si hors d'atteinte
+local function toucheMob(m, centre: Vector3, cfMob: CFrame): Vector3?
+	local cl = cfMob:PointToObjectSpace(centre)
+	local meilleur, point = EPEE_RAYON + EPEE_TOLERANCE, nil
+	for _, pc in m.hitbox do
+		local cf, demi = pc[1], pc[2]
+		local q = cf:PointToObjectSpace(cl)
+		local c = Vector3.new(math.clamp(q.X, -demi.X, demi.X), math.clamp(q.Y, -demi.Y, demi.Y), math.clamp(q.Z, -demi.Z, demi.Z))
+		local d = (q - c).Magnitude
+		if d < meilleur then
+			meilleur, point = d, cf * c
+			if d == 0 then break end
+		end
+	end
+	return point and cfMob * point
+end
+
 local function creerMob(h, def, point: Vector3, boss: boolean?, garde: Vector3?)
 	local echelle = def.echelle or 1
 	local y = sol(h, point.X, point.Y, point.Z, 4, 12) or point.Y
@@ -184,6 +233,7 @@ local function creerMob(h, def, point: Vector3, boss: boolean?, garde: Vector3?)
 		rugi = false, mort = false, finMort = 0, coup = 0, tueur = nil,
 		garde = garde, recul = nil, prochainRecul = 0, prochainHurt = 0,
 	}
+	m.hitbox, m.englobe = hitbox(modele, m.root, m.rayon, hauteur)
 	m.cfDe = poser(m, os.clock())
 	m.cfVers = m.cfDe
 	m.t = PAS
@@ -483,19 +533,20 @@ local function surCoupEpee(joueur: Player, coup: number, outil: Instance)
 	if devant.Magnitude < 0.01 then return end
 	devant = devant.Unit
 	if coup == 3 then degats *= BONUS_COUP3 end
+	local origine = hrp.Position
+	local centre = origine + devant * EPEE_AVANCE
+	local portee = EPEE_RAYON + EPEE_TOLERANCE + 3
 	for h in grottes do
 		if h.actif and h.joueurs[joueur] then
 			for _, m in h.mobs do
-				if not m.mort and not m.invulnerable then
-					local centre = m.pos + Vector3.new(0, hauteurVol(m) + math.min(m.hauteur * 0.5, 3), 0)
-					local vers = centre - hrp.Position
-					local plat = aplatir(vers)
-					local d = plat.Magnitude
-					if d <= EPEE_PORTEE + m.rayon and math.abs(vers.Y) < m.hauteur + 4 then
-						local dir = if d > 0.01 then plat.Unit else devant
-						if (d < 1.5 + m.rayon * 0.5 or devant:Dot(dir) >= EPEE_COS)
-							and workspace:Raycast(hrp.Position, vers, h.params) == nil then
-							blesser(h, m, degats, joueur, dir)
+				if not m.mort and not m.invulnerable and (m.root.Position - centre).Magnitude <= m.englobe + portee then
+					local point = toucheMob(m, centre, m.root.CFrame) or toucheMob(m, centre, m.cfDe)
+					if point then
+						local vers = point - origine
+						local mur = workspace:Raycast(origine, vers, h.params)
+						if not mur or mur.Distance >= vers.Magnitude - 1 then
+							local plat = aplatir(m.pos - origine)
+							blesser(h, m, degats, joueur, if plat.Magnitude > 0.01 then plat.Unit else devant)
 						end
 					end
 				end

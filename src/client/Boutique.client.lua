@@ -81,8 +81,7 @@ for i, t in {0.45, 0.68, 0.86} do
 		Size = UDim2.fromScale(0.25 + i * 0.2, 0.25 + i * 0.2), SizeConstraint = Enum.SizeConstraint.RelativeXX,
 		BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = t, Parent = scene}, {coin(0.5)}))
 end
-creer("Frame", {Name = "Ombre", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.86), Size = UDim2.fromScale(0.62, 0.07),
-	BackgroundColor3 = NOIR, BackgroundTransparency = 0.45, Parent = scene}, {coin(0.5)})
+UI.ombre(scene, 0.86, 0.62)
 local apercu = Icones.creer(scene)
 apercu.Name, apercu.Active, apercu.ZIndex = "Apercu", true, 2
 local echelleApercu = UI.echelle(apercu)
@@ -91,8 +90,8 @@ local eclat = creer("Frame", {Name = "Eclat", Size = UDim2.fromScale(1, 1), Back
 local bandeau = texte({Name = "Bandeau", Font = Enum.Font.Fantasy, TextColor3 = Color3.fromRGB(255, 214, 64), Text = "",
 	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.03), Size = UDim2.fromScale(0.96, 0.14), ZIndex = 4,
 	Parent = scene}, 30)
-creer("UIStroke", {Thickness = 2.5, Color = Color3.fromRGB(30, 50, 140), Parent = bandeau})
-local astuce = texte({Name = "Astuce", Text = "⟲ glisse pour tourner", Font = Enum.Font.GothamBold, TextColor3 = T.Parchemin,
+creer("UIStroke", {Thickness = 2.5, Color = Color3.fromRGB(36, 18, 8), Parent = bandeau})
+local astuce = texte({Name = "Astuce", Text = "glisse pour tourner", Font = Enum.Font.GothamBold, TextColor3 = T.Parchemin,
 	TextTransparency = 0.35, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 0.97),
 	Size = UDim2.fromScale(0.8, 0.065), ZIndex = 4, Parent = scene}, 13)
 creer("UIStroke", {Thickness = 1.5, Transparency = 0.5, Parent = astuce})
@@ -187,7 +186,7 @@ local etat: Etat = {possedees = {[Pioches.DEPART] = true}, equipee = Pioches.DEP
 local selection = Pioches.DEPART
 local positionLiesel: Vector3? = nil
 local enAttente = false
-type Carte = {bouton: TextButton, statut: TextLabel, nom: TextLabel, rarete: TextLabel, bande: Frame, fond: Frame,
+type Carte = {bouton: TextButton, statut: TextLabel, pastille: Frame, lueur: Frame, nom: TextLabel, rarete: TextLabel, bande: Frame, fond: Frame,
 	vignette: ViewportFrame, trait: UIStroke, echelle: UIScale, rang: number, cibleY: number?, cibleS: number?}
 local cartes: {[string]: Carte} = {}
 local ordreCartes: {Carte} = {}
@@ -322,11 +321,14 @@ local function rafraichirListe()
 		local choisie = def.id == selection
 		local vue = revelee(def.id)
 		local couleurRarete = Pioches.RARETES[def.rarete] or T.Gris
-		UI.rarete(c.bouton, if vue then couleurRarete else Color3.fromRGB(110, 30, 26), if vue then UI.NIVEAUX[def.rarete] or 1 else 1, boucles)
+		-- Carte choisie : liseré doré (reflet doré aussi, sinon le reflet de rareté teinte l'or en brun)
+		UI.rarete(c.bouton, if choisie then T.Or elseif vue then couleurRarete else Color3.fromRGB(110, 30, 26),
+			if choisie then 4 elseif vue then UI.NIVEAUX[def.rarete] or 1 else 1, boucles)
 		c.trait.Color = if choisie then T.Or elseif vue then couleurRarete else Color3.fromRGB(110, 30, 26)
 		c.trait.Thickness = if focus == def.id then 4 elseif choisie then 3.5 else c.trait.Thickness
 		c.bouton.BackgroundColor3 = if not vue then (if choisie then Color3.fromRGB(30, 22, 22) else Color3.fromRGB(14, 11, 10))
 			elseif choisie then T.CarteClaire else T.Carte
+		c.lueur.Visible = choisie and vue
 		c.nom.Text = if vue then def.nom else "???"
 		c.nom.TextColor3 = if vue then T.Parchemin else T.Gris
 		c.rarete.Text = if vue then def.rarete else "Inconnue"
@@ -338,19 +340,27 @@ local function rafraichirListe()
 		if v then
 			v.vitesse = if choisie then 0.9 else 0
 		end
+		-- Pastille de statut : verrou, équipée (vert), possédée, ou prix (doré si on peut payer, rouge sinon)
+		local fondPastille, transpPastille = T.Fond3D, 0.25
 		if not vue then
 			c.statut.Text = "🔒"
 			c.statut.TextColor3 = T.Gris
+			transpPastille = 1 -- juste le cadenas, sans pastille vide
 		elseif etat.equipee == def.id then
-			c.statut.Text = "ÉQUIPÉE"
-			c.statut.TextColor3 = T.Vert
+			c.statut.Text = "✔ ÉQUIPÉE"
+			c.statut.TextColor3 = Color3.new(1, 1, 1)
+			fondPastille, transpPastille = Color3.fromRGB(46, 130, 60), 0
 		elseif etat.possedees[def.id] then
 			c.statut.Text = "POSSÉDÉE"
 			c.statut.TextColor3 = T.Parchemin
+			fondPastille, transpPastille = Color3.fromRGB(60, 90, 140), 0.1
 		else
+			local assez = pieces() >= def.prix
 			c.statut.Text = milliers(def.prix) .. " ◉"
-			c.statut.TextColor3 = if pieces() >= def.prix then T.Or else T.Gris
+			c.statut.TextColor3 = if assez then T.Or else Color3.fromRGB(255, 130, 110)
+			fondPastille = if assez then Color3.fromRGB(40, 30, 14) else Color3.fromRGB(60, 20, 16)
 		end
+		c.pastille.BackgroundColor3, c.pastille.BackgroundTransparency = fondPastille, transpPastille
 	end
 end
 
@@ -469,6 +479,10 @@ for i, def in Pioches.LISTE do
 		{coin(0.2), UI.degrade(Color3.new(1, 1, 1), Color3.fromRGB(175, 165, 160))})
 	local echelleCarte = creer("UIScale", {Parent = carte}) :: UIScale
 	local tr = UI.rarete(carte, T.Gris, 1, boucles)
+	-- Lueur dorée de la carte choisie (même langage visuel que le comptoir de Gaspard)
+	local lueur = creer("Frame", {Name = "Lueur", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.Or, BorderSizePixel = 0, Visible = false,
+		ZIndex = 3, Parent = carte}, {coin(0.2), creer("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.62),
+		NumberSequenceKeypoint.new(0.55, 0.92), NumberSequenceKeypoint.new(1, 1)})})})
 	local bande = creer("Frame", {Name = "Bande", Position = UDim2.fromScale(0.012, 0.15), Size = UDim2.fromScale(0.018, 0.7),
 		BorderSizePixel = 0, ZIndex = 4, Parent = carte}, {coin(0.5)})
 	local fond = creer("Frame", {Name = "Fond", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.fromScale(0.045, 0.5),
@@ -478,14 +492,18 @@ for i, def in Pioches.LISTE do
 	vignette.ZIndex = 5
 	texte({Text = string.format("N°%02d", i), Font = Enum.Font.GothamBold, TextColor3 = T.Gris, TextXAlignment = Enum.TextXAlignment.Left,
 		Position = UDim2.fromScale(0.27, 0.1), Size = UDim2.fromScale(0.2, 0.24), ZIndex = 4, Parent = carte}, 12)
+	-- Nom sur toute la largeur (les noms longs ne rétrécissent plus) ; statut / prix dans une pastille en haut à droite
 	local nom = texte({Font = Enum.Font.GothamBlack, TextXAlignment = Enum.TextXAlignment.Left,
-		Position = UDim2.fromScale(0.27, 0.32), Size = UDim2.fromScale(0.47, 0.36), ZIndex = 4, Parent = carte}, 20)
+		Position = UDim2.fromScale(0.27, 0.34), Size = UDim2.fromScale(0.7, 0.34), ZIndex = 4, Parent = carte}, 20)
 	local rar = texte({Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left,
 		Position = UDim2.fromScale(0.27, 0.68), Size = UDim2.fromScale(0.47, 0.22), ZIndex = 4, Parent = carte}, 13)
-	local statut = texte({Font = Enum.Font.GothamBlack, TextXAlignment = Enum.TextXAlignment.Right,
-		Position = UDim2.fromScale(0.73, 0.3), Size = UDim2.fromScale(0.24, 0.4), ZIndex = 4, Parent = carte}, 16)
-	local c: Carte = {bouton = carte, statut = statut, nom = nom, rarete = rar, bande = bande, fond = fond, vignette = vignette, trait = tr,
-		echelle = echelleCarte, rang = i}
+	local pastille = creer("Frame", {Name = "Statut", AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(0.965, 0.09),
+		Size = UDim2.fromScale(0.3, 0.3), BackgroundColor3 = T.Fond3D, BackgroundTransparency = 0.25, ZIndex = 4, Parent = carte},
+		{coin(0.5), trait(NOIR, 1, 0.5)})
+	local statut = texte({Font = Enum.Font.GothamBlack, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.86, 0.74), ZIndex = 5, Parent = pastille}, 14)
+	local c: Carte = {bouton = carte, statut = statut, pastille = pastille, lueur = lueur, nom = nom, rarete = rar, bande = bande, fond = fond, vignette = vignette,
+		trait = tr, echelle = echelleCarte, rang = i}
 	cartes[def.id] = c
 	table.insert(ordreCartes, c)
 	local function entrer()
@@ -580,6 +598,22 @@ local function devoiler(def: Pioches.Pioche)
 end
 
 -- ================= Achat / équipement (le serveur décide) =================
+-- État reçu du serveur, vérifié : pioche équipée inconnue du catalogue → pioche de départ
+-- (défini avant le bouton : avant, l'achat appelait une fonction encore inconnue et l'interface restait figée)
+local function validerEtat(e: any): Etat?
+	if type(e) ~= "table" or type(e.possedees) ~= "table" then
+		return nil
+	end
+	local possedees: {[string]: boolean} = {[Pioches.DEPART] = true}
+	for id, v in e.possedees do
+		if type(id) == "string" and v == true and Pioches.get(id) then
+			possedees[id] = true
+		end
+	end
+	local equipee = if type(e.equipee) == "string" and Pioches.get(e.equipee) then e.equipee else Pioches.DEPART
+	return {possedees = possedees, equipee = equipee}
+end
+
 bouton.Activated:Connect(function()
 	if enAttente or not bouton.Active then
 		return
@@ -627,21 +661,6 @@ end)
 
 -- ================= Ouverture / fermeture =================
 local rotation: RBXScriptConnection? = nil
-
--- État reçu du serveur, vérifié : pioche équipée inconnue du catalogue → pioche de départ
-local function validerEtat(e: any): Etat?
-	if type(e) ~= "table" or type(e.possedees) ~= "table" then
-		return nil
-	end
-	local possedees: {[string]: boolean} = {[Pioches.DEPART] = true}
-	for id, v in e.possedees do
-		if type(id) == "string" and v == true and Pioches.get(id) then
-			possedees[id] = true
-		end
-	end
-	local equipee = if type(e.equipee) == "string" and Pioches.get(e.equipee) then e.equipee else Pioches.DEPART
-	return {possedees = possedees, equipee = equipee}
-end
 
 F.surFermeture.Event:Connect(function()
 	decor.arreter()

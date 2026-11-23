@@ -16,7 +16,7 @@ local SONS = {
 	impact = {"rbxasset://sounds/swordslash.wav", 0.45, 0.55},             -- coup sourd : secousse, bannière
 	lame = {"rbxasset://sounds/unsheath.wav", 0.55, 0.85},                 -- carte de nom, MVP
 	metal = {"rbxasset://sounds/button.wav", 0.5, 1},                      -- arrivée d'un joueur dans la file
-	souffle = {"rbxasset://sounds/swoosh.wav", 0.45, 1},                   -- fondus, panneaux
+	souffle = {"rbxasset://sounds/unsheath.wav", 0.3, 1},                   -- fondus, panneaux
 	ping = {"rbxasset://sounds/electronicpingshort.wav", 0.45, 1},         -- compte à rebours, victoire
 	clic = {"rbxasset://sounds/clickfast.wav", 0.5, 1},
 }

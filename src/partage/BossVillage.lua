@@ -11,6 +11,7 @@ BossVillage.CYCLE_STUDIO = 45       -- cycle court dans Studio (si DEBUT_RAPIDE_
 BossVillage.DEBUT_RAPIDE_STUDIO = true -- Studio : boss toutes les CYCLE_STUDIO s pour tester vite ; false = vrai cycle
 BossVillage.MAX_JOUEURS = 20
 BossVillage.DUREE_MAX = 5 * 60      -- au-delà : échec, le boss disparaît
+BossVillage.GUIDE = 40              -- s avant le boss : flèches au sol vers le cercle
 BossVillage.ANNONCE = 60            -- s avant le boss : bandeau + puce en haut d'écran + guide vers le cercle
 
 -- Déroulé (s). Départ : fondu au noir + écran de chargement, téléportation après DELAI_DEPART, intro quand tous

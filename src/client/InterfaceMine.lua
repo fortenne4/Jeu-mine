@@ -143,10 +143,11 @@ function UI.milliers(n: number): string
 end
 
 -- ================= Sons =================
+-- swoosh.wav n'est plus livré avec Studio (« Asset is not approved ») : l'ouverture utilise un glissement de lame aigu
 local SONS = {
 	clic = {"rbxasset://sounds/clickfast.wav", 0.5},
 	survol = {"rbxasset://sounds/clickfast.wav", 0.15},
-	ouvrir = {"rbxasset://sounds/swoosh.wav", 0.45},
+	ouvrir = {"rbxasset://sounds/unsheath.wav", 0.22},
 	succes = {"rbxasset://sounds/electronicpingshort.wav", 0.6},
 	metal = {"rbxasset://sounds/button.wav", 0.55},
 }
@@ -213,7 +214,8 @@ function UI.reactif(b: GuiButton, survol: number?, cible: GuiObject?)
 		end
 	end)
 	b.MouseButton1Up:Connect(function()
-		TweenService:Create(e, BOUNCY, {Scale = s}):Play()
+		-- bouton devenu inactif pendant l'appui (achat en cours, quête acceptée) : il ne reste pas grossi
+		TweenService:Create(e, BOUNCY, {Scale = if b.Active then s else 1}):Play()
 	end)
 end
 
@@ -268,6 +270,14 @@ function UI.rarete(o: GuiObject, couleur: Color3, niveau: number, boucles: {Twee
 			ColorSequenceKeypoint.new(1, couleur)})
 	end
 	return s
+end
+
+-- Ombre douce au sol sous un objet 3D (fondue sur les bords : ne fait plus « barre grise »)
+function UI.ombre(parent: Instance, y: number, largeur: number): Frame
+	return creer("Frame", {Name = "Ombre", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, y),
+		Size = UDim2.fromScale(largeur, 0.06), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.35, BorderSizePixel = 0,
+		Parent = parent}, {coin(0.5), creer("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.5, 0.2), NumberSequenceKeypoint.new(1, 1)})})})
 end
 
 -- Petit rivet de fer (cercle bombé)
@@ -366,19 +376,25 @@ function UI.celebrer(scene: GuiObject, couleur: Color3, texteTampon: string?)
 	end
 	UI.gerbe(scene, couleur, 24)
 	if texteTampon then
-		local t = texte({Text = texteTampon, Font = Enum.Font.Fantasy, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.22),
-			Size = UDim2.fromScale(0.9, 0.2), Rotation = -6, ZIndex = 21, Parent = scene}, 60)
-		UI.dore(t, 3)
-		local e = echelleDe(t)
-		e.Scale = 2.4
-		t.TextTransparency = 1
-		TweenService:Create(e, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
-		TweenService:Create(t, TweenInfo.new(0.2), {TextTransparency = 0}):Play()
-		task.delay(1.4, function()
-			TweenService:Create(t, TweenInfo.new(0.4), {TextTransparency = 1, Position = UDim2.fromScale(0.5, 0.1)}):Play()
-			Debris:AddItem(t, 0.5)
-		end)
+		UI.tampon(scene, texteTampon)
 	end
+end
+
+-- Tampon doré qui s'écrase puis s'envole (« ACHETÉE ! », « VENDU ! ») ; peut être posé sur un cadre plus grand que la scène
+function UI.tampon(parent: GuiObject, txt: string, y: number?, hauteur: number?)
+	local y0 = y or 0.22
+	local t = texte({Text = txt, Font = Enum.Font.Fantasy, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, y0),
+		Size = UDim2.fromScale(0.9, hauteur or 0.2), Rotation = -6, ZIndex = 21, Parent = parent}, 60)
+	UI.dore(t, 3)
+	local e = echelleDe(t)
+	e.Scale = 2.4
+	t.TextTransparency = 1
+	TweenService:Create(e, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+	TweenService:Create(t, TweenInfo.new(0.2), {TextTransparency = 0}):Play()
+	task.delay(1.4, function()
+		TweenService:Create(t, TweenInfo.new(0.4), {TextTransparency = 1, Position = UDim2.fromScale(0.5, y0 - 0.12)}):Play()
+		Debris:AddItem(t, 0.5)
+	end)
 end
 
 -- ================= Message (plaque en bas de l'écran) =================
@@ -685,7 +701,7 @@ function UI.fenetre(gui: ScreenGui, o: Opts): Fenetre
 		BackgroundColor3 = Color3.fromRGB(26, 17, 11), BorderSizePixel = 0, ZIndex = 5, Parent = interieur})
 	creer("Frame", {Position = UDim2.new(0, 0, 0.217, 0), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = T.OrFonce,
 		BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 5, Parent = interieur})
-	local contenu = creer("Frame", {Name = "Contenu", Position = UDim2.fromScale(0.018, 0.25), Size = UDim2.fromScale(0.964, 0.725),
+	local contenu = creer("Frame", {Name = "Contenu", Position = UDim2.fromScale(0.018, 0.25), Size = UDim2.fromScale(0.964, 0.715),
 		BackgroundTransparency = 1, ZIndex = 3, Parent = interieur})
 
 	local rideau = creer("Frame", {Name = "Rideau", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.Voile, Visible = false, ZIndex = 60,

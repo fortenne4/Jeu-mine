@@ -126,8 +126,7 @@ for i = 1, 10 do
 end
 local halo = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.52), Size = UDim2.fromScale(0.7, 0.7),
 	SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = BLANC, BackgroundTransparency = 0.8, Parent = scene}, {coin(0.5)})
-creer("Frame", {Name = "Ombre", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.88), Size = UDim2.fromScale(0.55, 0.07),
-	BackgroundColor3 = NOIR, BackgroundTransparency = 0.5, Parent = scene}, {coin(0.5)})
+UI.ombre(scene, 0.88, 0.6)
 local apercu = Icones.creer(scene)
 apercu.Name, apercu.ZIndex = "Apercu", 2
 local echelleApercu = UI.echelle(apercu)
@@ -209,7 +208,7 @@ local positionGaspard: Vector3? = nil
 local enAttente = false
 
 type Carte = {bouton: TextButton, fond: Frame, vignette: ViewportFrame, nom: TextLabel, rarete: TextLabel, stock: TextLabel,
-	prix: TextLabel, valeur: TextLabel, bande: Frame, trait: UIStroke}
+	prix: TextLabel, valeur: TextLabel, bande: Frame, trait: UIStroke, lueur: Frame}
 local cartes: {[string]: Carte} = {}
 
 local function prix(id: string): number
@@ -307,10 +306,12 @@ local function rafraichirListe()
 		c.bouton.LayoutOrder = if dispo then i else i + 100 -- les minerais épuisés descendent en bas
 		c.bouton.Active = dispo
 		c.bouton.BackgroundColor3 = if choisie then T.CarteClaire elseif dispo then T.Carte else Color3.fromRGB(30, 24, 21)
-		UI.rarete(c.bouton, if dispo then couleurR else T.Inactif, if dispo then niveau else 1, boucles)
+		-- Carte choisie : liseré et reflet dorés (le reflet de rareté teintait l'or en brun : sélection illisible)
+		UI.rarete(c.bouton, if choisie then T.Or elseif dispo then couleurR else T.Inactif, if choisie then 4 elseif dispo then niveau else 1, boucles)
 		c.trait.Color = if choisie then T.Or elseif dispo then couleurR else T.Inactif
 		c.trait.Thickness = if choisie then 3.5 else 1 + math.min(niveau, 4) * 0.5
 		c.bande.BackgroundColor3 = if dispo then couleurR else T.Inactif
+		c.lueur.Visible = choisie and dispo
 		c.fond.BackgroundColor3 = if dispo then couleurR:Lerp(T.Fond3D, 0.55) else Color3.fromRGB(28, 24, 22)
 		c.nom.TextColor3 = if dispo then T.Parchemin else T.Gris
 		c.rarete.TextColor3 = if dispo then couleurR else T.Inactif
@@ -397,6 +398,10 @@ for i, id in ORDRE do
 	local carte = creer("TextButton", {Name = id, LayoutOrder = i, Text = "", AutoButtonColor = false, Size = UDim2.new(1, -4, 0, 64),
 		BackgroundColor3 = T.Carte, ZIndex = 3, Parent = liste}, {coin(0.18), UI.degrade(BLANC, Color3.fromRGB(175, 165, 160))})
 	local tr = UI.rarete(carte, T.Gris, 1, boucles)
+	-- Lueur dorée de la carte choisie (venue de la gauche) : la sélection se lit d'un coup d'œil
+	local lueur = creer("Frame", {Name = "Lueur", Size = UDim2.fromScale(1, 1), BackgroundColor3 = T.Or, BorderSizePixel = 0, Visible = false,
+		ZIndex = 3, Parent = carte}, {coin(0.18), creer("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.62),
+		NumberSequenceKeypoint.new(0.55, 0.92), NumberSequenceKeypoint.new(1, 1)})})})
 	local bande = creer("Frame", {Name = "Bande", Position = UDim2.fromScale(0.01, 0.15), Size = UDim2.fromScale(0.012, 0.7),
 		BorderSizePixel = 0, ZIndex = 4, Parent = carte}, {coin(0.5)})
 	local fond = creer("Frame", {Name = "Fond", AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.fromScale(0.035, 0.5),
@@ -416,7 +421,7 @@ for i, id in ORDRE do
 	local val = texte({Font = Enum.Font.GothamBlack, TextXAlignment = Enum.TextXAlignment.Right,
 		Position = UDim2.fromScale(0.7, 0.5), Size = UDim2.fromScale(0.27, 0.4), ZIndex = 4, Parent = carte}, 20)
 	cartes[id] = {bouton = carte, fond = fond, vignette = vignette, nom = nom, rarete = rar, stock = st, prix = px, valeur = val,
-		bande = bande, trait = tr}
+		bande = bande, trait = tr, lueur = lueur}
 	UI.reactif(carte, 1.025)
 	carte.MouseEnter:Connect(function()
 		local v = Icones.vue(vignette)
@@ -562,8 +567,9 @@ local function vendre(demande: {[string]: any}, depuis: GuiObject)
 		if rep.ok then
 			local gain = if type(rep.gain) == "number" then rep.gain else 0
 			jouer("succes", if demande.action == "toutVendre" then 0.9 else 1.1)
-			UI.celebrer(scene, couleurMinerai(selection),
-				if demande.action == "toutVendre" then "TOUT VENDU !" else "VENDU !")
+			-- Éclats dans la scène, tampon sur toute la fiche (dans la petite scène il était coupé)
+			UI.celebrer(scene, couleurMinerai(selection))
+			UI.tampon(fiche, if demande.action == "toutVendre" then "TOUT VENDU !" else "VENDU !", 0.3, 0.16)
 			volerPieces(depuis, gain)
 			pop(F.racine, 0.98)
 			local c = selection and cartes[selection]

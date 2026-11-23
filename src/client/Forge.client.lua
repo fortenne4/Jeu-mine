@@ -130,7 +130,7 @@ local plusMilieu = texte({Text = "+", Font = Enum.Font.GothamBlack, TextColor3 =
 UI.dore(plusMilieu, 3)
 UI.boucle(UI.echelle(plusMilieu), TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Scale = 1.2}, boucles)
 
-type SlotUI = {carte: Frame, choix: TextButton, fond: Frame, vp: ViewportFrame, vide: TextLabel, nom: TextLabel, possede: TextLabel,
+type SlotUI = {carte: Frame, choix: TextButton, fond: Frame, vp: ViewportFrame, vide: TextLabel, appel: UIStroke, nom: TextLabel, possede: TextLabel,
 	rangee: Frame, moins: TextButton, plus: TextButton, boite: TextBox, retirer: TextButton?}
 local slotsUI: {SlotUI} = {}
 for i = 1, 2 do
@@ -152,6 +152,10 @@ for i = 1, 2 do
 	local vp = Icones.creer(fond)
 	vp.ZIndex = 5
 	local vide = texte({Text = "+", Font = Enum.Font.GothamBlack, TextColor3 = T.Gris, Size = UDim2.fromScale(1, 1), ZIndex = 5, Parent = fond}, 50)
+	-- Emplacement vide : anneau doré qui pulse (« pose un minerai ici »)
+	local appel = trait(T.Or, 2.5, 0.2)
+	appel.Name, appel.Parent = "Appel", fond
+	UI.boucle(appel, TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Transparency = 0.85}, boucles)
 	local nom = texte({Font = Enum.Font.Fantasy, TextXAlignment = Enum.TextXAlignment.Left,
 		Position = UDim2.fromScale(0.5, 0.15), Size = UDim2.fromScale(0.5, 0.36), ZIndex = 5, Parent = choix}, 26)
 	local possede = texte({Font = Enum.Font.GothamBold, TextColor3 = T.Gris, TextXAlignment = Enum.TextXAlignment.Left,
@@ -177,7 +181,7 @@ for i = 1, 2 do
 			v.vitesse = 0.5
 		end
 	end)
-	slotsUI[i] = {carte = carte, choix = choix, fond = fond, vp = vp, vide = vide, nom = nom, possede = possede, rangee = rangee,
+	slotsUI[i] = {carte = carte, choix = choix, fond = fond, vp = vp, vide = vide, appel = appel, nom = nom, possede = possede, rangee = rangee,
 		moins = moins, plus = plus, boite = boite, retirer = retirer}
 end
 
@@ -205,17 +209,19 @@ UI.rarete(badgeAlliage, T.Or, 4, boucles)
 
 -- ================= Objets forgés =================
 local titreInventaire = texte({Font = Enum.Font.GothamBlack, TextColor3 = T.Gris, TextXAlignment = Enum.TextXAlignment.Left,
-	Position = UDim2.fromScale(0, 0.8), Size = UDim2.fromScale(1, 0.05), ZIndex = 3, Parent = gauche}, 14)
+	Position = UDim2.fromScale(0.012, 0.8), Size = UDim2.fromScale(0.98, 0.05), ZIndex = 3, Parent = gauche}, 14)
 local inventaire = creer("ScrollingFrame", {Name = "Inventaire", Position = UDim2.fromScale(0, 0.855), Size = UDim2.fromScale(1, 0.145),
 	BackgroundColor3 = T.Fond3D, BackgroundTransparency = 0.35, BorderSizePixel = 0, ScrollBarThickness = 4,
-	ScrollBarImageColor3 = T.OrFonce, CanvasSize = UDim2.fromScale(0, 1), AutomaticCanvasSize = Enum.AutomaticSize.X,
+	ScrollBarImageColor3 = T.OrFonce, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.X,
 	ScrollingDirection = Enum.ScrollingDirection.X, ZIndex = 3, Parent = gauche}, {coin(0.15), trait(T.FerSombre, 2),
 	creer("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder,
 		VerticalAlignment = Enum.VerticalAlignment.Center}),
 	creer("UIPadding", {PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6)}),
 })
-local vide = texte({Text = "Rien de forgé pour l'instant", Font = Enum.Font.Merriweather, TextColor3 = T.Gris,
-	Size = UDim2.fromScale(6, 0.4), SizeConstraint = Enum.SizeConstraint.RelativeYY, ZIndex = 4, Parent = inventaire}, 16)
+-- État vide : posé par-dessus la bande (dans la liste défilante, il ne s'affichait pas)
+local vide = texte({Text = "Rien de forgé pour l'instant : choisis tes minerais et frappe !", Font = Enum.Font.Merriweather,
+	TextColor3 = T.Parchemin, TextTransparency = 0.25, Position = UDim2.fromScale(0.03, 0.875), Size = UDim2.fromScale(0.94, 0.105),
+	ZIndex = 5, Parent = gauche}, 15)
 
 -- ================= Aperçu du résultat =================
 local fiche = UI.panneau({Name = "Apercu", Position = UDim2.fromScale(0.62, 0), Size = UDim2.fromScale(0.38, 1),
@@ -232,8 +238,13 @@ local rayons = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = U
 		NumberSequenceKeypoint.new(0.2, 1), NumberSequenceKeypoint.new(0.35, 0.3), NumberSequenceKeypoint.new(0.5, 1), NumberSequenceKeypoint.new(0.65, 0.2),
 		NumberSequenceKeypoint.new(0.8, 1), NumberSequenceKeypoint.new(0.9, 0.3), NumberSequenceKeypoint.new(1, 1)})})})
 UI.boucle(rayons, TweenInfo.new(14, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), {Rotation = 360}, boucles)
-creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.86), Size = UDim2.fromScale(0.55, 0.07),
-	BackgroundColor3 = NOIR, BackgroundTransparency = 0.5, Parent = scene}, {coin(0.5)})
+-- Lueur de magma qui respire au pied de l'objet (identité de la forge)
+local magma = creer("Frame", {Name = "Magma", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 1), Size = UDim2.fromScale(1, 0.5),
+	BackgroundColor3 = Color3.fromRGB(255, 110, 30), BorderSizePixel = 0, Parent = scene})
+local gMagma = creer("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1),
+	NumberSequenceKeypoint.new(0.6, 0.7), NumberSequenceKeypoint.new(1, 0.3)}), Parent = magma})
+UI.boucle(gMagma, TweenInfo.new(1.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Offset = Vector2.new(0, 0.15)}, boucles)
+UI.ombre(scene, 0.86, 0.6)
 local vpResultat = Icones.creer(scene)
 vpResultat.ZIndex = 2
 local echelleResultat = UI.echelle(vpResultat)
@@ -346,6 +357,7 @@ local function rafraichirSlots()
 		rarete.Transparency = if id then 0 else 0.3
 		ui.vp.Visible = id ~= nil
 		ui.vide.Visible = id == nil
+		ui.appel.Enabled = id == nil
 		if id then
 			local m = Forge.MINERAIS[id]
 			Icones.definir(ui.vp, "minerai", id, {vitesse = 0.5, hauteur = 0.35})
@@ -396,7 +408,8 @@ local function rafraichirApercu()
 	if res then
 		definirObjet(vpResultat, typeChoisi, res.couleur, 0.9, res.modele)
 		vpResultat.Visible = true
-		degradeScene.Color = ColorSequence.new(res.couleur:Lerp(Color3.new(1, 1, 1), 0.1):Lerp(T.Fond3D, 0.35), T.Fond3D)
+		-- Fond de braise chaud quelle que soit la couleur de l'objet : une épée de charbon ne se perd plus dans le noir
+		degradeScene.Color = ColorSequence.new(res.couleur:Lerp(Color3.fromRGB(255, 176, 96), 0.55), Color3.fromRGB(64, 22, 10))
 		rayons.BackgroundColor3 = res.couleur:Lerp(Color3.new(1, 1, 1), 0.5)
 		nomRes.Text = res.nom
 		majStat(res.valeur)
@@ -415,7 +428,7 @@ local function rafraichirApercu()
 		end
 	else
 		vpResultat.Visible = false
-		degradeScene.Color = ColorSequence.new(T.Carte, T.Fond3D)
+		degradeScene.Color = ColorSequence.new(Color3.fromRGB(90, 52, 34), Color3.fromRGB(40, 18, 10))
 		rayons.BackgroundColor3 = T.Gris
 		nomRes.Text = t.nom .. " ?"
 		majStat(0, true)
@@ -442,6 +455,18 @@ local function rafraichirApercu()
 	principal.definir(if enAttente then "🔨 …" else "🔨 FORGER", T.Braise, actif)
 end
 
+-- Taille des cartes d'objets en pixels, d'après la hauteur visible de la bande : en échelle (RelativeYY),
+-- la hauteur suivait celle du canevas automatique, qui grandissait avec elles → cartes géantes, hors de la bande
+local function tailleObjet(): UDim2
+	local h = math.max(24, inventaire.AbsoluteWindowSize.Y - 10)
+	return UDim2.fromOffset(math.floor(h * 3.2), math.floor(h))
+end
+inventaire:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(function()
+	for _, c in cartesObjets do
+		c.Size = tailleObjet()
+	end
+end)
+
 local function rafraichirInventaire()
 	for _, c in cartesObjets do
 		c:Destroy()
@@ -454,8 +479,8 @@ local function rafraichirInventaire()
 		local t = Forge.TYPES[o.type]
 		local ok, couleur = pcall(Color3.fromHex, o.couleur)
 		local c = if ok then couleur else T.Gris
-		local carte = creer("Frame", {Name = "Objet", LayoutOrder = -i, Size = UDim2.fromScale(3, 0.84),
-			SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = T.Carte, ZIndex = 4, Parent = inventaire},
+		local carte = creer("Frame", {Name = "Objet", LayoutOrder = -i, Size = tailleObjet(),
+			BackgroundColor3 = T.Carte, ZIndex = 4, Parent = inventaire},
 			{coin(0.18), trait(c, 2, 0.1), UI.degrade(Color3.new(1, 1, 1), Color3.fromRGB(160, 150, 140))})
 		local case = creer("Frame", {Position = UDim2.fromScale(0.03, 0.08), Size = UDim2.fromScale(0.84, 0.84),
 			SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = c:Lerp(T.Fond3D, 0.6), ZIndex = 5, Parent = carte}, {coin(0.3)})

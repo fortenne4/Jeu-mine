@@ -308,9 +308,12 @@ end
 -- Chemins décoratifs posés sur le terrain réel, y compris sur les cartes figées.
 function Village.preparerSentiers(village)
 	local anciens = village:FindFirstChild("SentiersFontaine")
-	if anciens and anciens:GetAttribute("VersionSentiers") == 14 then
+	if anciens and anciens:GetAttribute("VersionSentiers") == 15 then
 		return
 	end
+	-- rue du sud élargie : maisons écartées avant de tracer leurs allées (cartes figées)
+	Village.preparerRueSud(village)
+	local cheminMoulin = village:FindFirstChild("CheminMoulin")
 	local sentiers = O.modele(village, "SentiersEnConstruction")
 	local rng = Random.new(43672)
 	local filtre = RaycastParams.new()
@@ -566,7 +569,7 @@ function Village.preparerSentiers(village)
 	end
 	rue(Vector2.new(-RU.ANNEAU + 2, RU.OUEST_Z), Vector2.new(-RU.FIN_X, RU.OUEST_Z), 6)
 	rue(Vector2.new(RU.ANNEAU - 2, RU.EST_Z), Vector2.new(RU.FIN_X, RU.EST_Z), 6)
-	rue(Vector2.new(0, sudDebut), Vector2.new(0, RU.SUD_FIN + 2), 9)
+	rue(Vector2.new(0, sudDebut), Vector2.new(0, RU.SUD_FIN + 2), RU.SUD_LARGEUR)
 
 	-- allées perpendiculaires vers les portes (attribut « Accueil » de chaque bâtiment)
 	local axes = {}
@@ -596,14 +599,20 @@ function Village.preparerSentiers(village)
 			if typeof(accueil) == "Vector3" and d.Name ~= "Taverne" then
 				local p = Vector2.new(accueil.X, accueil.Z)
 				local q, distance, axe = plusProche(p)
-				if q and distance > 2.5 and distance < 70 then
-					table.insert(allees, {rue(q, p, math.min(5, d:GetAttribute("LargeurAllee") or 4.5)), axe[3], d.Name == "Entrepot"})
+				-- Maison9 déplacée en face du moulin : son allée est dans CheminMoulin
+				if q and distance > 2.5 and distance < 70 and not (d.Name == "Maison9" and accueil.X < -40) then
+					local c = rue(q, p, math.min(5, d:GetAttribute("LargeurAllee") or 4.5))
+					-- allée du moulin déjà pavée par CheminMoulin : seulement l'ouverture dans la bordure de la rue
+					c.fantome = cheminMoulin ~= nil and d.Name == "MoulinSud"
+					table.insert(allees, {c, axe[3], d.Name == "Entrepot"})
 				end
 			end
 		end
 	end
 	for _, c in tous do
-		relier(c)
+		if not c.fantome then
+			relier(c)
+		end
 	end
 	-- Lampadaires d'allée : uniquement les deux longues allées des entrepôts (les autres allées sont courtes,
 	-- déjà éclairées par les lampadaires des rues : des lampadaires devant chaque porte encombraient le village)
@@ -626,7 +635,7 @@ function Village.preparerSentiers(village)
 			end
 		end
 	end
-	sentiers:SetAttribute("VersionSentiers", 14)
+	sentiers:SetAttribute("VersionSentiers", 15)
 	if anciens then anciens:Destroy() end
 	sentiers.Name = "SentiersFontaine"
 end
@@ -962,9 +971,12 @@ Village.RUES = {
 	OUEST_Z = 6, -- axe de la rue ouest (entre le comptoir et l'outilleur)
 	EST_Z = 8.5, -- axe de la rue est (entre la forge et la taverne)
 	FIN_X = 146, -- bout des rues ouest et est
-	SUD_FIN = 132, -- bout de la rue du sud (la maison du bout est 10 plus loin ; au-delà de z = 144, le terrain monte)
+	SUD_FIN = 134, -- bout de la rue du sud (la dalle de l'arène commence à z = 133 ; au-delà de z = 144, le terrain monte)
+	SUD_LARGEUR = 16, -- avenue pavée du pont à l'arène (bordures à x = ±7,8)
 }
 local R = Village.RUES
+local X_LAMPE_SUD = R.SUD_LARGEUR / 2 + 1.6 -- pied des lampadaires de la rue du sud, juste hors de la bordure
+local ECART_RUE_SUD = 7 -- maisons de la rue du sud écartées de 7 studs (x = ±19 → ±26) : Village.preparerRueSud
 
 -- {x, z, largeur, profondeur, étages}
 local MAISONS = {
@@ -976,8 +988,8 @@ local MAISONS = {
 	{102, R.EST_Z + 15, 18, 14, 2, Vector3.new(102, 0, R.EST_Z)}, {130, R.EST_Z + 15, 16, 14, 1, Vector3.new(130, 0, R.EST_Z)},
 	-- rue du sud, après le pont : deux maisons de chaque côté ; au bout de la rue, la place du boss du village
 	-- (ancienne Maison13, retirée : Village.preparerCercleBoss)
-	{-19, 108, 16, 14, 1, Vector3.new(0, 0, 108)}, {19, 108, 16, 14, 2, Vector3.new(0, 0, 108)},
-	{-19, 127, 16, 14, 2, Vector3.new(0, 0, 127)}, {19, 127, 16, 14, 1, Vector3.new(0, 0, 127)},
+	{-26, 108, 16, 14, 1, Vector3.new(0, 0, 108)}, {26, 108, 16, 14, 2, Vector3.new(0, 0, 108)},
+	{-26, 127, 16, 14, 2, Vector3.new(0, 0, 127)}, {26, 127, 16, 14, 1, Vector3.new(0, 0, 127)},
 }
 
 local function maisons(v, rng, obstacles)
@@ -1050,6 +1062,32 @@ end
 -- qui gênent, puis on pave le chemin de l'arche jusqu'au moulin et à la maison.
 local MAISON_DEPLACEE = "Maison9"
 local MAISON_NOUVELLE_POS = Vector3.new(MOULIN_SUD_X, 0, 134)
+
+-- Lampadaires de la rue du sud : 2 paires au bord de l'avenue élargie (z = 110 et 126), décalées ensemble
+-- (symétrie) si une allée de porte passe par là. Rend les 4 positions des pieds.
+local function lampadairesRueSud(village)
+	local portes = {}
+	for _, d in village:GetDescendants() do
+		local a = d:IsA("Model") and d.Name ~= MAISON_DEPLACEE and d:GetAttribute("Accueil")
+		if typeof(a) == "Vector3" and math.abs(a.X) > 8 and math.abs(a.X) < 70 and a.Z > 96 and a.Z < 140 then
+			table.insert(portes, a.Z)
+		end
+	end
+	local pieds = {}
+	for _, z in {110, 126} do
+		local zl = z
+		for _, dz in {0, 1.5, -1.5, 3, -3, 4.5, -4.5} do
+			local libre = true
+			for _, pz in portes do
+				if math.abs(z + dz - pz) < 3.6 then libre = false break end -- demi-allée 2,25 + pied 1,2
+			end
+			if libre then zl = z + dz break end
+		end
+		table.insert(pieds, Vector2.new(-X_LAMPE_SUD, zl))
+		table.insert(pieds, Vector2.new(X_LAMPE_SUD, zl))
+	end
+	return pieds
+end
 
 local function solVisible(x, z)
 	local params = RaycastParams.new()
@@ -1189,11 +1227,11 @@ function Village.preparerCheminMoulin(village)
 		for _, p in sentiers:GetChildren() do
 			if p:IsA("BasePart") then
 				local q = p.Position
-				if q.X < -4.8 and q.X > MOULIN_SUD_X - 4 and math.abs(q.Z - zChemin) < 2.9 then p:Destroy() end
+				if q.X < -(R.SUD_LARGEUR / 2 + 0.4) and q.X > MOULIN_SUD_X - 4 and math.abs(q.Z - zChemin) < 2.9 then p:Destroy() end
 			end
 		end
 	end
-	alleeSentier(chemin, Vector3.new(-6.8, 0, zChemin), Vector3.new(MOULIN_SUD_X, 0, zChemin), 4.5, rng)
+	alleeSentier(chemin, Vector3.new(-(R.SUD_LARGEUR / 2 + 1.6), 0, zChemin), Vector3.new(MOULIN_SUD_X, 0, zChemin), 4.5, rng)
 	alleeSentier(chemin, Vector3.new(porteMaison.X, 0, zChemin + 2.6), porteMaison, 4.5, rng, 0.04)
 
 	-- Les deux lampadaires de l'allée les plus proches du moulin : légèrement rapprochés de lui
@@ -1222,7 +1260,7 @@ function Village.preparerCheminMoulin(village)
 	end
 	for _, t in maisons:GetChildren() do
 		local corps = t:IsA("Model") and t.Name == "Tonneau" and t:FindFirstChild("Corps")
-		if corps and (Vector2.new(corps.Position.X, corps.Position.Z) - Vector2.new(-14.7, 108.9)).Magnitude < 3 then
+		if corps and (Vector2.new(corps.Position.X, corps.Position.Z) - Vector2.new(-14.7 - ECART_RUE_SUD, 108.9)).Magnitude < 3 then
 			local pivot = t:GetPivot()
 			deplacerAuSol(t, pivot.X + (xTonneau - corps.Position.X), pivot.Z + (zTonneau - corps.Position.Z))
 		end
@@ -1273,8 +1311,10 @@ function Village.preparerCheminMoulin(village)
 	-- Tonneaux retirés au bout de la rue du sud (devant la maison du fond et ses voisines)
 	-- Les tonneaux « CouvreReste » cachaient un couvercle d'ancien tonneau fondu dans le maillage
 	-- de la maison : un petit buisson fleuri le recouvre à la place.
-	local TONNEAUX_RETIRES = {Vector2.new(12.8, 136.5), Vector2.new(0.86, 136.8), Vector2.new(-12.6, 134.7), Vector2.new(-14.1, 138.7),
-		Vector2.new(14.6, 107), Vector2.new(14, 115.2), Vector2.new(12.4, 119.4)}
+	-- (positions des maisons de la rue du sud écartées de ECART_RUE_SUD : leurs tonneaux 3D ont suivi)
+	local E = ECART_RUE_SUD
+	local TONNEAUX_RETIRES = {Vector2.new(12.8 + E, 136.5), Vector2.new(0.86, 136.8), Vector2.new(-12.6 - E, 134.7), Vector2.new(-14.1 - E, 138.7),
+		Vector2.new(14.6 + E, 107), Vector2.new(14 + E, 115.2), Vector2.new(12.4 + E, 119.4)}
 	local fleurs = {Color3.fromRGB(212, 83, 126), Color3.fromRGB(239, 159, 39), Color3.fromRGB(240, 226, 190)}
 	for _, d in village:GetDescendants() do
 		if d:IsA("Model") and d.Name == "Tonneau" and d.Parent then
@@ -1321,7 +1361,7 @@ function Village.preparerCheminMoulin(village)
 		end
 	end
 	-- À la place : un lampadaire simple de chaque côté de la rue du sud, à deux hauteurs
-	for _, pos in {Vector2.new(5.6, 110), Vector2.new(-5.6, 110), Vector2.new(5.6, 126), Vector2.new(-5.6, 126)} do
+	for _, pos in lampadairesRueSud(village) do
 		local y = solVisible(pos.X, pos.Y)
 		B.lanterne(chemin, vers(Vector3.new(pos.X, y, pos.Y), Vector3.new(0, y, pos.Y)))
 	end
@@ -1372,7 +1412,8 @@ local function riviere(v, rng)
 	end
 	for _, s in {-1, 1} do
 		O.bloc(m, Vector3.new(10, 9, 3), CFrame.new(0, -5, z + s * (demi - 1.5)), C.Pierre, M.Pierre, "Pile")
-		for _, x in {-6.8, 6.8} do
+		local ecart = if s > 0 then X_LAMPE_SUD else 6.8 -- côté sud : au bord de la rue du sud élargie
+		for _, x in {-ecart, ecart} do
 			local p = Vector3.new(x, 0, z + s * 17)
 			B.lanterne(m, vers(p, Vector3.new(0, 0, p.Z)), 9)
 		end
@@ -1645,7 +1686,7 @@ local function couloirsRues(): {{any}}
 		{Vector2.new(0, -89), Vector2.new(-14.5, -97), 4},
 		{Vector2.new(0, 15), Vector2.new(0, 66), 4.5}, -- allée du pont
 		{Vector2.new(0, 66), Vector2.new(0, 98), 6}, -- pont
-		{Vector2.new(0, 98), Vector2.new(0, R.SUD_FIN + 2), 4.5}, -- rue du sud
+		{Vector2.new(0, 98), Vector2.new(0, R.SUD_FIN + 2), R.SUD_LARGEUR / 2}, -- rue du sud
 		{Vector2.new(-R.ANNEAU + 2, R.OUEST_Z), Vector2.new(-R.FIN_X, R.OUEST_Z), 3},
 		{Vector2.new(R.ANNEAU - 2, R.EST_Z), Vector2.new(R.FIN_X, R.EST_Z), 3},
 		{Vector2.new(0, -86), Vector2.new(-51, -86), 2.5}, -- allées des entrepôts
@@ -1682,7 +1723,7 @@ local function batiments(v): {{cf: CFrame, taille: Vector3, accueil: Vector3?}}
 	for _, d in v:GetDescendants() do
 		if d:IsA("Model") and (typeof(d:GetAttribute("Accueil")) == "Vector3" or d.Name == "Echoppe") then
 			local cf, taille = d:GetBoundingBox()
-			table.insert(liste, {cf = cf, taille = taille, accueil = d:GetAttribute("Accueil")})
+			table.insert(liste, {cf = cf, taille = taille, accueil = d:GetAttribute("Accueil"), modele = d})
 		end
 	end
 	return liste
@@ -1697,8 +1738,9 @@ local function horsBoite(b, x: number, z: number): number
 end
 
 --[[ Aplanit le terrain sous et autour des bâtiments : si le relief déborde dans l'emprise (pied de montagne),
-	il est creusé au niveau du village, avec un talus en pente douce jusqu'à 14 studs. ]]
-function Village.terrasser(v)
+	il est creusé au niveau du village, avec un talus en pente douce jusqu'à 14 studs.
+	seulement (facultatif) : {[modèle] = true}, bâtiments déplacés ; sous eux, un creux est aussi comblé (aucune fondation dans le vide). ]]
+function Village.terrasser(v, seulement)
 	local terrain = workspace.Terrain
 	local filtre = RaycastParams.new()
 	filtre.FilterType = Enum.RaycastFilterType.Include
@@ -1706,6 +1748,9 @@ function Village.terrasser(v)
 	local NIVEAU = 2
 	local creuses = 0
 	for _, b in batiments(v) do
+		if seulement and not seulement[b.modele] then
+			continue
+		end
 		local demi = math.max(b.taille.X, b.taille.Z) / 2 + 16
 		local c = b.cf.Position
 		for x = c.X - demi, c.X + demi, 4 do
@@ -1719,6 +1764,9 @@ function Village.terrasser(v)
 						local haut = h + 6
 						terrain:FillBlock(CFrame.new(x, (cible + haut) / 2, z), Vector3.new(4, haut - cible, 4), Enum.Material.Air)
 						terrain:FillBlock(CFrame.new(x, cible - 1, z), Vector3.new(4, 2, 4), Enum.Material.Grass)
+						creuses += 1
+					elseif seulement and h and d <= 4 and h < NIVEAU - 0.8 and r.Material ~= Enum.Material.Water then
+						terrain:FillBlock(CFrame.new(x, (h - 2 + NIVEAU) / 2, z), Vector3.new(4, NIVEAU - h + 2, 4), Enum.Material.Grass)
 						creuses += 1
 					end
 				end
@@ -1781,8 +1829,9 @@ local function bosquets(v, rng)
 end
 
 --[[ Dernier passage (après les bordures) : retire tout arbre, rocher, falaise, paroi ou chèvre dont le pied
-	tombe dans un bâtiment ou sur une rue. Appelé par Monde.construire. ]]
-function Village.degager(carte)
+	tombe dans un bâtiment ou sur une rue. Appelé par Monde.construire.
+	zone (facultatif) : function(x, z) -> booléen, limite le passage à une partie de la carte. ]]
+function Village.degager(carte, zone)
 	local v = carte:FindFirstChild("Village")
 	if not v then
 		return
@@ -1803,6 +1852,9 @@ function Village.degager(carte)
 			end
 			local cf, taille = m:GetBoundingBox()
 			local pied = cf.Position
+			if zone and not zone(pied.X, pied.Z) then
+				continue
+			end
 			-- emprise au sol : les arbres comptent par leur tronc, les rochers par leur largeur
 			local rayon = if m.Name == "Pin" or m.Name == "Sapin" or m.Name == "Saule" or m.Name == "Arbre" then 1.5 else math.min(taille.X, taille.Z) * 0.35
 			local gene = surRue(pied.X, pied.Z, rayon)
@@ -1825,6 +1877,91 @@ function Village.degager(carte)
 	end
 end
 
+--[[ Rue du sud élargie (16 studs, du pont à l'arène) sur les cartes figées : les maisons de la rue (x = ±19)
+	s'écartent de ECART_RUE_SUD (→ ±26) avec ce qui est posé devant elles (tonneaux, buissons), puis : arbres et
+	rochers retirés de leur nouvelle emprise et de la rue, terrain aplani dessous ; les 4 lampadaires de la rue et
+	les 2 lanternes du pont côté sud passent au bord de l'avenue ; l'amorce de CheminMoulin sur la rue est retirée.
+	Appelé par preparerSentiers avant de tracer les allées (qui suivent les nouvelles portes). Une seule fois. ]]
+function Village.preparerRueSud(village)
+	if village:GetAttribute("VersionRueSud") == 1 then
+		return
+	end
+	local maisonsM = village:FindFirstChild("Maisons")
+	local chemin = village:FindFirstChild("CheminMoulin")
+	local deplacees, seulement = {}, {}
+	for _, nom in {"Maison9", "Maison10", "Maison11", "Maison12"} do
+		local maison = maisonsM and maisonsM:FindFirstChild(nom)
+		local accueil = maison and maison:GetAttribute("Accueil")
+		if maison and maison:IsA("Model") and typeof(accueil) == "Vector3" then
+			local cf, taille = maison:GetBoundingBox()
+			local x = cf.Position.X
+			if math.abs(x) > 10 and math.abs(x) < 22.5 and cf.Position.Z > 96 and cf.Position.Z < 140 then
+				table.insert(deplacees, {maison = maison, accueil = accueil, b = {cf = cf, taille = taille}, dx = math.sign(x) * ECART_RUE_SUD})
+				seulement[maison] = true
+			end
+		end
+	end
+	-- décor posé devant / contre chaque maison (≤ 3,5 studs de sa boîte) : il suit la maison
+	local carte = village.Parent
+	local conteneurs = {maisonsM, chemin, village:FindFirstChild("Decor"), carte and carte:FindFirstChild("DecorVillage"), carte and carte:FindFirstChild("MineursDecor")}
+	for _, k in deplacees do
+		local suivent = {}
+		for _, dossier in conteneurs do
+			for _, e in (if dossier then dossier:GetChildren() else {}) do
+				-- modèles seulement (les pierres d'allée restent : les sentiers sont retracés)
+				if not e:IsA("Model") or seulement[e] or e:GetAttribute("Accueil") ~= nil or e.Name == "Lanterne" or e.Name == "Banc" then
+					continue
+				end
+				local p = e:GetPivot().Position
+				if horsBoite(k.b, p.X, p.Z) < 3.5 then
+					table.insert(suivent, e)
+				end
+			end
+		end
+		local decalage = Vector3.new(k.dx, 0, 0)
+		k.maison:PivotTo(k.maison:GetPivot() + decalage)
+		k.maison:SetAttribute("Accueil", k.accueil + decalage)
+		for _, e in suivent do
+			e:PivotTo(e:GetPivot() + decalage)
+		end
+	end
+	if #deplacees > 0 then
+		Village.degager(carte, function(x, z) return math.abs(x) < 48 and z > 94 and z < 150 end)
+		Village.terrasser(village, seulement)
+	end
+	-- lampadaires : pied (BottomStoneFoot) déplacé, l'orientation (bras vers la rue) est gardée
+	local function deplacerLampadaire(l, cible)
+		local pied = l:FindFirstChild("BottomStoneFoot")
+		if not pied then return end
+		local q = pied.Position
+		l:PivotTo(l:GetPivot() + Vector3.new(cible.X - q.X, solVisible(cible.X, cible.Y) - solVisible(q.X, q.Z), cible.Y - q.Z))
+	end
+	local function lampadaires(dossier, anciens, nouveaux)
+		for _, l in (if dossier then dossier:GetChildren() else {}) do
+			local pied = l:IsA("Model") and l.Name == "Lanterne" and l:FindFirstChild("BottomStoneFoot")
+			if pied then
+				for i, a in anciens do
+					if (Vector2.new(pied.Position.X, pied.Position.Z) - a).Magnitude < 1 then
+						deplacerLampadaire(l, nouveaux[i])
+						break
+					end
+				end
+			end
+		end
+	end
+	local rz = D.RIVIERE_Z + 17
+	lampadaires(village:FindFirstChild("Riviere"), {Vector2.new(-6.8, rz), Vector2.new(6.8, rz)}, {Vector2.new(-X_LAMPE_SUD, rz), Vector2.new(X_LAMPE_SUD, rz)})
+	lampadaires(chemin, {Vector2.new(-5.6, 110), Vector2.new(5.6, 110), Vector2.new(-5.6, 126), Vector2.new(5.6, 126)}, lampadairesRueSud(village))
+	-- amorce de l'allée du moulin (CheminMoulin) qui empiéterait sur l'avenue : retirée (la rue la recouvre)
+	local zChemin = MOULIN_SUD_Z + 10
+	for _, p in (if chemin then chemin:GetChildren() else {}) do
+		if p:IsA("BasePart") and math.abs(p.Position.Z - zChemin) < 3 and p.Position.X < 0 and p.Position.X > -(R.SUD_LARGEUR / 2 + 0.4) then
+			p:Destroy()
+		end
+	end
+	village:SetAttribute("VersionRueSud", 1)
+end
+
 --[[ Place du boss du village : « l'Arène des boss », au bout de la rue du sud (à la place de l'ancienne Maison13).
 	Esplanade pavée (dalle ronde + parvis) fermée au sud par la PORTE DES BOSS, porte naine taillée dans la montagne :
 	façade en gradins (corps central ≤ 33 studs, ailes plus basses) en moellons sombres, portail à deux battants de fer
@@ -1839,7 +1976,7 @@ end
 	des versions précédentes), puis seul le parvis est creusé, aligné sur les voxels de 4 studs. Retire ce qui tombe
 	dans l'emprise (Maison13, pierres d'allée, arbres, rochers), jamais un bâtiment ; ne creuse jamais sous une maison.
 	Reconstruite quand PLACE_BOSS_VERSION change. ]]
-local PLACE_BOSS_VERSION = 6
+local PLACE_BOSS_VERSION = 7
 local PLACE_BOSS_CENTRE = Vector3.new(0, 0, 151) -- = D.CERCLE_BOSS : l'esplanade reste à l'écart des Maison11/12
 local PLACE_BOSS_RAYON = 18 -- dalle ; le cercle des joueurs (rayon 14) au milieu, le décor au-delà de 14,5
 local PLACE_BOSS_DEMI_LARGEUR = 20 -- parvis creusé : x ∈ [-20, 20] (multiple de 4 : coupe nette des voxels)
@@ -2452,9 +2589,9 @@ function Village.preparerCercleBoss(village)
 		end
 	end
 
-	-- 13. Côté rue : deux piliers bas à lanternes (la vue depuis le pont reste dégagée)
+	-- 13. Côté rue : deux piliers bas à lanternes de part et d'autre de l'avenue (la vue depuis le pont reste dégagée)
 	for i, s in {-1, 1} do
-		local p = Vector3.new(c.X + s * 7.4, niveau, c.Z - RE + 1.5)
+		local p = Vector3.new(c.X + s * (R.SUD_LARGEUR / 2 + 2), niveau, c.Z - RE + 1.5)
 		O.bloc(m, Vector3.new(2.8, 1.2, 2.8), CFrame.new(p + Vector3.new(0, 0.3, 0)), pierreSombre, M.Ardoise, "Pilier")
 		local fut = O.bloc(m, Vector3.new(2.2, 4.6, 2.2), CFrame.new(p + Vector3.new(0, 3.2, 0)), pierreClaire:Lerp(pierre, 0.4), M.Ardoise, "Pilier")
 		O.texte(fut, Enum.NormalId.Front, if i == 1 then "ARÈNE" else "DES BOSS", {couleur = orTexte, lumiere = 0.2, ppp = 40})

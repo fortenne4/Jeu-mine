@@ -560,7 +560,7 @@ les côtés, la roche de la montagne (talus de terrain, gros rochers, pins, buis
 deux **nains gardiens** en pierre sombre et or (≈ 23 studs avec le socle, marteau et hache), les trophées du Titan
 (cristal géant) et de la Reine araignée (sa dépouille) sur hauts socles avec un brasero à côté, gradins de pierre le
 long des murs de soutènement est / ouest.
-Côté rue, deux piliers bas à lanternes (« ARÈNE » / « DES BOSS ») laissent la vue dégagée depuis le pont. Éclairage
+Côté rue, deux piliers bas à lanternes (« ARÈNE » / « DES BOSS », x = ±10, de part et d'autre de l'avenue) laissent la vue dégagée depuis le pont. Éclairage
 chaud et doux : 6 lumières (luminosité ≤ 1,4), néon seulement sur de petits détails. Sur carte figée, le relief
 d'origine est d'abord rétabli autour de la place (anciens creusements), puis seul le parvis est creusé (voxels
 alignés). L'esplanade reste à l'écart des Maison11/12 (rien ne creuse sous une maison) ; `PLACE_BOSS_VERSION` dans
@@ -691,8 +691,11 @@ Sans import, le petit château en blocs de `HorizonMine.lua` reste affiché : ri
 - Ouest : comptoir des minerais et boutique de pioches, avec leurs enseignes au-dessus des auvents. Est : forge (épées et armures) et taverne.
 - Rues (plan dans `Village.RUES`, `src/monde/Village.lua`) : une rue circulaire pavée autour de la place passe devant les quatre comptoirs ;
   les rues ouest et est partent entre les boutiques, bordées de deux rangées de maisons alignées façade sur la rue ;
-  la rue du sud, après le pont, a deux maisons de chaque côté et une au bout. Chaque porte est reliée à sa rue par une
-  courte allée perpendiculaire (`preparerSentiers`, version 12). Éclairage réduit à 16 lampadaires (place, avenue,
+  la rue du sud, après le pont, est une large avenue pavée (16 studs, `SUD_LARGEUR`, de z = 98 à 136) qui mène à
+  l'Arène des boss, avec deux maisons de chaque côté écartées à x = ±26 (z = 108 et 127 ; `Village.preparerRueSud`
+  les déplace sur les cartes figées) ; 4 lampadaires au bord de l'avenue (x = ±9,6, z ≈ 110 et 126) et les lanternes
+  du pont côté sud à x = ±9,6. Chaque porte est reliée à sa rue par une courte allée perpendiculaire
+  (`preparerSentiers`, version 15). Éclairage réduit à 16 lampadaires (place, avenue,
   entrée / milieu / bout des rues) + les lanternes du pont (`lanternes`).
 - Rendu propre : `Village.terrasser` aplanit le terrain sous et autour de chaque bâtiment (talus en pente douce),
   des **bosquets** (pins, saules près de l'eau) poussent dans les espaces sans maisons, et `Village.degager`

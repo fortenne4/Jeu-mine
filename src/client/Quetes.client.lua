@@ -14,6 +14,7 @@ local Debris = game:GetService("Debris")
 local Q = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("Quetes"))
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
 local DecorTaverne = require(script.Parent:WaitForChild("DecorTaverne"))
+local Icones = require(script.Parent:WaitForChild("IconesObjets"))
 local T, creer, coin, trait, texte = UI.T, UI.creer, UI.coin, UI.trait, UI.texte
 
 local joueur = Players.LocalPlayer
@@ -37,9 +38,9 @@ local function iconeObjectif(o: Q.Objectif, parent: Instance, z: number): GuiObj
 	if m and (o.type == "miner" or o.type == "livrer") then
 		local cadre = creer("Frame", {Size = UDim2.fromScale(1, 1), SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundTransparency = 1,
 			ZIndex = z, Parent = parent})
-		creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.62, 0.62),
-			Rotation = 45, BackgroundColor3 = m.couleur, ZIndex = z, Parent = cadre}, {coin(0.15), trait(ENCRE, 1.5),
-			UI.degrade(Color3.new(1, 1, 1), Color3.fromRGB(120, 120, 120), 45)})
+		-- Vrai minerai 3D du jeu (comme chez Gaspard et Brom) plutôt qu'un losange dessiné
+		local vp = Icones.minerai(o.cible :: string, cadre, {vitesse = 0, hauteur = 0.35, marge = 0.8})
+		vp.ZIndex = z
 		return cadre
 	end
 	local symboles = {miner = "⛏", livrer = "▣", forger = "⚒", pioche = "⛏", wagon = "➜"}
@@ -51,7 +52,7 @@ end
 local function barre(parent: Instance, props: {[string]: any}, couleur: Color3): (number) -> ()
 	props.BackgroundColor3 = Color3.fromRGB(40, 26, 16)
 	props.BackgroundTransparency = 0.25
-	local fond = creer("Frame", props, {coin(0.5)})
+	local fond = creer("Frame", props, {coin(0.5), trait(Color3.fromRGB(20, 12, 6), 1.5, 0.3)}) -- liseré : la barre vide reste visible
 	local plein = creer("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = couleur, ZIndex = (props.ZIndex or 1) + 1, Parent = fond},
 		{coin(0.5), UI.degrade(Color3.new(1, 1, 1), Color3.fromRGB(170, 170, 170))})
 	return function(f: number)
@@ -163,9 +164,9 @@ local vpDonneurs: {[string]: ViewportFrame} = {}
 local initialeDonneur = texte({Font = Enum.Font.Fantasy, Size = UDim2.fromScale(1, 1), ZIndex = 6, Parent = medaillon}, 40)
 UI.dore(initialeDonneur)
 local nomDonneur = texte({Font = Enum.Font.Fantasy, TextColor3 = ENCRE, TextXAlignment = Enum.TextXAlignment.Left,
-	Position = UDim2.fromScale(0.25, 0.065), Size = UDim2.fromScale(0.5, 0.075), ZIndex = 4, Parent = parchemin}, 24)
+	Position = UDim2.fromScale(0.2, 0.075), Size = UDim2.fromScale(0.55, 0.075), ZIndex = 4, Parent = parchemin}, 24)
 local roleDonneur = texte({Font = Enum.Font.GothamBold, TextColor3 = ENCRE_CLAIRE, TextXAlignment = Enum.TextXAlignment.Left,
-	Position = UDim2.fromScale(0.25, 0.14), Size = UDim2.fromScale(0.5, 0.05), ZIndex = 4, Parent = parchemin}, 15)
+	Position = UDim2.fromScale(0.2, 0.15), Size = UDim2.fromScale(0.5, 0.05), ZIndex = 4, Parent = parchemin}, 15)
 -- Sceau de cire
 local sceau = creer("Frame", {AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(0.95, 0.05), Size = UDim2.fromScale(0.15, 0.15),
 	SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = Color3.fromRGB(150, 30, 30), ZIndex = 4, Parent = parchemin},
@@ -213,6 +214,11 @@ local boutonAbandon = creer("TextButton", {Name = "Abandonner", Text = "ABANDONN
 	{coin(0.22), trait(Color3.fromRGB(24, 14, 8), 2.5), UI.degrade(Color3.new(1, 1, 1), Color3.fromRGB(150, 140, 135)),
 		creer("UIPadding", {PaddingTop = UDim.new(0.3, 0), PaddingBottom = UDim.new(0.3, 0), PaddingLeft = UDim.new(0.06, 0), PaddingRight = UDim.new(0.06, 0)})})
 UI.reactif(boutonAbandon, 1.05)
+-- Sans « Abandonner », le bouton principal prend toute la largeur (plus de trou à droite)
+boutonAbandon:GetPropertyChangedSignal("Visible"):Connect(function()
+	principal.bouton.Size = UDim2.fromScale(if boutonAbandon.Visible then 0.72 else 1, 0.13)
+end)
+principal.bouton.Size = UDim2.fromScale(if boutonAbandon.Visible then 0.72 else 1, 0.13)
 
 -- ================= Remplissage =================
 local function queteSelectionnee(): (Q.Quete?, {[string]: any}?)
@@ -327,7 +333,14 @@ local function remplirParchemin()
 	elseif fini then
 		principal.definir("RENDRE LA QUÊTE", T.Vert, true)
 	else
-		principal.definir("EN COURS…", T.Or, false)
+		-- Quête en cours : le bouton montre où on en est (au lieu d'un simple « EN COURS… »)
+		local fait, total = 0, 0
+		for i, o in def.objectifs do
+			fait += math.min(o.n, tonumber(prog[i]) or 0)
+			total += o.n
+		end
+		principal.definir(if #def.objectifs == 1 then string.format("EN COURS · %d / %d", fait, total)
+			else string.format("EN COURS · %d %%", math.floor(fait / math.max(total, 1) * 100)), T.Or, false)
 	end
 	boutonAbandon.Visible = contrat ~= nil and etatQuete == "active"
 end
@@ -339,7 +352,8 @@ local function carte(ordre: number, def: Q.Quete?, statut: string, choisie: bool
 		BackgroundColor3 = if choisie then Color3.fromRGB(96, 70, 48) elseif verrouillee then Color3.fromRGB(34, 28, 26) else T.Carte, ZIndex = 4,
 		Parent = liste}, {coin(0.16), UI.degrade(Color3.new(1, 1, 1), Color3.fromRGB(160, 150, 140))})
 	local couleur = if statut == "fini" then T.Vert elseif statut == "active" then T.Or elseif statut == "dispo" then VIOLET
-		elseif statut == "rendue" then Color3.fromRGB(110, 150, 100) else T.FerSombre
+		elseif statut == "rendue" then Color3.fromRGB(110, 150, 100) elseif statut == "faite" then Color3.fromRGB(120, 170, 110)
+		else Color3.fromRGB(112, 100, 92) -- verrouillée : gris lisible (le fer sombre disparaissait sur la carte)
 	UI.rarete(b, if choisie then T.Or else couleur, if choisie then 3 else 1)
 	local pnj = def and Q.PNJ[def.pnj]
 	local pastille = creer("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.fromScale(0.03, 0.5), Size = UDim2.fromScale(0.72, 0.72),
