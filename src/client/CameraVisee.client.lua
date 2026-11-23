@@ -83,6 +83,10 @@ local function miseAJour(dt: number)
 		pcall(function()
 			reglages.RotationType = Enum.RotationType.CameraRelative
 		end)
+	elseif not custom then
+		-- cinématique (caméra Scriptable) : la caméra de Roblox ne gère plus la souris, on la libère
+		-- (bouton « Passer », écrans de chargement…)
+		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
 	end
 	if cacherIcone ~= iconeCachee then
 		iconeCachee = cacherIcone

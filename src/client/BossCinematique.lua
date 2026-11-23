@@ -1,6 +1,6 @@
 -- Boss du village · CLIENT, transitions et intro (module de BossVillage.client) :
--- « Depart »  : fondu au noir (0,6 s ; 0,35 s pour rejoindre), puis écran de chargement stylé (nom + titre du boss,
---               anneaux de runes qui tournent, barre de progression, astuce au hasard), contrôles bloqués.
+-- « Depart »  : fondu au noir (0,6 s ; 0,35 s pour rejoindre), puis écran de chargement propre au boss (module
+--               BossChargement : décor, portrait 3D, nom en impact, infos du combat, jauge, astuces), contrôles bloqués.
 -- « Intro »   : la barre se remplit, bandes noires, caméra Scriptable : plan large qui tourne autour de l'arène,
 --               plan bas sur le boss qui rugit (FOV 70 → 55, forte secousse), carte de nom façon Souls, puis les
 --               bandes repartent et la caméra revient au joueur. Bouton « Passer » : n'abrège que l'affichage local.
@@ -39,110 +39,20 @@ function Cinematique.init(ctx)
 	end
 
 	-- ================= Écran de chargement =================
-	local chargement = creer("Frame", {Name = "Chargement", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(10, 7, 6), BorderSizePixel = 0,
-		Visible = false, ZIndex = 50, Parent = cinema}, {UI.degrade(Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 110, 105))})
-	-- halo de la couleur du boss (cercles concentriques : faux dégradé radial)
-	local halos: {Frame} = {}
-	for k = 1, 3 do
-		table.insert(halos, creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromScale(0.5 + k * 0.32, 0.5 + k * 0.32),
-			SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundTransparency = 0.86 + k * 0.03, BorderSizePixel = 0, ZIndex = 50, Parent = chargement}, {coin(0.5)}))
-	end
-	-- anneaux runiques (CanvasGroup : la rotation entraîne les marques)
-	local function anneau(taille: number, nb: number, epais: number): CanvasGroup
-		local g = creer("CanvasGroup", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromScale(taille, taille),
-			SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundTransparency = 1, ZIndex = 51, Parent = chargement})
-		creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.97, 0.97), BackgroundTransparency = 1,
-			Parent = g}, {coin(0.5), trait(T.Or, epais, 0.35)})
-		creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.86, 0.86), BackgroundTransparency = 1,
-			Parent = g}, {coin(0.5), trait(T.OrFonce, epais * 0.6, 0.5)})
-		for i = 1, nb do
-			local a = (i / nb) * 2 * math.pi
-			local x, y = 0.5 + math.sin(a) * 0.457, 0.5 - math.cos(a) * 0.457
-			local rune = i % 3 == 0
-			-- marque runique : trait vertical + barre oblique (dessinés, aucun glyphe)
-			local m = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(x, y), Size = UDim2.fromScale(0.05, 0.05),
-				Rotation = math.deg(a), BackgroundTransparency = 1, Parent = g})
-			creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(if rune then 0.18 else 0.5, if rune then 1 else 0.5),
-				Rotation = if rune then 0 else 45, BackgroundColor3 = T.Or, BackgroundTransparency = 0.2, BorderSizePixel = 0, Parent = m})
-			if rune then
-				creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.62, 0.35), Size = UDim2.fromScale(0.16, 0.6), Rotation = 40,
-					BackgroundColor3 = T.Or, BackgroundTransparency = 0.2, BorderSizePixel = 0, Parent = m})
-			end
-		end
-		return g
-	end
-	local anneauExt = anneau(0.62, 24, 3)
-	local anneauInt = anneau(0.44, 12, 2)
-	local rotations = {
-		TweenService:Create(anneauExt, TweenInfo.new(14, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), {Rotation = 360}),
-		TweenService:Create(anneauInt, TweenInfo.new(9, Enum.EasingStyle.Linear, Enum.EasingDirection.In, -1), {Rotation = -360}),
-	}
-	local surtitre = texte({Text = "ARÈNE DES BOSS", Font = Enum.Font.Antique, TextColor3 = T.Gris, AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.3), Size = UDim2.fromScale(0.5, 0.035), ZIndex = 52, Parent = chargement}, 24)
-	local nomCharge = texte({Font = Enum.Font.Fantasy, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.41),
-		Size = UDim2.fromScale(0.8, 0.11), ZIndex = 52, Parent = chargement}, 84)
-	UI.dore(nomCharge, 3)
-	local titreCharge = texte({Font = Enum.Font.Antique, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.49),
-		Size = UDim2.fromScale(0.6, 0.045), ZIndex = 52, Parent = chargement}, 32)
-	creer("UIStroke", {Thickness = 2, Color = Color3.fromRGB(10, 5, 3), Parent = titreCharge})
-
-	local etatCharge = texte({Text = "Chargement de l'arène…", Font = Enum.Font.GothamBold, TextColor3 = T.Gris, TextXAlignment = Enum.TextXAlignment.Left,
-		Position = UDim2.fromScale(0.29, 0.765), Size = UDim2.fromScale(0.3, 0.028), ZIndex = 52, Parent = chargement}, 18)
-	local pourcent = texte({Text = "0 %", Font = Enum.Font.GothamBlack, TextColor3 = T.Or, TextXAlignment = Enum.TextXAlignment.Right,
-		Position = UDim2.fromScale(0.59, 0.765), Size = UDim2.fromScale(0.12, 0.028), ZIndex = 52, Parent = chargement}, 18)
-	local barreCharge = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.8), Size = UDim2.fromScale(0.42, 0.016),
-		BackgroundColor3 = Color3.fromRGB(26, 20, 16), BorderSizePixel = 0, ZIndex = 52, Parent = chargement},
-		{coin(0.5), trait(T.Fer, 2, 0.2), creer("UISizeConstraint", {MinSize = Vector2.new(220, 8)})})
-	local remplissage = creer("Frame", {Size = UDim2.fromScale(0, 1), BackgroundColor3 = T.Or, BorderSizePixel = 0, ZIndex = 53, ClipsDescendants = true,
-		Parent = barreCharge}, {coin(0.5), UI.degrade(Color3.fromRGB(255, 245, 200), Color3.fromRGB(200, 120, 30))})
-	local reflet = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(-0.2, 0.5), Size = UDim2.fromScale(0.25, 3),
-		BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.4, BorderSizePixel = 0, ZIndex = 54, Parent = remplissage},
-		{creer("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0), NumberSequenceKeypoint.new(1, 1)})})})
-	table.insert(rotations, TweenService:Create(reflet, TweenInfo.new(1.1, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, false, 0.2),
-		{Position = UDim2.fromScale(1.2, 0.5)}))
-	local progression = Instance.new("NumberValue")
-	progression.Changed:Connect(function(v)
-		remplissage.Size = UDim2.fromScale(v, 1)
-		pourcent.Text = math.floor(v * 100 + 0.5) .. " %"
-	end)
-	texte({Text = "ASTUCE", Font = Enum.Font.GothamBlack, TextColor3 = T.Or, AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.fromScale(0.5, 0.855), Size = UDim2.fromScale(0.2, 0.026), ZIndex = 52, Parent = chargement}, 16)
-	local astuce = texte({Font = Enum.Font.Merriweather, TextColor3 = T.Parchemin, AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.fromScale(0.5, 0.885), Size = UDim2.fromScale(0.7, 0.035), ZIndex = 52, Parent = chargement}, 22)
-
-	local tweenProgres: Tween? = nil
-	local function progresser(v: number, duree: number, style: Enum.EasingStyle?)
-		if tweenProgres then tweenProgres:Cancel() end
-		local t = TweenService:Create(progression, TweenInfo.new(duree, style or Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Value = v})
-		tweenProgres = t
-		t:Play()
-	end
+	-- Visuel et animations dans BossChargement (un décor par boss, portrait 3D, jauge thématique) ; ici, seulement
+	-- les mêmes points d'entrée qu'avant pour le déroulé.
+	local Ecran = require(script.Parent:WaitForChild("BossChargement")).creer(cinema, Config, ctx.dossier)
+	local chargement = Ecran.racine
+	local etatCharge = Ecran.etat
+	local progresser = Ecran.progresser
 
 	local function montrerChargement(d)
-		local couleur = if typeof(d.couleur) == "Color3" then d.couleur else T.Or
-		nomCharge.Text = string.upper(tostring(d.nom or "Boss"))
-		titreCharge.Text = tostring(d.titre or "")
-		titreCharge.TextColor3 = couleur:Lerp(Color3.new(1, 1, 1), 0.3)
-		surtitre.Text = if d.court then "RENFORTS · ARÈNE DES BOSS" else "ARÈNE DES BOSS"
-		for _, h in halos do h.BackgroundColor3 = couleur end
-		astuce.Text = Config.ASTUCES[math.random(#Config.ASTUCES)]
-		progression.Value = 0
-		chargement.Visible = true
-		for _, r in rotations do r:Play() end
-		-- apparition : le nom descend, le titre monte
-		nomCharge.Position = UDim2.fromScale(0.5, 0.37)
-		titreCharge.Position = UDim2.fromScale(0.5, 0.53)
-		TweenService:Create(nomCharge, TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.fromScale(0.5, 0.41)}):Play()
-		TweenService:Create(titreCharge, TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.fromScale(0.5, 0.49)}):Play()
-		UI.pop(anneauExt, 0.7)
-		UI.pop(anneauInt, 0.5)
-		Outils.jouer("grondement", 0.8, 0.3)
+		Ecran.montrer(d)
 		progresser(0.88, if d.court then 0.8 else Config.DELAI_DEPART + 1.6)
 	end
 
 	local function cacherChargement()
-		chargement.Visible = false
-		for _, r in rotations do r:Pause() end
+		Ecran.cacher()
 	end
 
 	-- ================= Bandes cinéma, carte de nom, bouton Passer =================

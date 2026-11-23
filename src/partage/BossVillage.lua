@@ -29,6 +29,49 @@ BossVillage.CADENCE = { -- par phase : T = durée des télégraphes (× 1), paus
 	{T = 0.9, pause = 3.4, recharge = 0.9},
 	{T = 0.8, pause = 2.6, recharge = 0.8},
 }
+-- par phase : taille des zones d'attaque (×) et dégâts (×). Le nombre de vagues / projectiles grandit aussi,
+-- et de nouvelles attaques (attaquesEnrage) s'ajoutent dès la phase 2. Phase 3 : 104 dégâts < 150 PV → toujours 2 coups.
+BossVillage.PUISSANCE = {
+	{taille = 1, degats = 1},
+	{taille = 1.25, degats = 1.15},
+	{taille = 1.5, degats = 1.3},
+}
+-- Ciblage : le boss choisit au hasard parmi les mineurs à moins de CIBLE_PROCHE studs, et change de cible
+-- toutes les CIBLE_CHANGE s (min, max) ; personne de proche → le plus proche
+BossVillage.CIBLE_PROCHE = 24
+-- Transformation visible à chaque nouvelle phase (pendant les 2 s d'invulnérabilité) : le boss grandit
+-- (taille × facteur), ses pièces changent de couleur (clé = nom de la pièce = code couleur du modèle voxel),
+-- certaines deviennent lumineuses (neon), une lueur l'entoure ; aura de ki en phase 3.
+BossVillage.TRANSFORMATIONS = {
+	TitanCristal = {
+		[2] = {taille = 1.15, lumiere = "ff6ae6", couleurs = { -- cristaux violets → magenta brûlant
+			CR = "e05bd0", C2 = "b23aa8", C3 = "7a2276", CB = "ff7ae0", B2 = "c24aa8", VE = "d860c8", GO = "ffb3f5", EY = "ff3cc8"},
+			neon = {EY = true, VE = true}},
+		[3] = {taille = 1.15, lumiere = "ff3b4e", aura = "Rouge", couleurs = { -- cristaux rouge sang, roche noircie
+			CR = "ff3b4e", C2 = "c41f35", C3 = "7d1020", CB = "ff6a3d", B2 = "c42a20", VE = "ff4058", GO = "ffd0a0", EY = "ff2020",
+			T1 = "4a4652", T2 = "5a5664", T3 = "35323d", T4 = "221f28"},
+			neon = {EY = true, VE = true, C2 = true}},
+	},
+	ReineAraignee = {
+		[2] = {taille = 1.15, lumiere = "8dff4a", couleurs = { -- marques rouges → vert venimeux
+			MK = "5fd13a", M2 = "2f7a1c", RE = "9dff4a", PO = "5e7a4e", EY = "9dff4a"},
+			neon = {EY = true, MK = true}},
+		[3] = {taille = 1.15, lumiere = "c45cff", aura = "Violet", couleurs = { -- carapace d'ébène, marques violettes
+			MK = "b02cff", M2 = "5a1490", RE = "e070ff", PO = "4a2a66", EY = "f0a0ff",
+			K1 = "221c2a", K2 = "2e2638", K3 = "18141e", K4 = "0e0b12"},
+			neon = {EY = true, MK = true, RE = true}},
+	},
+	SeigneurBraise = {
+		[2] = {taille = 1.15, lumiere = "ffb02a", couleurs = { -- lave plus chaude, jaune vif
+			LV = "ffae2a", L2 = "e0701c", F1 = "c44a14", F2 = "ff8a1f", GL = "fff07a", EY = "ffdd44"},
+			neon = {EY = true, LV = true}},
+		[3] = {taille = 1.15, lumiere = "4ac8ff", aura = "Violet", couleurs = { -- feu infernal bleu, roche calcinée
+			LV = "5ad2ff", L2 = "2a7fd6", F1 = "1c4fa0", F2 = "3aa0ff", GL = "c8f4ff", EY = "a8ecff",
+			R1 = "2a2424", R2 = "352e2e", R3 = "1e1a1a", R4 = "120f0f"},
+			neon = {EY = true, LV = true, F2 = true}},
+	},
+}
+BossVillage.CIBLE_CHANGE = {2.5, 4.5}
 -- Fin : bannière VICTOIRE / ÉCHEC, puis écran de résultats, puis retour au village (fondu)
 BossVillage.BANNIERE_FIN = 2.2
 BossVillage.RESULTATS = 10
@@ -40,7 +83,7 @@ BossVillage.ASTUCES = {
 	"Les zones rouges au sol annoncent les attaques : sors-en !",
 	"Le 3e coup d'un enchaînement d'épée frappe 1,5 fois plus fort.",
 	"Une bonne armure réduit les dégâts de chaque coup du boss.",
-	"À 66 % puis 33 % de PV, le boss s'enrage : ses attaques s'accélèrent.",
+	"À 66 % puis 33 % de PV, le boss s'enrage : attaques plus rapides, plus larges, plus fortes, et nouvelles attaques.",
 	"K.O. ? Retourne dans le cercle du village pour rejoindre le combat.",
 	"Le meilleur combattant est sacré MVP et touche la plus grosse part du pot.",
 	"Le cercle de l'arène accueille jusqu'à 20 mineurs.",
@@ -67,7 +110,7 @@ export type Boss = {
 	id: string, nom: string, titre: string, couleur: Color3,
 	secours: string, hauteurSecours: number, pvMult: number, recompense: number,
 	degats: number, vitesse: number, portee: number, recharge: number, rayon: number, impact: number,
-	attaques: {string}, conseil: string,
+	attaques: {string}, attaquesEnrage: {string}?, conseil: string,
 }
 
 -- Rotation des 3 boss. Modèles : Partage › MobsVoxels › <id> ; tant qu'il manque, « secours » est utilisé.
@@ -77,15 +120,15 @@ export type Boss = {
 BossVillage.BOSS = {
 	{id = "TitanCristal", nom = "Titan de cristal", titre = "Colosse des profondeurs", couleur = Color3.fromRGB(110, 205, 255),
 		secours = "BruteProfondeurs", hauteurSecours = 19, pvMult = 1.1, recompense = 1,
-		degats = BossVillage.COUP_BOSS, vitesse = 9, portee = 13, recharge = 2.6, rayon = 6.5, impact = 26 / 30, attaques = {"Onde", "Poings", "Eclats"},
+		degats = BossVillage.COUP_BOSS, vitesse = 9, portee = 13, recharge = 2.6, rayon = 6.5, impact = 26 / 30, attaques = {"Onde", "Poings", "Eclats"}, attaquesEnrage = {"Cristaux"},
 		conseil = "Son onde de choc frappe en anneau : saute-la, ou colle-toi à lui."},
 	{id = "ReineAraignee", nom = "Reine araignée", titre = "Mère des galeries", couleur = Color3.fromRGB(190, 110, 255),
 		secours = "RampantGaleries", hauteurSecours = 12, pvMult = 0.9, recompense = 1,
-		degats = BossVillage.COUP_BOSS, vitesse = 12, portee = 13, recharge = 2.1, rayon = 8, impact = 22 / 30, attaques = {"Toile", "Invocation", "Bond"},
+		degats = BossVillage.COUP_BOSS, vitesse = 12, portee = 13, recharge = 2.1, rayon = 8, impact = 22 / 30, attaques = {"Toile", "Invocation", "Bond"}, attaquesEnrage = {"Acide"},
 		conseil = "Ne reste pas devant elle : sa toile part en cône. Tue vite ses petites araignées."},
 	{id = "SeigneurBraise", nom = "Seigneur de braise", titre = "Cœur du volcan", couleur = Color3.fromRGB(255, 120, 50),
 		secours = "ExecuteurMaudit", hauteurSecours = 17, pvMult = 1, recompense = 1.1,
-		degats = BossVillage.COUP_BOSS, vitesse = 9, portee = 13, recharge = 2.4, rayon = 6.5, impact = 18 / 30, attaques = {"Meteores", "Lave", "Souffle"},
+		degats = BossVillage.COUP_BOSS, vitesse = 9, portee = 13, recharge = 2.4, rayon = 6.5, impact = 18 / 30, attaques = {"Meteores", "Lave", "Souffle"}, attaquesEnrage = {"Colonnes"},
 		conseil = "Bouge sans arrêt sous la pluie de météores, et sors vite du cercle de lave."},
 } :: {Boss}
 

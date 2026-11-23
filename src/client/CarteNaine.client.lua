@@ -10,6 +10,7 @@ local TweenService = game:GetService("TweenService")
 
 local Carte = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("CarteNaine"))
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
+local Curseur = require(script.Parent:WaitForChild("Curseur"))
 local T, creer, coin, trait, texte = UI.T, UI.creer, UI.coin, UI.trait, UI.texte
 
 local joueur = Players.LocalPlayer
@@ -83,6 +84,7 @@ local fermer = creer("TextButton", {Text = "X", Font = Enum.Font.GothamBlack, Te
 local ouvertId = 0
 local function cacher()
 	ouvertId += 1
+	Curseur.liberer("CarteNaine", false)
 	TweenService:Create(parchemin, UI.FAST, {Position = UDim2.fromScale(0.5, 0.52)}):Play()
 	task.delay(0.15, function()
 		scene.Visible = false
@@ -122,6 +124,7 @@ local function montrer(id: string, pieces: number, complete: boolean, origine: s
 		end
 	end
 	scene.Visible = true
+	Curseur.liberer("CarteNaine", true)
 	parchemin.Position = UDim2.fromScale(0.5, 0.56)
 	TweenService:Create(parchemin, UI.BOUNCY, {Position = UDim2.fromScale(0.5, 0.46)}):Play()
 	UI.pop(parchemin, 0.6)

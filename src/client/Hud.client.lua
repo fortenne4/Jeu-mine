@@ -291,7 +291,7 @@ task.spawn(function()
 	local verrou = camera and camera:WaitForChild("MouseLockController", 10)
 	local touches = verrou and verrou:WaitForChild("BoundKeys", 10)
 	if touches and touches:IsA("StringValue") and touches.Value == "LeftShift,RightShift" then
-		touches.Value = "LeftControl,RightControl"
+		touches.Value = "F15" -- Ctrl sert au verrouillage sur le boss (VerrouBoss.client)
 	end
 end)
 

@@ -24,6 +24,7 @@ local Grottes = require(Partage:WaitForChild("Grottes"))
 local Forge = require(Partage:WaitForChild("Forge"))
 local MobsVoxels = require(Partage:WaitForChild("MobsVoxels"))
 local MobsGrotte = require(script.Parent:WaitForChild("MobsGrotte"))
+local AurasMobs = require(Partage:WaitForChild("AurasMobs"))
 
 local monde = ServerStorage:WaitForChild("Monde")
 local D = require(monde:WaitForChild("Disposition"))
@@ -434,93 +435,247 @@ end
 
 local ATTAQUES = {}
 
--- Titan : onde de choc en anneau (sauter ou se coller au titan pour l'esquiver)
-function ATTAQUES.Onde(c, m, _, T)
-	local pos = m.pos
-	local parties = teleDisque(c, pos, 32, T * 1.25, 9)
-	armer(c, m, T * 1.25)
-	apres(c, T * 1.25, function()
-		effacer(parties)
-		onde(c, pos, 32, Color3.fromRGB(150, 220, 255))
-		explosion(c, pos, 8)
-		blesserZone(c, dansDisque(pos, 32, 8.5), COUP, 5.5)
-	end)
-	return T * 1.25 + 0.8
+-- Puissance de la phase en cours : taille des zones (×) et dégâts (×) ; le nombre de vagues / projectiles
+-- grandit aussi avec c.phase (1, 2, 3)
+local function puissance(c)
+	return Config.PUISSANCE[c.phase] or Config.PUISSANCE[1]
 end
 
--- Titan : frappe des deux poings devant lui
-function ATTAQUES.Poings(c, m, liste, T)
-	local cible = (c.joueurs[m.cible] and m.cible.Character and m.cible.Character:FindFirstChild("HumanoidRootPart")) or auHasard(liste)
-	face(m, cible.Position)
-	local dir = CFrame.Angles(0, m.yaw, 0).LookVector
-	local pos = dansArene(c, m.pos + dir * 12, 4)
-	local parties = teleDisque(c, pos, 12, T)
-	armer(c, m, T)
-	apres(c, T, function()
-		effacer(parties)
-		explosion(c, pos, 12)
-		onde(c, pos, 14, Color3.fromRGB(200, 190, 180))
-		blesserZone(c, dansDisque(pos, 12), COUP)
-	end)
-	return T + 0.6
+-- Racine de la cible actuelle du boss, sinon un joueur au hasard
+local function racineCible(c, m, liste)
+	local r = c.joueurs[m.cible] and m.cible.Character and m.cible.Character:FindFirstChild("HumanoidRootPart")
+	return r or auHasard(liste)
 end
 
--- Titan : éclats de cristal sous les pieds de 4 joueurs
-function ATTAQUES.Eclats(c, m, liste, T)
-	for i = 1, math.min(4, #liste) do
-		local k = rng:NextInteger(i, #liste)
-		liste[i], liste[k] = liste[k], liste[i]
-		local pos = dansArene(c, liste[i].Position, 3)
-		local parties = teleDisque(c, pos, 6.5, T * 1.2)
-		apres(c, T * 1.2, function()
+-- Liste mélangée (copie) : pour viser plusieurs joueurs différents
+local function melange(liste)
+	local res = table.clone(liste)
+	for i = #res, 2, -1 do
+		local k = rng:NextInteger(1, i)
+		res[i], res[k] = res[k], res[i]
+	end
+	return res
+end
+
+local function pointAuHasard(c, marge: number): Vector3
+	local a, r = rng:NextNumber(0, 2 * math.pi), rng:NextNumber(8, D.ARENE_RAYON - marge)
+	return c.centre + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
+end
+
+-- Zone ronde télégraphiée : apparaît à `debut` s, frappe `duree` s plus tard.
+-- pos peut être une fonction (position lue au moment où le télégraphe apparaît).
+local function frappeDisque(c, pos: any, rayon: number, debut: number, duree: number, degats: number, opts: {[string]: any}?)
+	local o = opts or {}
+	local function lancer()
+		local p: Vector3 = if type(pos) == "function" then pos() else pos
+		if not p then return end
+		local parties = teleDisque(c, p, rayon, duree, o.rMin, o.couleur)
+		if o.avant then o.avant(p, duree) end
+		apres(c, duree, function()
 			effacer(parties)
-			for _ = 1, 4 do
-				local h = rng:NextNumber(6, 10)
-				local cf = CFrame.new(pos + Vector3.new(rng:NextNumber(-3, 3), h / 2 - 1, rng:NextNumber(-3, 3))) * CFrame.Angles(rng:NextNumber(-0.4, 0.4), rng:NextNumber(0, 3), rng:NextNumber(-0.4, 0.4))
-				local p = piece(c, "Part", Vector3.new(1.8, h, 1.8), cf - Vector3.new(0, h, 0), Color3.fromRGB(110, 205, 255), 0.15)
-				TweenService:Create(p, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {CFrame = cf}):Play()
-				TweenService:Create(p, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 1), {Transparency = 1}):Play()
-				Debris:AddItem(p, 1.6)
-			end
-			impact(c, pos, 6.5)
-			blesserZone(c, dansDisque(pos, 6.5), COUP)
+			if o.effet then o.effet(p, rayon) end
+			blesserZone(c, dansDisque(p, rayon, o.rMin), degats, o.hauteur)
 		end)
 	end
-	armer(c, m, T * 1.2)
-	return T * 1.2 + 0.3
+	if debut <= 0 then lancer() else apres(c, debut, lancer) end
 end
 
--- Reine : crachat de toile en cône
-function ATTAQUES.Toile(c, m, liste, T)
-	local cible = (c.joueurs[m.cible] and m.cible.Character and m.cible.Character:FindFirstChild("HumanoidRootPart")) or auHasard(liste)
+-- Cône télégraphié depuis le boss vers `vers` (fonction → Vector3), apparaît à `debut` s
+local function frappeCone(c, m, vers: () -> Vector3?, longueur: number, demi: number, debut: number, duree: number, degats: number,
+	effet: ((Vector3, Vector3) -> ())?)
+	local function lancer()
+		local cible = vers()
+		if not cible then return end
+		face(m, cible)
+		local dir = CFrame.Angles(0, m.yaw, 0).LookVector
+		local origine = m.pos
+		local parties = teleCone(c, origine, dir, longueur, demi, duree)
+		apres(c, duree, function()
+			effacer(parties)
+			if effet then effet(origine, dir) end
+			impact(c, origine + dir * longueur / 2, longueur / 2)
+			blesserZone(c, dansCone(origine, dir, longueur, demi), degats)
+		end)
+	end
+	if debut <= 0 then lancer() else apres(c, debut, lancer) end
+end
+
+-- Pics de cristal qui jaillissent du sol (visuel)
+local function pics(c, pos: Vector3, rayon: number, n: number, echelle: number)
+	for _ = 1, n do
+		local h = rng:NextNumber(6, 10) * echelle
+		local ecart = rayon * 0.5
+		local cf = CFrame.new(pos + Vector3.new(rng:NextNumber(-ecart, ecart), h / 2 - 1, rng:NextNumber(-ecart, ecart)))
+			* CFrame.Angles(rng:NextNumber(-0.4, 0.4), rng:NextNumber(0, 3), rng:NextNumber(-0.4, 0.4))
+		local p = piece(c, "Part", Vector3.new(1.8 * echelle, h, 1.8 * echelle), cf - Vector3.new(0, h, 0), Color3.fromRGB(110, 205, 255), 0.15)
+		TweenService:Create(p, TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {CFrame = cf}):Play()
+		TweenService:Create(p, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 1), {Transparency = 1}):Play()
+		Debris:AddItem(p, 1.6)
+	end
+end
+
+-- Projectile qui tombe du ciel sur pos en `chute` s (météore, cristal, goutte d'acide)
+local function chute(c, pos: Vector3, taille: number, couleur: Color3, mat: Enum.Material, chuteDuree: number, feu: boolean?)
+	local boule = piece(c, "Part", Vector3.new(taille, taille, taille), CFrame.new(pos + Vector3.new(8, 70, 0)), couleur, 0, mat)
+	boule.Shape = Enum.PartType.Ball
+	if feu then O.feu(boule, 6) end
+	TweenService:Create(boule, TweenInfo.new(chuteDuree, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+		{Position = Vector3.new(pos.X, c.centre.Y + 1, pos.Z)}):Play()
+	Debris:AddItem(boule, chuteDuree + 0.05)
+end
+
+-- Flaque qui reste au sol et brûle / ronge (dégâts par demi-seconde)
+local function flaque(c, pos: Vector3, rayon: number, couleur: Color3, mat: Enum.Material, ticks: number, degatsTick: number)
+	local f = disque(c, pos, rayon, couleur, 0.15, 0.12, mat)
+	O.lumiere(f, couleur, 2, rayon + 12)
+	for k = 1, ticks do
+		apres(c, k * 0.5, function() blesserZone(c, dansDisque(pos, rayon), degatsTick, 6) end)
+	end
+	TweenService:Create(f, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, ticks * 0.5 - 0.6), {Transparency = 1}):Play()
+	Debris:AddItem(f, ticks * 0.5 + 0.3)
+end
+
+-- ===== Titan de cristal =====
+
+-- Onde de choc en anneau (sauter ou se coller au titan) ; phase 2 : 2 anneaux, phase 3 : 3, de plus en plus larges
+function ATTAQUES.Onde(c, m, _, T)
+	local K = puissance(c)
+	local pos = m.pos
+	local debut, premier = 0, T * 1.25
+	for i = 1, c.phase do
+		local rayon = math.min(32 * K.taille * (1 + (i - 1) * 0.15), D.ARENE_RAYON - 2)
+		local duree = if i == 1 then premier else 0.85
+		frappeDisque(c, pos, rayon, debut, duree, COUP * K.degats, {rMin = 8.5, hauteur = 5.5, effet = function(p, r)
+			onde(c, p, r, Color3.fromRGB(150, 220, 255))
+			explosion(c, p, 8)
+		end})
+		debut += duree
+	end
+	armer(c, m, premier)
+	return debut + 0.8
+end
+
+-- Frappe des deux poings devant lui ; phase 2+ : un poing de cristal s'abat aussi sur 1 (puis 2) autres joueurs
+function ATTAQUES.Poings(c, m, liste, T)
+	local K = puissance(c)
+	local cible = racineCible(c, m, liste)
 	face(m, cible.Position)
 	local dir = CFrame.Angles(0, m.yaw, 0).LookVector
-	local origine = m.pos
-	local parties = teleCone(c, origine, dir, 34, 15, T)
+	local rayon = 12 * K.taille
+	local pos = dansArene(c, m.pos + dir * rayon, 4)
+	local degats = COUP * K.degats
+	local fracas = function(p, r)
+		explosion(c, p, r)
+		onde(c, p, r + 2, Color3.fromRGB(200, 190, 180))
+	end
+	frappeDisque(c, pos, rayon, 0, T, degats, {effet = fracas})
 	armer(c, m, T)
-	apres(c, T, function()
-		effacer(parties)
+	local autres = melange(liste)
+	local n = 0
+	for _, r in autres do
+		if n >= c.phase - 1 then break end
+		if r ~= cible then
+			n += 1
+			frappeDisque(c, dansArene(c, r.Position, 3), 9 * K.taille, n * 0.35, T, degats, {effet = function(p, rr)
+				pics(c, p, rr, 5, K.taille)
+				fracas(p, rr)
+			end})
+		end
+	end
+	return T + n * 0.35 + 0.6
+end
+
+-- Éclats de cristal sous les pieds des joueurs : 4 / 6 / 8 joueurs, zones et cristaux plus gros ;
+-- phase 3 : une 2e vague suit les joueurs là où ils ont fui
+function ATTAQUES.Eclats(c, m, liste, T)
+	local K = puissance(c)
+	local nb = ({4, 6, 8})[c.phase] or 4
+	local rayon = 6.5 * K.taille
+	local degats = COUP * K.degats
+	local vise = melange(liste)
+	local function eclat(p, r)
+		pics(c, p, r, 4 + c.phase, K.taille)
+		impact(c, p, r)
+	end
+	for i = 1, math.min(nb, #vise) do
+		frappeDisque(c, dansArene(c, vise[i].Position, 3), rayon, 0, T * 1.2, degats, {effet = eclat})
+		if c.phase >= 3 then
+			local racine = vise[i]
+			frappeDisque(c, function() return if racine.Parent then dansArene(c, racine.Position, 3) else nil end,
+				rayon, T * 1.2 + 0.2, 0.9, degats, {effet = eclat})
+		end
+	end
+	armer(c, m, T * 1.2)
+	return T * 1.2 + (if c.phase >= 3 then 1.4 else 0.3)
+end
+
+-- Phase 2+ : pluie de cristaux sur toute l'arène (sur chaque joueur + au hasard), 8 puis 14 cristaux
+function ATTAQUES.Cristaux(c, m, liste, T)
+	local K = puissance(c)
+	local points = {}
+	for _, r in liste do table.insert(points, r.Position) end
+	for _ = 1, (if c.phase >= 3 then 14 else 8) do table.insert(points, pointAuHasard(c, 6)) end
+	etatBoss(m, "Roar")
+	local rayon = 6 * K.taille
+	local duree = T * 1.3
+	for i, p in points do
+		local pos = dansArene(c, p, 3)
+		local delai = (i - 1) * 0.09
+		frappeDisque(c, pos, rayon, delai, duree, COUP * K.degats, {
+			avant = function(pp, d)
+				apres(c, math.max(0, d - 0.5), function()
+					chute(c, pp, 3.5 * K.taille, Color3.fromRGB(140, 220, 255), Enum.Material.Glass, 0.5)
+				end)
+			end,
+			effet = function(pp, r)
+				pics(c, pp, r, 3, K.taille)
+				impact(c, pp, r)
+			end,
+		})
+	end
+	return duree + #points * 0.09 + 0.4
+end
+
+-- ===== Reine araignée =====
+
+-- Crachat de toile en cône ; phase 2+ : un 2e (puis 3e) crachat vers d'autres joueurs, cônes plus larges
+function ATTAQUES.Toile(c, m, liste, T)
+	local K = puissance(c)
+	local longueur, demi = math.min(34 * K.taille, 55), 15 * K.taille
+	local degats = COUP * K.degats
+	local vise = melange(liste)
+	local premiere = racineCible(c, m, liste)
+	local function fils(origine: Vector3, dir: Vector3)
 		for k = -2, 2 do -- fils de toile au sol, quelques secondes
 			local d = CFrame.Angles(0, k * 0.16, 0):VectorToWorldSpace(dir)
-			local fil = piece(c, "Part", Vector3.new(0.25, 0.1, 32), CFrame.lookAt(origine + d * 17, origine + d * 34) + Vector3.new(0, 0.25, 0),
+			local fil = piece(c, "Part", Vector3.new(0.25, 0.1, longueur - 2), CFrame.lookAt(origine + d * longueur / 2, origine + d * longueur) + Vector3.new(0, 0.25, 0),
 				Color3.fromRGB(235, 235, 245), 0.2, M.Lisse)
 			fil.Position = Vector3.new(fil.Position.X, c.centre.Y + 0.2, fil.Position.Z)
 			TweenService:Create(fil, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 2), {Transparency = 1}):Play()
 			Debris:AddItem(fil, 2.7)
 		end
-		impact(c, origine + dir * 17, 17)
-		blesserZone(c, dansCone(origine, dir, 34, 15), COUP)
-	end)
-	return T + 0.5
+	end
+	local cibles_ = {premiere}
+	for _, r in vise do
+		if #cibles_ >= c.phase then break end
+		if r ~= premiere then table.insert(cibles_, r) end
+	end
+	local ecart = T + 0.25
+	for i, r in cibles_ do
+		local debut = (i - 1) * ecart
+		frappeCone(c, m, function() return if r.Parent then r.Position else nil end, longueur, demi, debut, T, degats, fils)
+		if i == 1 then armer(c, m, T) else apres(c, debut, function() armer(c, m, T) end) end
+	end
+	return (#cibles_ - 1) * ecart + T + 0.5
 end
 
--- Reine : invocation de petites araignées (mobs existants), jamais plus de SBIRES_MAX en vie
+-- Invocation de petites araignées (mobs existants) : 3 / 4 / 5, jamais plus de SBIRES_MAX en vie
 function ATTAQUES.Invocation(c, m, liste, T)
 	local vivants = 0
 	for _, mob in c.h.mobs do
 		if not mob.mort and not mob.boss then vivants += 1 end
 	end
-	local n = math.min(3, Config.SBIRES_MAX - vivants)
+	local n = math.min(2 + c.phase, Config.SBIRES_MAX - vivants)
 	if n <= 0 then return ATTAQUES.Toile(c, m, liste, T) end
 	etatBoss(m, "Roar")
 	for _ = 1, n do
@@ -535,99 +690,194 @@ function ATTAQUES.Invocation(c, m, liste, T)
 	return T * 1.2 + 0.4
 end
 
--- Reine : bond sur un joueur (elle retombe au centre du cercle)
+-- Bond sur un joueur ; phase 2 : 2 bonds d'affilée, phase 3 : 3 bonds, zone d'atterrissage plus grande
 function ATTAQUES.Bond(c, m, liste, T)
-	local cible = auHasard(liste)
-	local fin = dansArene(c, cible.Position, 8)
-	face(m, fin)
-	local parties = teleDisque(c, fin, 10, T * 1.2)
-	local depart = m.pos
-	for i = 1, 5 do -- arc de saut (m.pos est relu par MobsGrotte à 10 Hz)
-		apres(c, T * 1.2 - 0.5 + i * 0.1, function()
-			local t = i / 5
-			m.pos = depart:Lerp(fin, t) + Vector3.new(0, math.sin(t * math.pi) * 12, 0)
+	local K = puissance(c)
+	local rayon = 10 * K.taille
+	local duree = T * 1.2
+	local ecart = duree + 0.35
+	local deja = {}
+	for i = 1, c.phase do
+		apres(c, (i - 1) * ecart, function()
+			local candidats = {}
+			for _, r in cibles(c) do
+				if not deja[r] then table.insert(candidats, r) end
+			end
+			if #candidats == 0 then candidats = cibles(c) end
+			if #candidats == 0 then return end
+			local cible = auHasard(candidats)
+			deja[cible] = true
+			local fin = dansArene(c, cible.Position, 8)
+			face(m, fin)
+			local depart = m.pos
+			for k = 1, 5 do -- arc de saut (m.pos est relu par MobsGrotte à 10 Hz)
+				apres(c, duree - 0.5 + k * 0.1, function()
+					local t = k / 5
+					m.pos = depart:Lerp(fin, t) + Vector3.new(0, math.sin(t * math.pi) * 12, 0)
+				end)
+			end
+			armer(c, m, duree)
+			frappeDisque(c, fin, rayon, 0, duree, COUP * K.degats, {effet = function(p, r)
+				m.pos = fin
+				explosion(c, p, r)
+				onde(c, p, r + 2, Color3.fromRGB(190, 110, 255))
+			end})
 		end)
 	end
-	armer(c, m, T * 1.2)
-	apres(c, T * 1.2, function()
-		m.pos = fin
-		effacer(parties)
-		explosion(c, fin, 10)
-		onde(c, fin, 12, Color3.fromRGB(190, 110, 255))
-		blesserZone(c, dansDisque(fin, 10), COUP)
-	end)
-	return T * 1.2 + 0.6
+	return (c.phase - 1) * ecart + duree + 0.6
 end
 
--- Seigneur : pluie de météores (sur les joueurs + au hasard)
-function ATTAQUES.Meteores(c, m, liste, T, enrage)
+-- Phase 2+ : pluie d'acide (sur chaque joueur + au hasard) qui laisse des flaques corrosives
+function ATTAQUES.Acide(c, m, liste, T)
+	local K = puissance(c)
+	local VERT = Color3.fromRGB(150, 255, 90)
 	local points = {}
-	for i = 1, math.min(4, #liste) do table.insert(points, liste[i].Position) end
-	for _ = 1, (if enrage then 5 else 3) do
-		local a, r = rng:NextNumber(0, 2 * math.pi), rng:NextNumber(8, D.ARENE_RAYON - 8)
-		table.insert(points, c.centre + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r))
-	end
+	for _, r in liste do table.insert(points, r.Position) end
+	for _ = 1, 3 * c.phase do table.insert(points, pointAuHasard(c, 6)) end
 	etatBoss(m, "Roar")
-	local duree = T * 1.4
+	local rayon = 6 * K.taille
+	local duree = T * 1.3
 	for i, p in points do
 		local pos = dansArene(c, p, 3)
-		local delai = duree + (i - 1) * 0.15
-		local parties = teleDisque(c, pos, 7, delai)
-		apres(c, math.max(0, delai - 0.55), function()
-			local boule = piece(c, "Part", Vector3.new(4, 4, 4), CFrame.new(pos + Vector3.new(8, 70, 0)), Color3.fromRGB(255, 120, 40), 0, M.Neon)
-			boule.Shape = Enum.PartType.Ball
-			O.feu(boule, 6)
-			TweenService:Create(boule, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = Vector3.new(pos.X, c.centre.Y + 1, pos.Z)}):Play()
-			Debris:AddItem(boule, 0.6)
-		end)
-		apres(c, delai, function()
-			effacer(parties)
-			explosion(c, pos, 7)
-			blesserZone(c, dansDisque(pos, 7), COUP)
-		end)
+		frappeDisque(c, pos, rayon, (i - 1) * 0.1, duree, COUP * 0.7 * K.degats, {
+			couleur = VERT,
+			avant = function(pp, d)
+				apres(c, math.max(0, d - 0.5), function()
+					chute(c, pp, 2.5, VERT, M.Neon, 0.5)
+				end)
+			end,
+			effet = function(pp, r)
+				impact(c, pp, r)
+				flaque(c, pp, r * 0.8, VERT, M.Neon, 4 + 2 * c.phase, 5)
+			end,
+		})
 	end
-	return duree + 0.5
+	return duree + #points * 0.1 + 0.4
 end
 
--- Seigneur : cercle de lave autour de lui (reste brûlant quelques secondes)
-function ATTAQUES.Lave(c, m, _, T)
-	local pos = m.pos
-	local parties = teleDisque(c, pos, 18, T * 1.2)
-	armer(c, m, T * 1.2)
-	apres(c, T * 1.2, function()
-		effacer(parties)
-		explosion(c, pos, 10)
-		blesserZone(c, dansDisque(pos, 18), COUP)
-		local lave = disque(c, pos, 18, Color3.fromRGB(255, 96, 30), 0.15, 0.12, Enum.Material.CrackedLava)
-		O.lumiere(lave, Color3.fromRGB(255, 110, 40), 2, 30)
-		for k = 1, 8 do
-			apres(c, k * 0.5, function() blesserZone(c, dansDisque(pos, 18), 6, 6) end)
+-- ===== Seigneur de braise =====
+
+-- Pluie de météores : sur les joueurs + 3 / 6 / 9 au hasard, plus gros ; phase 3 : 2e salve sur les joueurs
+function ATTAQUES.Meteores(c, m, liste, T)
+	local K = puissance(c)
+	local rayon = 7 * K.taille
+	local function salve(debut: number, aleatoires: number)
+		local points = {}
+		for _, r in cibles(c) do table.insert(points, r.Position) end
+		for _ = 1, aleatoires do table.insert(points, pointAuHasard(c, 8)) end
+		local duree = T * 1.4
+		for i, p in points do
+			local pos = dansArene(c, p, 3)
+			frappeDisque(c, pos, rayon, debut, duree + (i - 1) * 0.15, COUP * K.degats, {
+				avant = function(pp, d)
+					apres(c, math.max(0, d - 0.55), function()
+						chute(c, pp, 4 * K.taille, Color3.fromRGB(255, 120, 40), M.Neon, 0.55, true)
+					end)
+				end,
+				effet = function(pp, r) explosion(c, pp, r) end,
+			})
 		end
-		TweenService:Create(lave, TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 3.6), {Transparency = 1}):Play()
-		Debris:AddItem(lave, 4.3)
-	end)
+		return debut + duree + #points * 0.15
+	end
+	etatBoss(m, "Roar")
+	local fin = salve(0, 3 * c.phase)
+	if c.phase >= 3 then
+		apres(c, fin - 0.6, function() salve(0, 4) end)
+		fin += T * 1.4 + 0.4
+	end
+	return fin + 0.5
+end
+
+-- Cercle de lave autour de lui, de plus en plus large, qui brûle plus longtemps
+function ATTAQUES.Lave(c, m, _, T)
+	local K = puissance(c)
+	local pos = m.pos
+	local rayon = 18 * K.taille
+	armer(c, m, T * 1.2)
+	frappeDisque(c, pos, rayon, 0, T * 1.2, COUP * K.degats, {effet = function(p, r)
+		explosion(c, p, 10)
+		flaque(c, p, r, Color3.fromRGB(255, 96, 30), Enum.Material.CrackedLava, 4 + 4 * c.phase, 6 * K.degats)
+	end})
 	return T * 1.2 + 0.5
 end
 
--- Seigneur : souffle de feu en cône
+-- Souffle de feu en cône ; phase 2 : il balaie vers un 2e joueur ; phase 3 : éventail de 3 cônes d'un coup, puis balayage
 function ATTAQUES.Souffle(c, m, liste, T)
-	local cible = (c.joueurs[m.cible] and m.cible.Character and m.cible.Character:FindFirstChild("HumanoidRootPart")) or auHasard(liste)
-	face(m, cible.Position)
-	local dir = CFrame.Angles(0, m.yaw, 0).LookVector
-	local origine = m.pos
-	local parties = teleCone(c, origine, dir, 30, 13, T)
-	armer(c, m, T)
-	apres(c, T, function()
-		effacer(parties)
+	local K = puissance(c)
+	local longueur, demi = math.min(30 * K.taille, 50), 13 * K.taille
+	local degats = COUP * K.degats
+	local function flammes(origine: Vector3, dir: Vector3)
 		for k = 1, 3 do
-			local p = piece(c, "Part", Vector3.new(4, 4, 4), CFrame.new(origine + dir * (k * 9) + Vector3.new(0, 2.5, 0)), Color3.fromRGB(255, 120, 40), 1, M.Lisse)
+			local p = piece(c, "Part", Vector3.new(4, 4, 4), CFrame.new(origine + dir * (k * longueur / 3.3) + Vector3.new(0, 2.5, 0)), Color3.fromRGB(255, 120, 40), 1, M.Lisse)
 			O.feu(p, 9).Heat = 15
 			Debris:AddItem(p, 1)
 		end
-		impact(c, origine + dir * 15, 15)
-		blesserZone(c, dansCone(origine, dir, 30, 13), COUP)
-	end)
-	return T + 0.6
+	end
+	local premiere = racineCible(c, m, liste)
+	local cibleFn = function() return if premiere.Parent then premiere.Position else nil end
+	frappeCone(c, m, cibleFn, longueur, demi, 0, T, degats, flammes)
+	if c.phase >= 3 then -- éventail : deux cônes de plus, de part et d'autre
+		for _, angle in {-0.95, 0.95} do
+			frappeCone(c, m, function()
+				local v = plat(premiere.Position - m.pos)
+				if v.Magnitude < 0.01 then return nil end
+				return m.pos + CFrame.Angles(0, angle, 0):VectorToWorldSpace(v)
+			end, longueur, demi * 0.8, 0, T, degats, flammes)
+		end
+		face(m, premiere.Position)
+	end
+	armer(c, m, T)
+	local fin = T
+	if c.phase >= 2 then
+		local autre = premiere
+		for _, r in melange(liste) do
+			if r ~= premiere then autre = r break end
+		end
+		frappeCone(c, m, function() return if autre.Parent then autre.Position else nil end, longueur, demi, T + 0.2, T * 0.8, degats, flammes)
+		apres(c, T + 0.2, function() armer(c, m, T * 0.8) end)
+		fin = T + 0.2 + T * 0.8
+	end
+	return fin + 0.6
+end
+
+-- Phase 2+ : rayons de feu en étoile autour du seigneur (4 puis 6), phase 3 : 2e étoile décalée
+function ATTAQUES.Colonnes(c, m, _, T)
+	local K = puissance(c)
+	local n = if c.phase >= 3 then 6 else 4
+	local longueur = math.min(45 * K.taille, D.ARENE_RAYON)
+	local degats = COUP * K.degats
+	etatBoss(m, "Roar")
+	local function etoile(debut: number, decalage: number)
+		local base = rng:NextNumber(0, 2 * math.pi)
+		for i = 1, n do
+			local a = base + decalage + (i - 1) * 2 * math.pi / n
+			local dir = Vector3.new(math.cos(a), 0, math.sin(a))
+			local function lancer()
+				local origine = m.pos
+				local parties = teleCone(c, origine, dir, longueur, 5, T * 1.1)
+				apres(c, T * 1.1, function()
+					effacer(parties)
+					for k = 1, 4 do
+						local p = piece(c, "Part", Vector3.new(3, 3, 3), CFrame.new(origine + dir * (k * longueur / 4.5) + Vector3.new(0, 2, 0)),
+							Color3.fromRGB(255, 120, 40), 1, M.Lisse)
+						O.feu(p, 7).Heat = 18
+						Debris:AddItem(p, 0.9)
+					end
+					blesserZone(c, dansCone(origine, dir, longueur, 5), degats)
+				end)
+			end
+			if debut <= 0 then lancer() else apres(c, debut, lancer) end
+		end
+		impact(c, m.pos, 20)
+	end
+	etoile(0, 0)
+	armer(c, m, T * 1.1)
+	local fin = T * 1.1
+	if c.phase >= 3 then
+		etoile(T * 1.1 + 0.15, math.pi / n)
+		fin += T * 1.1 + 0.15
+	end
+	return fin + 0.5
 end
 
 local function speciale(c, maintenant: number)
@@ -636,16 +886,47 @@ local function speciale(c, maintenant: number)
 	local liste = cibles(c)
 	if #liste == 0 then return end
 	local cadence = Config.CADENCE[c.phase] or Config.CADENCE[1]
-	local enrage = c.phase >= 2
-	local noms = c.def.attaques
+	-- phase 2+ : de nouvelles attaques s'ajoutent au répertoire
+	local noms = table.clone(c.def.attaques)
+	if c.phase >= 2 and c.def.attaquesEnrage then
+		for _, n in c.def.attaquesEnrage do table.insert(noms, n) end
+	end
 	local nom = auHasard(noms)
 	if nom == c.derniere and #noms > 1 then nom = auHasard(noms) end
 	c.derniere = nom
 	etatBoss(m, "Roar")
 	local T = cadence.T
-	local duree = ATTAQUES[nom](c, m, liste, T, enrage)
+	local duree = ATTAQUES[nom](c, m, liste, T)
 	m.finAction = maintenant + duree
 	c.prochaine = maintenant + duree + cadence.pause
+end
+
+-- Ciblage : le boss change régulièrement de victime, au hasard parmi les mineurs proches de lui ;
+-- si sa cible s'éloigne, il passe à un mineur proche (ou au plus proche s'il n'y en a aucun).
+local function majCible(c, maintenant: number)
+	local m = c.boss
+	if c.intro or not m or m.mort or m.prep then return end
+	local proches, plusProche, dMin = {}, nil, math.huge
+	for j in c.joueurs do
+		local _, racine = vivant(j)
+		if racine and c.arrives[j] then
+			local d = plat(racine.Position - m.pos).Magnitude
+			if d <= Config.CIBLE_PROCHE then table.insert(proches, j) end
+			if d < dMin then plusProche, dMin = j, d end
+		end
+	end
+	if not plusProche then return end
+	local actuelProche = m.cible ~= nil and table.find(proches, m.cible) ~= nil
+	if actuelProche and maintenant < (c.changeCible or 0) then return end
+	local choix = plusProche
+	if #proches > 0 then
+		choix = proches[rng:NextInteger(1, #proches)]
+		if choix == m.cible and #proches > 1 then choix = proches[rng:NextInteger(1, #proches)] end
+	end
+	if choix ~= m.cible then
+		m.cible, m.vuA, m.errance = choix, maintenant, nil
+	end
+	c.changeCible = maintenant + rng:NextNumber(Config.CIBLE_CHANGE[1], Config.CIBLE_CHANGE[2])
 end
 
 -- ================= Combat =================
@@ -794,7 +1075,60 @@ local function creerBoss(c, partants, modeleId: string, pv: number)
 	return h
 end
 
--- Phases : sous 66 % puis 33 % de PV → 2 s invulnérable, rugissement, onde, cadence accélérée
+-- Transformation de phase (Config.TRANSFORMATIONS) : le boss grandit, change de couleur, s'illumine
+local function transformer(c, phase: number)
+	local m = c.boss
+	local tr = Config.TRANSFORMATIONS[c.def.id]
+	local etape = tr and tr[phase]
+	if not m or m.mort or not etape then return end
+	local modele: Model = m.modele
+	local DUREE = 1.2
+	MobsGrotte.grandir(m, etape.taille or 1, DUREE)
+	local pieces = {}
+	for _, p in modele:GetChildren() do
+		local hex = p:IsA("BasePart") and etape.couleurs[p.Name]
+		if hex then
+			table.insert(pieces, {p, p.Color, Color3.fromHex(hex), etape.neon ~= nil and etape.neon[p.Name] == true})
+		end
+	end
+	task.spawn(function()
+		local etapes = 12
+		for i = 1, etapes do
+			if m.mort or not modele.Parent then return end
+			local t = i / etapes
+			for _, e in pieces do e[1].Color = e[2]:Lerp(e[3], t) end
+			task.wait(DUREE / etapes)
+		end
+		for _, e in pieces do
+			if e[4] then e[1].Material = Enum.Material.Neon end
+		end
+		if etape.aura and not m.mort and modele.Parent then
+			pcall(AurasMobs.appliquer, modele, etape.aura)
+		end
+	end)
+	local lum = m.root:FindFirstChild("LueurPhase") :: PointLight?
+	if not lum then
+		lum = Instance.new("PointLight")
+		lum.Name = "LueurPhase"
+		lum.Shadows = false
+		lum.Brightness = 0
+		lum.Parent = m.root
+	end
+	local l = lum :: PointLight
+	l.Color = Color3.fromHex(etape.lumiere)
+	l.Range = math.min(16 + 8 * phase, 60)
+	TweenService:Create(l, TweenInfo.new(DUREE), {Brightness = 1 + phase}):Play()
+	-- éclat de transformation : colonne de lumière à la couleur de la nouvelle phase
+	local col = piece(c, "Part", Vector3.new(m.hauteur * 2.4, m.hauteur * 2.4, m.hauteur * 2.4), CFrame.new(m.pos + Vector3.new(0, m.hauteur * 0.5, 0)),
+		Color3.fromHex(etape.lumiere), 0.6, M.Neon)
+	col.Shape = Enum.PartType.Ball
+	TweenService:Create(col, TweenInfo.new(0.9, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{Size = col.Size * 1.6, Transparency = 1}):Play()
+	Debris:AddItem(col, 1)
+	onde(c, m.pos, 30, Color3.fromHex(etape.lumiere))
+end
+
+-- Phases : sous 66 % puis 33 % de PV → 2 s invulnérable, rugissement, transformation, onde, cadence accélérée
 local function majPhase(c)
 	local m = c.boss
 	if c.fini or c.intro or not m or m.mort or m.pv <= 0 then return end
@@ -808,6 +1142,8 @@ local function majPhase(c)
 	local maintenant = os.clock()
 	local cadence = Config.CADENCE[cible] or Config.CADENCE[#Config.CADENCE]
 	m.def.recharge = c.def.recharge * cadence.recharge
+	local K = Config.PUISSANCE[cible] or Config.PUISSANCE[#Config.PUISSANCE]
+	m.def.degats = c.def.degats * K.degats -- corps à corps plus fort aussi
 	m.invulnerable = true
 	m.modele:SetAttribute("Invulnerable", true)
 	m.prep = nil
@@ -816,6 +1152,7 @@ local function majPhase(c)
 	etatBoss(m, "Roar")
 	onde(c, m.pos, 45, c.def.couleur)
 	explosion(c, m.pos, 10)
+	transformer(c, cible)
 	dossier:SetAttribute("Phase", cible)
 	envoyer(c, "Phase", {phase = cible, nom = c.def.nom, couleur = c.def.couleur})
 	apres(c, Config.PHASE_INVULNERABLE, function()
@@ -986,6 +1323,7 @@ local function majCombat(c, maintenant: number)
 	elseif maintenant > c.fin then
 		terminer(c, false, "Le temps est écoulé.")
 	elseif c.boss and not c.boss.mort then
+		majCible(c, maintenant)
 		speciale(c, maintenant)
 	end
 end

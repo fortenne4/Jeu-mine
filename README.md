@@ -666,7 +666,17 @@ fine et des étincelles aux couleurs du boss s'élèvent du cercle.
   Seigneur = pluie de météores, cercle de lave (brûle 4 s), souffle de feu en cône.
 - **Phases** : à 66 % puis 33 % de PV, le boss s'enrage (2 s invulnérable, rugissement, onde au sol, bandeau
   « PHASE 2 — <Boss> s'enrage ! », secousse, teinte d'ambiance plus intense) ; ses attaques s'accélèrent
-  (`CADENCE` : télégraphes plus courts, pauses et recharge du corps à corps réduites).
+  (`CADENCE` : télégraphes plus courts, pauses et recharge du corps à corps réduites) et se renforcent
+  (`PUISSANCE` : zones ×1,25 puis ×1,5, dégâts ×1,15 puis ×1,3 — toujours 2 coups pour un débutant) :
+  Titan = 2 puis 3 anneaux d'onde, poings de cristal sur d'autres joueurs, éclats sur 6 puis 8 joueurs (2e vague en
+  phase 3), **pluie de cristaux** ; Reine = 2 puis 3 crachats, 4 puis 5 araignées, 2 puis 3 bonds, **pluie d'acide**
+  (flaques corrosives) ; Seigneur = 6 puis 9 météores (2e salve en phase 3), lave plus large et plus longue, souffle
+  qui balaie (éventail de 3 en phase 3), **rayons de feu** en étoile.
+- **Transformation à chaque phase** (`TRANSFORMATIONS` dans `src/partage/BossVillage.lua`) : le boss grandit (+15 % par phase), change de couleur en fondu et s'illumine (yeux et veines en néon, lueur autour de lui, éclat de lumière) ; phase 3 : aura de ki. Titan : cristaux violets → magenta → rouge sang ; Reine : marques rouges → vert venimeux → violet sur carapace d'ébène ; Seigneur : lave orange → jaune vif → feu infernal bleu. La hitbox suit la nouvelle taille (`MobsGrotte.grandir`).
+- **Écran de chargement** (`src/client/BossChargement.lua`) : un décor par boss (géode de cristaux, nid avec toiles, yeux et araignées, lave avec braises et fissures), portrait 3D du boss en contre-jour qui rugit, nom en impact, menace, mineurs, attaques à éviter, conseil, jauge à thème et astuces qui défilent.
+- **Verrouillage (focus)** (`src/client/VerrouBoss.client.lua`) : Ctrl (PC), R3 (manette) ou appui sur le logo en bas à gauche (téléphone) : la caméra suit le boss (sinon le mob le plus proche), réticule rouge « point vital » sur sa tête, le personnage lui fait face ; rappuyer libère. Saute si la cible meurt ou s'éloigne. Caméra de visée (`CameraVisee.client.lua`) : souris bloquée au viseur en 3e personne, libre dès qu'une interface ou un pop-up est ouvert (`Curseur.lua`) ou pendant les cinématiques, Alt maintenu pour la libérer ; champ de vision 90 en 1re personne.
+- **Ciblage** : le boss attaque au hasard un des mineurs à moins de 24 studs de lui et change de cible toutes les
+  2,5 à 4,5 s ; si sa cible s'éloigne, il passe à un mineur proche (ou au plus proche).
 - **Barre de PV** : grand trait rouge centré en haut de l'écran, nom du boss en plus petit dessous (PV chiffrés, temps
   restant, traînée animée, petits crans à 66 % et 33 %), seulement dans l'arène. Dessous : « 6 mineurs debout ».
 - **Ressenti** : chiffres de dégâts sur le boss (les tiens en blanc vif, dorés et gros sur les gros coups ; ceux des
@@ -682,7 +692,8 @@ fine et des étincelles aux couleurs du boss s'élèvent du cercle.
   (avatar, nom, barre, pièces), ta ligne surlignée, bouton « Retour au village » (retour anticipé) + retour auto.
   Tous morts ou 5 minutes écoulées → bannière **ÉCHEC**, même écran, le boss disparaît.
   Retour : fondu au noir, téléportation au village, fondu retour.
-- **Sons** : uniquement des sons intégrés de Roblox déjà utilisés dans le jeu (`rbxasset://sounds/…`).
+- **Musique et cris** (`src/client/MusiqueBoss.client.lua`) : une musique d'action par boss dans l'arène (Titan : « Battleground », Reine : « Impending Doom », Seigneur : « Belly Of The Beast », bibliothèque APM sous licence Roblox), plus rapide et plus forte à chaque phase ; cris de douleur propres à chaque boss quand on le frappe (grognements de géant + roche, crissements d'araignée, rugissements rauques ; Pro Sound Effects).
+- **Sons de l'interface** : uniquement des sons intégrés de Roblox déjà utilisés dans le jeu (`rbxasset://sounds/…`).
 
 | Fichier | Rôle |
 |---|---|

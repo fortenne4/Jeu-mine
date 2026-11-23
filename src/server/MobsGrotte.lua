@@ -685,6 +685,36 @@ function MobsGrotte.peupler(grotte, niveau, joueurs)
 	return h
 end
 
+-- Fait grandir un mob (transformation de phase d'un boss) : `facteur` × sa taille actuelle, en `duree` s.
+-- Met à jour taille, rayon, portée et hitbox (recalculée à la fin, à partir des pièces au repos).
+function MobsGrotte.grandir(m, facteur: number, duree: number?)
+	if m.mort or facteur <= 0 then return end
+	local modele: Model = m.modele
+	local depart = modele:GetScale()
+	local fin = depart * facteur
+	local etapes = math.max(1, math.floor((duree or 1) / 0.05))
+	m.echelle *= facteur
+	m.hauteur *= facteur
+	m.rayon *= facteur
+	m.def.portee = (m.def.portee or 0) * facteur
+	modele:SetAttribute("Hauteur", m.hauteur)
+	task.spawn(function()
+		for i = 1, etapes do
+			if m.mort or not modele.Parent then return end
+			local t = i / etapes
+			modele:ScaleTo(depart + (fin - depart) * (1 - (1 - t) * (1 - t)))
+			task.wait(0.05)
+		end
+		if m.mort or not modele.Parent then return end
+		if HITBOX_DEBUG then
+			for _, a in m.root:GetChildren() do
+				if a.Name == "Hitbox" then a:Destroy() end
+			end
+		end
+		m.hitbox, m.englobe = hitbox(modele, m.root, m.rayon, m.hauteur)
+	end)
+end
+
 function MobsGrotte.ajouterJoueur(h, joueur: Player)
 	if h and h.actif then h.joueurs[joueur] = true end
 end
