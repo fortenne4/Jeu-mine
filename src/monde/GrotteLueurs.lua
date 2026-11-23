@@ -1222,6 +1222,16 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 	end
 	guide:SetAttribute("N", nPts)
 	guide:SetAttribute("Boss", boss.p)
+	-- réseau complet des galeries (R<k>_<i>) : la boussole des feux follets y cherche le plus court chemin
+	local nR = 0
+	for _, g in galeries do
+		nR += 1
+		guide:SetAttribute("R" .. nR .. "N", #g.pts)
+		for i, pt in g.pts do
+			guide:SetAttribute("R" .. nR .. "_" .. i, pt.p)
+		end
+	end
+	guide:SetAttribute("R", nR)
 	guide.Parent = ctx.modele
 	ctx.modele:SetAttribute("Veines", nVeines)
 	ctx.modele:SetAttribute("Remplissage", nRemplissage)

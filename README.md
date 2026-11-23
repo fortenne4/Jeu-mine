@@ -476,6 +476,16 @@ gisements ni à l'arrivée) :
 - **Musique et sons** (`src/client/SonsGrotte.client.lua`) : nappe de grotte en continu et musique en fondu selon
   la zone (galeries « Stone Cocoon », forêt « Indoor Forest », lacs « Mercury Lake », temple « Rhythm Drone »,
   camp avec feu qui crépite) ; sons de la bibliothèque audio de Studio.
+- **Grotte réactive** (`src/client/GrotteReactive.client.lua`, local) : les veines de cristal et les galets
+  lumineux s'illuminent quand on passe près d'eux ; les champignons lâchent une bouffée de spores quand on les
+  frôle ; chaque coup de pioche envoie une onde de lumière dans les veines autour (de la plus proche à la plus
+  lointaine) et fait parfois tomber de la poussière du plafond.
+- **Boussole des feux follets** (`src/client/BoussoleFeux.client.lua`, touche **F**, bouton « Boussole » sur
+  mobile, Y à la manette) : un feu follet doré guide vers la cachette de fragment la plus proche **à pied** que le
+  joueur n'a pas encore ramassée (plus court chemin dans le réseau des galeries, attributs `R<k>_<i>` du dossier
+  `Guide` ; tout droit quand la cachette est en vue). Il pulse plus vite en approchant, dure 25 s, puis 40 s de
+  recharge ; une plaque en bas à gauche donne l'état. La cachette de la salle secrète ne compte qu'une fois la
+  porte runique ouverte. (PathfindingService répond « NoPath » dans ces grottes, d'où le réseau des galeries.)
 - Le contrôle « chemin bouché » du générateur ne régénère plus la grotte pour une simple bosse du sol (rayons à 3,
   6 et 9 studs : bouché seulement si les trois touchent) : la grotte n'est plus générée trois fois de suite.
 
@@ -493,6 +503,8 @@ gisements ni à l'arrivée) :
 | `src/partage/CarteNaine.lua` + `src/server/CarteNaine.lua` + `src/client/CarteNaine.client.lua` | Fragments de la carte naine : cachettes, récompenses, sauvegarde, parchemin. |
 | `src/server/SecretsGrotte.server.lua` | Énigme des pierres runiques, porte de la salle secrète, récompense des cristaux de lueur (palier 1). |
 | `src/client/SonsGrotte.client.lua` | Ambiance sonore et musique par zone de la grotte −50 m. |
+| `src/client/GrotteReactive.client.lua` | Veines qui s'allument au passage, spores des champignons, onde des coups de pioche (palier 1). |
+| `src/client/BoussoleFeux.client.lua` | Boussole des feux follets (touche F) vers la cachette de fragment la plus proche (palier 1). |
 | `src/server/MobsGrotte.lua` + `src/client/MobsGrotte.client.lua` | IA des mobs, coups d'épée, renforts, boss ; animations et barres de vie. |
 | `src/client/InterfaceGrottes.client.lua` | Choix de profondeur (barre, minerais du palier en silhouettes / couleurs), groupe, invitations. |
 
