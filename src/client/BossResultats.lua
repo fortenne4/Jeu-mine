@@ -8,6 +8,7 @@ local TweenService = game:GetService("TweenService")
 
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
 local Outils = require(script.Parent:WaitForChild("BossOutils"))
+local Curseur = require(script.Parent:WaitForChild("Curseur"))
 local creer, coin, trait, texte, T = UI.creer, UI.coin, UI.trait, UI.texte, UI.T
 
 local Resultats = {}
@@ -100,6 +101,7 @@ function Resultats.init(ctx)
 		if not e then return end
 		ecran = nil
 		numeroEcran += 1
+		Curseur.liberer("BossResultats", false)
 		if instantane then
 			e:Destroy()
 			return
@@ -128,6 +130,7 @@ function Resultats.init(ctx)
 		if type(d) ~= "table" or type(d.lignes) ~= "table" then return end
 		fermer(true)
 		numeroEcran += 1
+		Curseur.liberer("BossResultats", true)
 		local n = numeroEcran
 		local victoire = d.victoire == true
 		local couleur = if typeof(d.couleur) == "Color3" then d.couleur else T.Or

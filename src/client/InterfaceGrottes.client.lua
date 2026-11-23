@@ -17,6 +17,7 @@ local Grottes = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("
 local MineraisModeles = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("MineraisModeles"))
 local PiochesVoxels = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("PiochesVoxels"))
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
+local Curseur = require(script.Parent:WaitForChild("Curseur"))
 local Icones = require(script.Parent:WaitForChild("IconesObjets"))
 local T, creer, coin, trait, texte, jouer = UI.T, UI.creer, UI.coin, UI.trait, UI.texte, UI.jouer
 
@@ -1305,6 +1306,7 @@ local function ouvrirFenetre()
 		return
 	end
 	ouverte = true
+	Curseur.liberer("Grottes", true)
 	gui.Enabled = true
 	for _, t in boucles do
 		t:Play()
@@ -1362,6 +1364,7 @@ local function fermerFenetre(prevenirServeur: boolean)
 		return
 	end
 	ouverte = false
+	Curseur.liberer("Grottes", false)
 	attente, choisiId, selectionTactile = false, nil, nil
 	if prevenirServeur then
 		evQuitter:FireServer()

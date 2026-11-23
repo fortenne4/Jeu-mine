@@ -20,6 +20,7 @@ local Pioches = require(Partage:WaitForChild("Pioches"))
 local MineraisModeles = require(Partage:WaitForChild("MineraisModeles"))
 local ArmesVoxels = require(Partage:WaitForChild("ArmesVoxels"))
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
+local Curseur = require(script.Parent:WaitForChild("Curseur"))
 local Icones = require(script.Parent:WaitForChild("IconesObjets"))
 local evEtat = ReplicatedStorage:WaitForChild("SacEtat") :: RemoteEvent
 local fnAction = ReplicatedStorage:WaitForChild("SacAction") :: RemoteFunction
@@ -1086,6 +1087,7 @@ local function basculer(ouvrir: boolean)
 		return
 	end
 	ouverte = ouvrir
+	Curseur.liberer("Sac", ouvrir)
 	if tweenVoile then
 		tweenVoile:Cancel()
 	end

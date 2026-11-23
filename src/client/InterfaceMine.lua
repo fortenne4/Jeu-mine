@@ -10,6 +10,8 @@ local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 
+local Curseur = require(script.Parent:WaitForChild("Curseur"))
+
 local UI = {}
 
 -- Touche d'interaction des PNJ (celle qui ouvre les fenêtres) : sert aussi à les fermer
@@ -729,6 +731,7 @@ function UI.fenetre(gui: ScreenGui, o: Opts): Fenetre
 			return
 		end
 		ouverte = false
+		Curseur.liberer(gui.Name, false)
 		for _, t in boucles do
 			t:Pause()
 		end
@@ -759,6 +762,7 @@ function UI.fenetre(gui: ScreenGui, o: Opts): Fenetre
 			return
 		end
 		ouverte = true
+		Curseur.liberer(gui.Name, true)
 		session += 1
 		local maSession = session
 		gui.Enabled = true
