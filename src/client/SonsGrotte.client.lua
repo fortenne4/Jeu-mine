@@ -18,6 +18,17 @@ local MUSIQUES = {
 	Lac = {id = "rbxassetid://9039650243", volume = 0.3}, -- « Mercury Lake » (KPM)
 	Temple = {id = "rbxassetid://1843880486", volume = 0.32}, -- « Rhythm Drone »
 	Camp = {id = "rbxassetid://140644891314737", volume = 0.14}, -- la même nappe que les galeries, plus douce
+	-- paliers profonds (zones posées par GrotteMine, GrotteFonderie, GrotteLave, GrotteCoeur)
+	Drone = {id = "rbxassetid://1843880486", volume = 0.26}, -- « Rhythm Drone » : fonderie, lave, salles du fond
+	Mystere = {id = "rbxassetid://72364895117540", volume = 0.24}, -- « Indoor Forest » : géode, rouages
+	Abysse = {id = "rbxassetid://9039650243", volume = 0.26}, -- « Mercury Lake » : grands gouffres
+}
+-- zone d'un palier profond → piste (les zones du palier 1 gardent leur propre nom)
+local ALIAS = {
+	Puits = "Abysse", Geode = "Mystere", Eboulement = "Drone", Treuil = "Drone",
+	Abime = "Abysse", Fonderie = "Drone", Rouages = "Mystere", Forge = "Drone",
+	LacLave = "Drone", Basalte = "Drone", Trone = "Drone",
+	Vide = "Abysse", Coeur = "Drone",
 }
 local FEU = {id = "rbxassetid://2787093357", volume = 0.45} -- feu de camp (au camp seulement)
 local FONDU = TweenInfo.new(2.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
@@ -86,6 +97,7 @@ local function zoneAutour(grotte: Model, pos: Vector3): string
 			local d = (z.Position - pos).Magnitude
 			if d < r and d / r < dmin then
 				local nom = z.Name:gsub("^Zone", "")
+				nom = ALIAS[nom] or nom
 				if musiques[nom] then
 					meilleure, dmin = nom, d / r
 				end
@@ -102,7 +114,7 @@ while true do
 	task.wait(0.6)
 	local racine = joueur.Character and joueur.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local g = racine and grotteAutour(racine.Position)
-	local actif = g ~= nil and g:GetAttribute("Niveau") == 1
+	local actif = g ~= nil -- tous les paliers (zones des paliers profonds : ALIAS)
 	if actif and racine and g then
 		if not dansGrotte then
 			dansGrotte = true

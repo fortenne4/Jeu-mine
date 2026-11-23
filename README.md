@@ -524,6 +524,43 @@ gisements ni à l'arrivée) :
   temple. Vague k vaincue : 10 × k pièces (une seule fois par vague et par expédition) ; les 8 vagues : +100 pièces
   et un fragment de carte. Plus de joueur vivant dans le temple pendant 4 s = fin. Record personnel sauvegardé
   (profil `arene`, attribut « RecordArene », affiché sur l'invite du gong). Gong de nouveau actif 20 s après.
+
+### Grottes profondes : un univers par palier
+
+`GrotteGenerateur` choisit le thème du palier dans sa table `THEMES` (palier sans thème : `GrotteDecor`). Les
+thèmes 2 à 5 partagent `src/monde/GrotteTheme.lua` (sol / plafond / parois, décor hors du passage et des
+gisements, budget de lumières et éclairage de lisibilité, zones « GrotteZone », veines et galets, fil du guide,
+**fosse traversée de ponts** jusqu'à un pilier central dans la salle qui laisse le plus de place). Chaque thème
+pose ses zones d'ambiance (musique de `SonsGrotte` par alias) et le dossier `Guide` (feux follets, boussole).
+
+| Palier | Thème | Ce qu'on y trouve |
+|---|---|---|
+| −100 m | `GrotteMine.lua` « La Mine oubliée de Brumefer » | Portail du puits n°3, galeries boisées (cadres de mine, lanternes), rails et wagonnets d'améthyste, **Grand Puits** (cheminée vers le haut, cage d'ascenseur, roue qui tourne, lumière du jour), **Cathédrale d'améthyste** (cristal-roi), éboulement, échafaudages, lanternes fantômes qui flottent, **Treuil géant** (engrenages qui tournent) et filon d'améthyste |
+| −200 m | `GrotteFonderie.lua` « La Fonderie de l'Abîme » | Porte de la fonderie royale, **l'Abîme** (gouffre de fer en fusion, ponts à chaînes, pilier-enclume, chaînes géantes), **la Fonderie** (creuset suspendu qui déverse sa coulée, rigoles, lingotières, haut-fourneau), **salle des Rouages** (engrenages géants qui tournent), conduites de cuivre et braseros dans les galeries, **Grande Forge des Rois** (statue du nain forgeron) |
+| −350 m | `GrotteLave.lua` « Les Rivières de lave » | Avant-poste de basalte, **lac de lave** qui brûle (ponts de basalte, îlot à l'obélisque d'obsidienne), chutes de lave, **forêt de basalte** (orgues hexagonales), **geysers de feu** à intervalles, pics d'obsidienne, cendres, **Trône de magma**. Toute la roche passe en basalte sombre (la lave craquelée seulement en berges) |
+| −500 m | `GrotteCoeur.lua` « Le Cœur maudit » | Dernier camp d'une expédition, **le Vide suspendu** (gouffre sans fond, dalles runiques, rochers qui flottent), failles du vide qui aspirent la lumière, cristaux corrompus, runes maudites, esprits errants, ossements, **Arène du Cœur** (cœur de cristal géant enchaîné à la voûte au-dessus du combat du boss, piliers d'obsidienne aux flammes violettes, cercle de runes) |
+
+- **Dangers** (`src/server/DangersGrotte.server.lua`) : on tombe dans un gouffre → ramené au bord (−15 PV) ;
+  la lave (tag « Lave ») brûle (−10 PV / 0,4 s) ; les geysers (tag « Geyser ») jaillissent toutes les 6 à 9 s
+  (fumée d'avertissement, puis −18 PV et projection).
+- **Machines** (`src/client/MachinesGrotte.client.lua`) : modèles tagués « Rouage » (attributs Vitesse, Axe)
+  qui tournent ; gerbes des geysers ; braises autour du joueur qui brûle.
+- La grotte réactive (veines, spores, onde des coups de pioche) et la musique par zone valent pour tous les paliers.
+- **Mécaniques signature** (`src/server/MecaniquesGrotte.server.lua` + `src/client/MecaniquesGrotte.client.lua`,
+  RemoteEvent « MecaniquesGrotte ») — une par palier :
+  - −100 m : **course en wagonnet** (borne « Monter » à la gare : le wagonnet suit les rails, plus vite dans les
+    descentes, caméra qui s'incline dans les virages) ; **ascenseur du Grand Puits** (plateforme physique, leviers
+    haut/bas) jusqu'à la **Réserve du contremaître**, galerie secrète avec 3 minerais.
+  - −200 m : **creuset de la Fonderie royale** (verser 3 Fer → le creuset bascule, le métal remplit les moules,
+    +120 pièces, une fois par expédition) ; **3 manivelles** remettent les rouages en marche, et quand tout tourne
+    le **coffre de l'Abîme** remonte du fond du gouffre (+80 pièces, +2 Or).
+  - −350 m : **la lave monte** toutes les 2 à 3 min (alerte 6 s, crue sur les berges pendant 16 s : on se réfugie
+    sur les prismes de basalte « Refuge ») ; **geyser bleu** propulseur (sans dégâts) vers la **corniche secrète** (2 Or).
+  - −500 m : le boss est relié au **Cœur maudit** : à 75, 50 et 25 % de ses PV une des 6 chaînes cède, et dès la
+    2e phase les **runes brûlantes** de l'arène (geysers violets) s'éveillent ; à sa mort, cinématique : le Cœur
+    se brise en éclats.
+  - Test depuis Studio : attribut `ForcerCrue = true` sur le lac (tag « LaveMontante ») pour déclencher une crue.
+- `GrotteDecor.decorer` accepte `champignons = false`, `racines = false`, `mine = false`.
 - Le contrôle « chemin bouché » du générateur ne régénère plus la grotte pour une simple bosse du sol (rayons à 3,
   6 et 9 studs : bouché seulement si les trois touchent) : la grotte n'est plus générée trois fois de suite.
 
@@ -545,6 +582,10 @@ gisements ni à l'arrivée) :
 | `src/partage/MobsKit.lua` + `src/partage/MobsVoxels/GolemChampignon.lua`, `CrabeLueur.lua`, `SpectreNain.lua` | Atelier pour écrire un mob en Luau ; les 3 mobs à thème du palier 1. |
 | `src/partage/Peche.lua` + `src/server/PecheGrotte.server.lua` + `src/client/PecheGrotte.client.lua` | Pêche dans les lacs du palier 1 : poissons, mini-jeu, carnet de pêche. |
 | `src/server/ArenaTemple.lua` + `src/client/ArenaTemple.client.lua` | Arène du temple (gong, 8 vagues, record). |
+| `src/monde/GrotteTheme.lua` | Outils communs des thèmes de grottes (fosse à ponts, éclairage, zones, veines, guide). |
+| `src/monde/GrotteMine.lua`, `GrotteFonderie.lua`, `GrotteLave.lua`, `GrotteCoeur.lua` | Thèmes des paliers −100, −200, −350 et −500 m. |
+| `src/server/DangersGrotte.server.lua` + `src/client/MachinesGrotte.client.lua` | Gouffres, lave, geysers ; rouages qui tournent. |
+| `src/server/MecaniquesGrotte.server.lua` + `src/client/MecaniquesGrotte.client.lua` | Mécaniques signature : wagonnet, ascenseur, creuset, rouages et coffre de l'Abîme, lave montante, phases du Cœur maudit. |
 | `src/client/GrotteReactive.client.lua` | Veines qui s'allument au passage, spores des champignons, onde des coups de pioche (palier 1). |
 | `src/client/BoussoleFeux.client.lua` | Boussole des feux follets (touche F) vers la cachette de fragment la plus proche (palier 1). |
 | `src/server/MobsGrotte.lua` + `src/client/MobsGrotte.client.lua` | IA des mobs, coups d'épée, renforts, boss ; animations et barres de vie. |

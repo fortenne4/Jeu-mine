@@ -131,7 +131,7 @@ Grottes.NIVEAUX = {
 			{id = "ChauveSourisCave", poids = 1, pv = 140, degats = 26, vitesse = 16, portee = 4, recharge = 1, echelle = 1.1},
 		},
 		nombreMobs = {11, 14}, renfortSecondes = 28,
-		ambiance = {roche = Color3.fromRGB(64, 46, 40), lumiere = Color3.fromRGB(255, 110, 50), brouillard = Color3.fromRGB(60, 20, 10), materiau = "CrackedLava"},
+		ambiance = {roche = Color3.fromRGB(44, 40, 42), lumiere = Color3.fromRGB(255, 130, 60), brouillard = Color3.fromRGB(40, 18, 12), materiau = "CrackedLava"},
 	},
 	{
 		id = 5, nom = "Cœur maudit", profondeur = 500, difficulte = 5,

@@ -18,6 +18,14 @@ local O = require(script.Parent.Outils)
 local Cercle = require(script.Parent.CercleLumineux)
 local GrotteDecor = require(script.Parent.GrotteDecor)
 local GrotteLueurs = require(script.Parent.GrotteLueurs) -- thème du palier 1 (−50 m)
+-- thèmes des paliers profonds (GrotteTheme : outils communs) ; un palier sans thème garde GrotteDecor
+local THEMES = {
+	[1] = GrotteLueurs,
+	[2] = require(script.Parent.GrotteMine), -- −100 m « La Mine oubliée de Brumefer »
+	[3] = require(script.Parent.GrotteFonderie), -- −200 m « La Fonderie de l'Abîme »
+	[4] = require(script.Parent.GrotteLave), -- −350 m « Les Rivières de lave »
+	[5] = require(script.Parent.GrotteCoeur), -- −500 m « Le Cœur maudit »
+}
 local M, C = O.M, O.C
 
 local Generateur = {}
@@ -701,7 +709,7 @@ function Generateur.construire(niveau, index, graine, proprietaire, invite, essa
 	m:SetAttribute("Centre", base + CENTRE_BOITE) -- boîte de la grotte : lue par AmbianceGrotte.client.lua
 	m:SetAttribute("DemiTaille", TAILLE_BOITE / 2)
 	if #chemin > 0 then
-		local theme = if niveau.id == 1 then GrotteLueurs else GrotteDecor
+		local theme = THEMES[niveau.id] or GrotteDecor
 		local ok, err = pcall(theme.decorer, ctx, {
 			depart = depart, boss = boss, chemin = chemin, lieux = lieux, galeries = galeries, pointsMobs = pointsMobs,
 			gisements = listeGisements, salleBoss = salleBoss, avantBoss = (function() for _, l in liens do if l.principal and l[2] == boss then return l[1].p end end return nil end)(),

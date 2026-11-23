@@ -1,5 +1,5 @@
 -- Grotte réactive (−50 m, « Le Lac des Lueurs ») · SCRIPT CLIENT
--- La grotte du palier 1 réagit au joueur, en local (rien n'est répliqué) :
+-- Toutes les grottes réagissent au joueur, en local (rien n'est répliqué) :
 --   * les veines de cristal et les galets lumineux s'illuminent quand on passe près d'eux, puis s'apaisent ;
 --   * les champignons lâchent une bouffée de spores lumineuses quand on les frôle ;
 --   * chaque coup de pioche sur un minerai envoie une onde de lumière dans les veines autour (de la plus proche
@@ -262,9 +262,6 @@ RunService.Heartbeat:Connect(function(dt)
 	if verif > 0.5 then
 		verif = 0
 		local g = racine and grotteAutour(racine.Position)
-		if g and g:GetAttribute("Niveau") ~= 1 then
-			g = nil
-		end
 		if g ~= grotte then
 			sortir()
 			if g then

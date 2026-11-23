@@ -220,7 +220,7 @@ function GrotteDecor.decorer(ctx, infos, outils, opts)
 		end
 	end
 	end
-	for _ = 1, 50 do
+	for _ = 1, (if opts.humide == false then 0 else 50) do -- mousse et roche mouillée au pied des parois
 		local pt = chemin[rng:NextInteger(1, #chemin)]
 		local lat = Vector3.new(-pt.t.Z, 0, pt.t.X) * (if rng:NextNumber() < 0.5 then -1 else 1)
 		local bas = paroi(pt.p, lat, 1, pt.r + 8)
@@ -239,7 +239,7 @@ function GrotteDecor.decorer(ctx, infos, outils, opts)
 
 	-- ===== 5. Champignons bioluminescents (au bord de l'eau et au pied des parois) =====
 	local function champignons(p: Vector3, echelle: number, eclaire: boolean)
-		if not modeles then
+		if not modeles or opts.champignons == false then
 			return
 		end
 		local cf = CFrame.new(p - Vector3.new(0, 0.2, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
@@ -270,7 +270,7 @@ function GrotteDecor.decorer(ctx, infos, outils, opts)
 	end
 
 	-- ===== 6. Racines qui pendent du plafond (bout lumineux pour certaines) =====
-	for _ = 1, 26 do
+	for _ = 1, (if opts.racines == false then 0 else 26) do
 		local pt = chemin[rng:NextInteger(1, #chemin)]
 		local hit = lancer(pt.p + Vector3.new(rng:NextNumber(-4, 4), 2, rng:NextNumber(-4, 4)), Vector3.new(0, 60, 0))
 		if hit and hit.Position.Y - pt.p.Y > 12 then
@@ -296,6 +296,9 @@ function GrotteDecor.decorer(ctx, infos, outils, opts)
 		if g.principal then
 			table.insert(principaux, g)
 		end
+	end
+	if opts.mine == false then
+		table.clear(principaux) -- thème sans restes de mine (lave, cœur maudit)
 	end
 	local bois = Color3.fromRGB(92, 66, 44)
 	local boisSombre = Color3.fromRGB(62, 44, 30)
