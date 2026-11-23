@@ -18,6 +18,18 @@ local DISTANCE_ANIMATION = 110 -- au-delà, on ne calcule rien
 local DISTANCE_REGARD = 26
 local REGARD_MAX = 0.45 -- rad : barbes et tresses longues, petit mouvement de tête
 local TEX_ETINCELLE = "rbxasset://textures/particles/sparkles_main.dds"
+local STRIKE_INTERVAL = 1.2
+local HAMMER_SOUND_ID = "rbxassetid://9125361455"
+local SOUND_VOLUME = 0.35
+local SOUND_MAX_DISTANCE = 60
+local SOUND_PITCH_VARIATION = 0.05
+-- Poses de la main qui garde le marteau attaché au même poignet. À l'impact,
+-- une face de la tête vise le centre de la table plutôt que son centre de masse.
+local BROM_POSES_ENCLUME = {
+	frappe = {D = {1.80766, 0.67317, 0.40794, 0, -0.17834, 0.36196, 0.36427}, tete = {-0.2, 0}, buste = -0.1},
+	garde = {D = {1.98, 0.67069, 0.24935, 0, -0.07806, 0.08, 0.35339}, tete = {-0.2, 0}, buste = -0.1},
+	leve = {D = {2.5, 0.75052, -0.05569, 0.03253, 0.19932, -0.55, 0.30985}, tete = {-0.1, 0}, buste = -0.1},
+}
 
 local joueur = Players.LocalPlayer
 local GROUPES_MOBILES = {"Buste", "Tete", "BrasD", "AvBrasD", "MainD", "BrasG", "AvBrasG", "MainG"}
@@ -36,18 +48,17 @@ local function etape(pose, duree, courbe, pause, evenement)
 end
 
 local ACTIONS = {
-	Brom = { -- forge l'épée rougie sur l'enclume : séries de 3 à 5 coups, rythme légèrement irrégulier
-		intervalle = {4, 9},
+	Brom = { -- coups réguliers, puis une courte pause entre deux séries
+		intervalle = {0.15, 0.3},
 		suite = function(rng: Random)
-			local s = {etape("souleve", 0.65), etape("garde", 0.5, "douce", 0.3 + rng:NextNumber(0, 0.3))}
-			for _ = 1, rng:NextInteger(3, 5) do
-				table.insert(s, etape("leve", 0.4 + rng:NextNumber(-0.03, 0.08), "sortie", 0.06 + rng:NextNumber(0, 0.06)))
-				table.insert(s, etape("frappe", 0.14, "entree", 0.06, "impact"))
-				table.insert(s, etape("garde", 0.26, "sortie", 0.04 + rng:NextNumber(0, 0.12))) -- le marteau rebondit
+			local s = {}
+			local k = STRIKE_INTERVAL / 1.2
+			for _ = 1, rng:NextInteger(4, 6) do
+				table.insert(s, etape("leve", 0.46 * k, "sortie", 0.08 * k))
+				table.insert(s, etape("frappe", 0.14 * k, "entree", 0.06 * k, "impact"))
+				table.insert(s, etape("garde", 0.28 * k, "sortie", 0.18 * k))
 			end
-			table.insert(s, etape("garde", 0.35, "douce", 0.9 + rng:NextNumber(0, 0.9))) -- il regarde son travail
-			table.insert(s, etape("souleve", 0.55))
-			table.insert(s, etape("repos", 0.7))
+			table.insert(s, etape("garde", 0.1, "douce", 0.35 + rng:NextNumber(0, 0.2)))
 			return s
 		end,
 	},
@@ -101,7 +112,8 @@ local function bras(v: {number}?): {number}
 end
 
 local function lirePose(nom: string, nomPose: string): Pose
-	local p = (POSES[nom] or {})[nomPose] or {}
+	local p = if nom == "Brom" and BROM_POSES_ENCLUME[nomPose]
+		then BROM_POSES_ENCLUME[nomPose] else (POSES[nom] or {})[nomPose] or {}
 	return {D = bras(p.D), G = bras(p.G), tete = {(p.tete or {})[1] or 0, (p.tete or {})[2] or 0}, buste = p.buste or 0}
 end
 
@@ -126,17 +138,12 @@ local function pivotDe(modele: Model, groupe: string): Vector3?
 end
 
 local function etincelles(modele: Model): ((Vector3) -> ())?
-	local corps = modele:FindFirstChild("Corps")
-	local epee = corps and corps:FindFirstChild(modele.Name .. "_Corps_Lueur")
-	if not epee then
-		return nil
-	end
 	local support = Instance.new("Part")
 	support.Name = "Etincelles"
 	support.Anchored, support.CanCollide, support.CanQuery, support.CanTouch = true, false, false, false
 	support.Transparency = 1
 	support.Size = Vector3.new(0.2, 0.2, 0.2)
-	support.CFrame = CFrame.new((epee :: BasePart).Position)
+	support.CFrame = modele:GetPivot()
 	support.Parent = modele
 	local e = Instance.new("ParticleEmitter")
 	e.Texture = TEX_ETINCELLE
@@ -162,6 +169,34 @@ local function etincelles(modele: Model): ((Vector3) -> ())?
 		task.delay(0.07, function() lumiere.Brightness = 2 end)
 		task.delay(0.16, function() lumiere.Brightness = 0 end)
 	end
+end
+
+-- Épée et son sont locaux : chaque spectateur entend le coup au même moment
+-- que l'animation qu'il voit, sans diffuser de sons à tout le serveur.
+local function grandeEnclume(modele: Model): BasePart?
+	local forge = modele.Parent and modele.Parent:FindFirstChild("Forge")
+	local tableForge = forge and forge:FindFirstChild("Table")
+	return if tableForge and tableForge:IsA("BasePart") then tableForge else nil
+end
+
+local function jouerImpact(info)
+	local enclume = grandeEnclume(info.modele)
+	if not enclume then return end
+	local point = (enclume.CFrame * CFrame.new(0, enclume.Size.Y / 2 + 0.12, 0)).Position
+	if info.etincelles then info.etincelles(point) end
+	if HAMMER_SOUND_ID == "" then return end
+	local son = enclume:FindFirstChild("Forge_ImpactMarteau")
+	if not (son and son:IsA("Sound")) then
+		son = Instance.new("Sound")
+		son.Name = "Forge_ImpactMarteau"
+		son.SoundId = HAMMER_SOUND_ID
+		son.RollOffMode = Enum.RollOffMode.InverseTapered
+		son.RollOffMaxDistance = SOUND_MAX_DISTANCE
+		son.Parent = enclume
+	end
+	son.PlaybackSpeed = info.rng:NextNumber(1 - SOUND_PITCH_VARIATION, 1 + SOUND_PITCH_VARIATION)
+	son.Volume = SOUND_VOLUME * info.rng:NextNumber(0.93, 1.07)
+	son:Play()
 end
 
 local function suivre(modele: Model)
@@ -278,12 +313,8 @@ local function avancerAction(info, dt: number)
 		info.t = math.min(info.t + dt, e.duree)
 		local a = COURBES[e.courbe](info.t / e.duree)
 		info.pose = melanger(info.depart, lirePose(info.modele.Name, e.pose), a)
-		if info.t >= e.duree and e.evenement == "impact" and info.etincelles then
-			local corps = info.modele:FindFirstChild("Corps")
-			local epee = corps and corps:FindFirstChild(info.modele.Name .. "_Corps_Lueur")
-			if epee then
-				info.etincelles((epee :: BasePart).Position + Vector3.new(0, 0.1, 0))
-			end
+		if info.t >= e.duree and e.evenement == "impact" then
+			jouerImpact(info)
 		end
 		return
 	end

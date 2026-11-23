@@ -621,14 +621,6 @@ local function lancer(donnees): boolean
 	if not etat.epee then etat.cible, etat.cibleDome = V(1.8, 0.3, 1.9), V(1.6, 1.5, 1.7) end
 	actif = etat
 	local ok, erreur = pcall(function()
-		-- le marteau posé sur la grosse enclume gênerait le lingot
-		for _, nom in {"Marteau", "TeteMarteau"} do
-			local d = enclume.Parent:FindFirstChild(nom)
-			if d and d:IsA("BasePart") and (d.Position - haut).Magnitude < 3 then
-				d.LocalTransparencyModifier = 1
-				table.insert(etat.caches, d)
-			end
-		end
 		preparerLingot(etat)
 		if brom then preparerBrom(etat, brom) end
 		for _, d in perso:GetDescendants() do

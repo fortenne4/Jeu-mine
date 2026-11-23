@@ -145,6 +145,8 @@ Le modèle actuel est importé dans `ServerStorage › Nains`.
 | `src/partage/PosesNains.lua` | Poses exportées par `nains.py` (**généré, ne pas modifier à la main**). |
 | `src/client/AnimationsNains.client.lua` | Joue les animations chez chaque joueur : respiration, regard vers le joueur proche, et l'action de chaque nain à intervalle irrégulier (Brom forge avec étincelles, Margot boit, Gaspard lit son registre, Liesel examine sa pioche). Durées et rythmes en tête du fichier. |
 
+Brom frappe l'épée chauffée sur la grande enclume avec des coups sonores. La petite enclume, intégrée au maillage du personnage, est masquée et les protections de ses bottes sont recréées séparément.
+
 Après une modification de `nains.py` : relancer le script (il régénère `Nains.fbx` et `PosesNains.lua`),
 puis réimporter `assets/Nains.fbx` à la place de `ServerStorage › Nains`.
 
@@ -264,6 +266,8 @@ L'ordre des minerais ne compte pas pour les autres paires (Fer + Charbon = EpeeC
 Les casques suivent la même logique (`Forge.ECHELLES.Casque`, 10 rangs, Défense).
 
 Deux pioches décoratives reprennent les couleurs des épées extérieures du râtelier mural de la forge. Leur position et leur échelle sont réglables en tête de `src/server/PiochesMurales.server.lua`.
+Le mur de la forge est raccordé à l'extension derrière les pioches ; sa toiture à deux pans ménage un passage pour la cheminée.
+La rue à l'est de la forge comporte quatre tonneaux éclairés, et le baquet de trempe a été remplacé par un seau en bois avec une surface d'eau animée.
 
 Deux supports présentent l'armure générique et le casque de bronze à la forge. Les autres porte-armures et les deux anciens modèles de la forge sont conservés en réserve derrière le portail de retour de la plaine des mobs. Les plastrons et jambières réutilisent les modèles génériques du jeu. Les réglages de placement et d'affichage sont en tête de `src/server/ExpositionArmures.server.lua`. Si les meshes importés sont inaccessibles, l'exposition utilise les casques lisses existants du projet.
 

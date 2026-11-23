@@ -7,6 +7,9 @@ local M, C = O.M, O.C
 
 local B = {}
 local HE = 10 -- hauteur d'un étage
+local FORGE_DEBORD_TOIT = 1.2
+local FORGE_PENTE_TOIT = 7 / 9.8
+local FORGE_TOLERANCE_MUR = 0.05
 
 -- ================= Lumières =================
 
@@ -1290,6 +1293,85 @@ function B.fourneau(parent, cf)
 	return m
 end
 
+-- Toit à deux pentes ; un passage est ménagé autour du conduit du fourneau.
+-- La fonction sert aussi à remplacer les anciennes toitures des cartes figées.
+function B.preparerToitForge(forge)
+	if forge:GetAttribute("VersionToitForge") == 1 then return end
+	local murPierre
+	for _, p in forge:GetChildren() do
+		if p:IsA("BasePart") and p.Name == "MurFond" and p.Material == M.Pierre then murPierre = p break end
+	end
+	if not murPierre then warn("[Forge] Mur de référence absent : toit conservé") return end
+	local cf = murPierre.CFrame * CFrame.new(0, -5.5, -9)
+	local toiture = Instance.new("Model")
+	toiture.Name = "Forge_Toit"
+	local K = kitMaison(toiture, cf, {prestige = true, couleur = Color3.fromRGB(196, 92, 34), rng = Random.new(77), lierre = false})
+	local V = K.V
+	local zCentre, zAvant, zArriere, bas = 0.1, -9.7, 9.9, 14
+	local haut = bas + (zArriere - zCentre) * FORGE_PENTE_TOIT
+	-- Pan avant, continu et centré.
+	K.pan(V(0, bas, zAvant), V(0, haut, zCentre), K.X, 26.8, FORGE_DEBORD_TOIT)
+	-- Pan arrière, découpé autour de la cheminée (x local = -5, z = 7).
+	-- Les quatre morceaux restent dans le même plan et gardent la même pente.
+	local function panArriere(x0, x1, zBas, zHaut, debord)
+		local milieu = (x0 + x1) / 2
+		local function hauteur(z) return haut - (z - zCentre) * FORGE_PENTE_TOIT end
+		K.pan(V(milieu, hauteur(zBas), zBas), V(milieu, hauteur(zHaut), zHaut), K.X, x1 - x0, debord)
+	end
+	-- La tuile a une épaisseur et son centre est décalé selon la normale :
+	-- prévoir ce débord, sinon le pan amont mord encore dans la cheminée.
+	local ouvertureGauche, ouvertureDroite = 3.2, 6.8 -- coordonnées vues de face
+	local ouvertureHaut, ouvertureBas = 4.8, 9.2
+	panArriere(-13.4, ouvertureGauche, zArriere, zCentre, FORGE_DEBORD_TOIT)
+	panArriere(ouvertureDroite, 13.4, zArriere, zCentre, FORGE_DEBORD_TOIT)
+	panArriere(ouvertureGauche, ouvertureDroite, ouvertureHaut, zCentre, 0)
+	panArriere(ouvertureGauche, ouvertureDroite, zArriere, ouvertureBas, FORGE_DEBORD_TOIT)
+	K.faitage(V(-13.4, haut, zCentre), V(13.4, haut, zCentre))
+	-- Les petits rives générés sur les découpes seraient au milieu du toit.
+	for _, p in toiture:GetChildren() do
+		if p.Name == "RiveToit" then p:Destroy() end
+	end
+	for _, x in {-13.25, 13.25} do
+		for _, z in {zAvant, zArriere} do
+			K.poutre(V(x, bas - 0.05, z), V(x, haut - 0.05, zCentre), 0.35, 0.35, Vector3.yAxis, COUL_AUBERGE.Bois, M.Bois, "RiveToit")
+		end
+	end
+	-- Chevrons sous les pans, placés hors de l'ouverture du conduit.
+	for _, x in {-11, 0, 11} do
+		for _, z in {zAvant, zArriere} do
+			K.poutre(V(x, bas - 0.45, z), V(x, haut - 0.45, zCentre), 0.28, 0.28, Vector3.yAxis, COUL_AUBERGE.Bois, M.Bois, "Chevron")
+		end
+	end
+	-- Deux montants rattachent l'enseigne conservée à l'avant-toit.
+	for _, x in {-4, 4} do
+		K.poutre(V(x, 13.9, -10.35), V(x, 15.6, -10.35), 0.3, 0.3, Vector3.new(0, 0, -1), COUL_AUBERGE.Bois, M.Bois, "SupportEnseigne")
+	end
+	for _, p in toiture:GetDescendants() do
+		if p:IsA("BasePart") then p.Anchored, p.CanTouch, p.CanQuery = true, false, false end
+	end
+	-- Aligner la face arrière en plâtre avec la pierre sans déplacer cette dernière.
+	for _, p in forge:GetChildren() do
+		if p:IsA("BasePart") and p.Name == "MurFond" and p.Material == M.Platre and math.abs(p.Size.Z - murPierre.Size.Z) > FORGE_TOLERANCE_MUR then
+			p.Size = Vector3.new(p.Size.X, p.Size.Y, murPierre.Size.Z)
+		end
+	end
+	-- Retirer les anciens pans et le pignon sans fenêtre de l'ancien toit
+	-- transversal. Ses colombages sont précisément centrés dans le plan
+	-- de façade ; le fronton et les pignons latéraux restent intacts.
+	for _, p in forge:GetChildren() do
+		if p:IsA("BasePart") then
+			local q = cf:PointToObjectSpace(p.Position)
+			local ancienPan = p.Name == "Toit" or p.Name == "RangTuiles" or p.Name == "RiveToit" or p.Name == "Faitage"
+			local pignonFacade = p.Name == "Pignon" and math.abs(q.Z + 9.7) < 0.02 and q.Y > 14.5 and math.abs(q.X) < 6.3
+			local boisFacade = p.Name == "Colombage" and math.abs(q.X) < 6.3 and
+				((math.abs(q.Z + 10.05) < 0.02 and q.Y > 14.5) or (math.abs(q.Z + 10) < 0.02 and math.abs(q.Y - 14.2) < 0.02))
+			if ancienPan or pignonFacade or boisFacade then p:Destroy() end
+		end
+	end
+	toiture.Parent = forge
+	forge:SetAttribute("VersionToitForge", 1)
+end
+
 -- La forge du forgeron : atelier ouvert (même structure qu'avant), dans le style des maisons du village :
 -- murs de pierre et colombages, toit de tuiles à deux pans, pignon de façade avec l'enseigne, bannières et lanternes.
 function B.forge(parent, cf)
@@ -1301,7 +1383,7 @@ function B.forge(parent, cf)
 
 	-- mur du fond : pierre jusqu'à 10, colombages au-dessus (côté atelier)
 	bloc(Vector3.new(24, 9, 2), V(0, 5.5, 9), COUL_AUBERGE.Pierre, M.Pierre, "MurFond")
-	bloc(Vector3.new(24, 4.2, 1.6), V(0, 12.1, 9), K.platre, M.Platre, "MurFond")
+	bloc(Vector3.new(24, 4.2, 2), V(0, 12.1, 9), K.platre, M.Platre, "MurFond")
 	local nFond = Vector3.new(0, 0, -1)
 	for _, y in {10.2, 13.9} do
 		poutre(V(-12, y, 8.15), V(12, y, 8.15), 0.4, 0.3, nFond)
@@ -1340,16 +1422,11 @@ function B.forge(parent, cf)
 
 	-- toit à deux pans (faîtage parallèle à la façade) et pignons latéraux
 	local zAv, zAr, yBas, yHaut = -9.7, 9.9, 14, 21
-	K.toitX(-13.4, 13.4, zAv, zAr, yBas, yHaut, 1.2)
 	local hw = (zAr - zAv) / 2 - 0.5 / ((yHaut - yBas) / ((zAr - zAv) / 2))
 	for _, s in {-1, 1} do
 		K.pignon(V(s * 12.3, yBas + 0.5, (zAv + zAr) / 2), Vector3.new(0, 0, s), Vector3.new(-s, 0, 0), hw, yHaut - yBas - 0.5, 1, false, true)
 	end
 	-- pignon de façade au-dessus de l'atelier, avec l'enseigne
-	local Yp = 19.6
-	K.toitZ(0, 6.2, -11.4, (zAv + zAr) / 2, yBas, Yp, 1.0)
-	local hwp = 6.2 - 0.5 / ((Yp - yBas) / 6.2)
-	K.pignon(V(0, yBas + 0.5, -9.9), -K.X, Vector3.new(0, 0, -1), hwp, Yp - yBas - 0.5, 0, false, true)
 	B.fronton(m, cf * CFrame.new(0, 15.9, -10.0), "FORGERON", 9)
 	K.bannieres({-9.4, 9.4}, -9.4, 12.6)
 
@@ -1362,8 +1439,6 @@ function B.forge(parent, cf)
 	O.bloc(m, Vector3.new(1.2, 1, 0.9), enclume * CFrame.new(0, 2.9, 0), C.Fer, M.Metal, "Pied")
 	O.bloc(m, Vector3.new(2.8, 0.8, 1.2), enclume * CFrame.new(0, 3.8, 0), C.Fer, M.Metal, "Table")
 	O.coin(m, Vector3.new(1.2, 0.8, 1.4), enclume * CFrame.new(-2.1, 3.8, 0) * CFrame.Angles(0, math.pi / 2, 0), C.Fer, M.Metal, "Bigorne")
-	O.decor(O.bloc(m, Vector3.new(0.3, 0.3, 1.6), enclume * CFrame.new(0.5, 4.35, 0.2), C.BoisFonce, M.Bois, "Marteau"))
-	O.decor(O.bloc(m, Vector3.new(0.6, 0.5, 0.5), enclume * CFrame.new(0.5, 4.35, -0.6), C.Fer, M.Metal, "TeteMarteau"))
 	-- Baquet de trempe
 	O.cylindre(m, 2, 3, cf * CFrame.new(6.5, 2, 5.5), C.Bois, M.Bois, "Baquet")
 	O.decor(O.cylindre(m, 0.2, 2.6, cf * CFrame.new(6.5, 2.9, 5.5), C.Eau, M.Verre, "Eau"))
@@ -1380,6 +1455,7 @@ function B.forge(parent, cf)
 	-- Armures exposées devant l'atelier
 	B.armure(m, cf * CFrame.new(-8, 1, -6), Color3.fromRGB(150, 154, 162), M.Metal, C.BoisFonce)
 	B.armure(m, cf * CFrame.new(8, 1, -6), Color3.fromRGB(226, 176, 70), M.Metal, C.CristalViolet)
+	B.preparerToitForge(m)
 	return m
 end
 

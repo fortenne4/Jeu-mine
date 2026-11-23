@@ -212,6 +212,7 @@ function Village.preparerAteliers(village)
 	-- Fourneau du forgeron
 	local forge = village:FindFirstChild("Forge", true)
 	if forge and forge:IsA("Model") then
+		B.preparerToitForge(forge)
 		local actuel = forge:FindFirstChild("Fourneau")
 		if not (actuel and actuel:GetAttribute("VersionFourneau") == B.VERSION_FOURNEAU) then
 			local base = actuel and actuel:GetAttribute("Base")

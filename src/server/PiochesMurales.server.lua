@@ -93,12 +93,13 @@ if mur then
 		zMin, zMax = zMin - MARGE_BORD_MUR, zMax + MARGE_BORD_MUR
 		local hautMur = mur.Position.Y + mur.Size.Y / 2
 		local surelevation = math.max(0, yMax + MARGE_HAUT_MUR - hautMur)
-		local function extension(nom, taille, centre)
+		local function extension(nom, taille, centre, reference)
+			reference = reference or mur
 			local morceau = Instance.new("Part")
 			morceau.Name = nom
 			morceau.Size, morceau.CFrame = taille, mur.CFrame * CFrame.new(centre)
-			morceau.Material, morceau.Color = mur.Material, mur.Color
-			morceau.Reflectance, morceau.Transparency = mur.Reflectance, mur.Transparency
+			morceau.Material, morceau.Color = reference.Material, reference.Color
+			morceau.Reflectance, morceau.Transparency = reference.Reflectance, reference.Transparency
 			morceau.Anchored, morceau.CanCollide, morceau.CanTouch, morceau.CanQuery = true, false, false, false
 			morceau.Parent = groupe
 		end
@@ -110,6 +111,19 @@ if mur then
 		if zMin < bord then
 			extension("MurExtensionCote", Vector3.new(mur.Size.X - RETRAIT_PIGNON, mur.Size.Y, bord - zMin),
 				Vector3.new(-RETRAIT_PIGNON / 2, 0, (zMin + bord) / 2))
+			-- Prolonger la pierre sous la partie blanche déjà ajoutée pour les
+			-- pioches, sans bouger le mur porteur ni ses armes. Le même retrait
+			-- évite de traverser le colombage sur la face extérieure.
+			for _, pierre in forge:GetChildren() do
+				if pierre:IsA("BasePart") and pierre.Name == "MurCote" and pierre.Material == Enum.Material.Cobblestone then
+					local positionLocale = mur.CFrame:PointToObjectSpace(pierre.Position)
+					if math.abs(positionLocale.X) < 0.05 and math.abs(positionLocale.Z) < 0.05 then
+						extension("MurExtensionPierre", Vector3.new(mur.Size.X - RETRAIT_PIGNON, pierre.Size.Y, bord - zMin),
+							Vector3.new(-RETRAIT_PIGNON / 2, positionLocale.Y, (zMin + bord) / 2), pierre)
+						break
+					end
+				end
+			end
 		end
 	end
 end
