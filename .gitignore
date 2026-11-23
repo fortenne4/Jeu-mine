@@ -21,6 +21,16 @@ desktop.ini
 
 # Rojo
 sourcemap.json
+/test.rbxl
+
+# Paquets générés par Wally
+Packages/
+ServerPackages/
+DevPackages/
+
+# Définitions Roblox locales pour Selene et luau-lsp
+/roblox.yml
+/.luau-lsp/
 
 # Réglages locaux Claude Code (perso)
 .claude/settings.local.json

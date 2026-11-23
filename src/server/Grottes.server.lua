@@ -106,19 +106,44 @@ local function construireEntree()
 	local function L(x, y, z) return base * CFrame.new(x, y, z) end
 	local function pierre(k) return PIERRE:Lerp(PIERRE_CLAIRE, k) end
 
-	-- Dalle gravée sous le cercle (le cercle se pose dessus) et marches vers le portail
-	O.cylindre(f, 0.4, (RAYON + 2.4) * 2, L(0, 0.2, 0), pierre(0.15), M.Ardoise, "Dalle")
-	O.decor(O.cylindre(f, 0.42, (RAYON + 2.6) * 2, L(0, 0.19, 0), pierre(0.5), M.Pierre, "BordDalle"))
+	-- Une seule dalle porte jusqu'au bord visible. Le dessous pénètre le terrain irrégulier.
+	local dessusDalle = 0.4
+	local epaisseurDalle = 0.85
+	local debutMarches = RAYON + 1.1
+	O.cylindre(f, epaisseurDalle, (RAYON + 2.6) * 2, L(0, dessusDalle - epaisseurDalle / 2, 0), pierre(0.2), M.Ardoise, "Dalle")
 	for k = 0, 11 do
 		local a = k * math.pi / 6
-		O.decor(O.bloc(f, Vector3.new(0.5, 0.06, 1.6), L(math.cos(a) * (RAYON + 1.5), 0.43, math.sin(a) * (RAYON + 1.5)) * CFrame.Angles(0, -a, 0),
-			VIOLET, M.Neon, "RuneDalle"))
+		local x, z = math.cos(a) * (RAYON + 1.5), math.sin(a) * (RAYON + 1.5)
+		if z < debutMarches - 0.4 then
+			O.decor(O.bloc(f, Vector3.new(0.5, 0.06, 1.6), L(x, dessusDalle + 0.045, z) * CFrame.Angles(0, -a, 0),
+				VIOLET, M.Neon, "RuneDalle"))
+		end
 	end
 	local A = RAYON + 6 -- plan de l'arche
-	for k = 0, 2 do
-		O.bloc(f, Vector3.new(14 - k * 0.8, 0.5 + k * 0.5, 2.2), L(0, (0.5 + k * 0.5) / 2, RAYON + 2.6 + k * 1.1), pierre(0.3 + k * 0.1), M.Ardoise, "Marche")
+	local debutSeuil = A - 1.7
+	local profondeurMarche = (debutSeuil - debutMarches) / 3
+	local dessusSeuil = 1.5
+	local dessousMarches = -0.5
+
+	-- Les marches se joignent par leur tranche. La première mord légèrement sur la dalle
+	-- ronde, à une hauteur différente, pour une montée continue sur l'axe du portail.
+	local function palier(nom, debut, fin, dessus, nuance)
+		local z = (debut + fin) / 2
+		O.bloc(f, Vector3.new(14, dessus - dessousMarches, fin - debut), L(0, (dessus + dessousMarches) / 2, z), pierre(nuance), M.Ardoise, nom)
+		-- Bois et rails décoratifs suivent la hauteur de chaque marche et du seuil.
+		local finRail = math.min(fin, A + 1)
+		local zRail = (debut + finRail) / 2
+		O.decor(O.bloc(f, Vector3.new(4.2, 0.1, 0.65), L(0, dessus + 0.06, zRail), C.BoisFonce, M.Planches, "Traverse"))
+		for _, x in {-1.6, 1.6} do
+			O.decor(O.bloc(f, Vector3.new(0.25, 0.14, finRail - debut - 0.08), L(x, dessus + 0.18, zRail), Color3.fromRGB(87, 68, 54), M.Rouille, "Rail"))
+		end
 	end
-	O.bloc(f, Vector3.new(14, 1.5, 3.4), L(0, 0.75, A), pierre(0.2), M.Ardoise, "Seuil")
+	for k = 1, 3 do
+		local debut = debutMarches + (k - 1) * profondeurMarche
+		local fin = if k == 3 then debutSeuil else debut + profondeurMarche
+		palier("Marche" .. k, debut, fin, dessusDalle + (dessusSeuil - dessusDalle) * k / 4, 0.2 + k * 0.1)
+	end
+	palier("Seuil", debutSeuil, A + 1.7, dessusSeuil, 0.2)
 
 	-- Piliers : blocs empilés irréguliers, fondations qui descendent dans le sol
 	local R_ARC, Y_ARC = 8.5, 17
@@ -172,15 +197,6 @@ local function construireEntree()
 	O.etincelles(fond, VIOLET, 10)
 	O.lucioles(fond, Color3.fromRGB(220, 170, 255), 6)
 	O.lumiere(fond, VIOLET, 1.5, 22)
-
-	-- Rails qui s'enfoncent dans le vide
-	local z0, z1 = RAYON + 1, A + 1
-	for _, x in {-1.6, 1.6} do
-		O.decor(O.bloc(f, Vector3.new(0.25, 0.3, z1 - z0), L(x, 0.62 + 0.15, (z0 + z1) / 2), Color3.fromRGB(87, 68, 54), M.Rouille, "Rail"))
-	end
-	for z = z0, z1, 1.8 do
-		O.decor(O.bloc(f, Vector3.new(4.2, 0.25, 0.8), L(0, 0.55, z), Color3.fromRGB(70, 47, 32), M.Planches, "Traverse"))
-	end
 
 	-- Lanternes suspendues sous l'arche et plaque « 1 à 2 mineurs » sur chaînes
 	for _, x in {-4.2, 4.2} do
@@ -373,6 +389,10 @@ local function sortir(joueur: Player, exp)
 	local perso, racine = vivant(joueur)
 	if perso and dedans(exp.grotte.centreSortie, racine.Position, Cercle.RAYON) and streamerPuisPoser(joueur, arrivee()) then
 		acces.autoriser(joueur, perso) -- revenu dans la caverne sans le wagon : accès conservé
+		local quete = ServerStorage:FindFirstChild("QueteEvenement")
+		if quete and quete:IsA("BindableEvent") then
+			quete:Fire("sortie", joueur, tostring(exp.niveau.profondeur))
+		end
 		quitterExpedition(joueur)
 	end
 	exp.enSortie[joueur] = nil

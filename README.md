@@ -10,15 +10,30 @@ Le code vit dans `src/` et Rojo le synchronise avec Roblox Studio.
 
 ## Installer les outils (une seule fois)
 
-1. Installer **Rokit** : https://github.com/rojo-rbx/rokit (suivre « Installation » pour Windows).
-2. Dans ce dossier, lancer `rokit install`. Cela installe Rojo à la version fixée dans `rokit.toml`.
-3. Installer le plugin Rojo dans Studio : `rojo plugin install`.
+1. Installer [Rokit 1.2.0 pour Windows](https://github.com/rojo-rbx/rokit/releases/tag/v1.2.0) puis ouvrir un nouveau terminal.
+2. Dans le dossier qui contient ce README, lancer `rokit install`. Les versions de Rojo, Wally, StyLua, Selene et luau-lsp sont fixées dans `rokit.toml`.
+3. Installer le plugin Rojo dans Studio avec `rojo plugin install`, ou via le [Creator Store](https://create.roblox.com/store/asset/13916111004/Rojo) depuis Studio. Redémarrer Studio si le plugin n'apparaît pas.
 
 ## Travailler
 
-1. Dans ce dossier, lancer `rojo serve`.
-2. Dans Studio, ouvrir l'onglet **Plugins** › **Rojo** › **Connect**.
-3. Lancer **Play** : la carte se construit en quelques secondes, puis les joueurs apparaissent sur la place.
+1. Récupérer les dernières sources avec Git avant toute connexion à la place partagée. Dans le dossier du dépôt, lancer `rojo serve` et laisser ce terminal ouvert.
+2. Ouvrir l'expérience Team Create dans Studio. Sous **Plugins › Rojo**, connecter le plugin à `localhost:34872`. Vérifier la liste des changements avant de confirmer la synchronisation.
+3. Lancer **Play** pour vérifier en jeu. Les modifications dans `src/` viennent du dépôt. Le décor et les MeshParts importées restent dans la place Team Create.
+
+Activer **Allow HTTP Requests** dans **Fichier › Paramètres de l'expérience › Sécurité** uniquement si une fonctionnalité du jeu doit appeler un service externe via `HttpService`. La connexion locale du plugin Rojo utilise son propre accès à `localhost`.
+
+### Vérifier le code depuis le dépôt
+
+| Besoin | Commande |
+|---|---|
+| Construire une place de test à partir des sources | `rojo build -o test.rbxl` |
+| Vérifier le format d'un script modifié | `stylua --check chemin/du/script.lua` |
+| Vérifier le code avec les API Roblox | `selene src` |
+| Générer le plan des instances pour luau-lsp | `rojo sourcemap default.project.json -o sourcemap.json` |
+
+Le build de test contient le contenu géré par Rojo. Pour vérifier les modèles importés et le décor de référence, utiliser la place Team Create. Le dépôt n'a actuellement aucun paquet Wally à installer. Lors de l'ajout de la première dépendance, déclarer le paquet dans `wally.toml`, lancer `wally install` et déclarer dans Rojo seulement les dossiers de paquets utilisés par le jeu.
+
+Pour l'analyse Luau, l'[extension officielle de luau-lsp](https://github.com/JohnnyMorganz/luau-lsp#installation) charge les types Roblox et peut utiliser ce `sourcemap.json`. Avec le CLI, utiliser `luau-lsp analyze --platform=roblox --definitions:@roblox=.luau-lsp/globalTypes.d.luau --sourcemap=sourcemap.json src` après avoir téléchargé les [définitions Roblox de la version 1.70.1](https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/1.70.1/scripts/globalTypes.d.luau) dans `.luau-lsp/`.
 
 ### Départ du wagonnet
 
@@ -307,6 +322,20 @@ une nouvelle quête, un « ? » une quête à rendre. Les quêtes en cours sont 
 - **Rangs** : la renommée gagnée monte le rang (Apprenti → Légende de la Guilde) et donne un bonus permanent de +3 % à +25 %
   sur les pièces gagnées en vendant ses minerais à Gaspard.
 
+L'onglet **Pic Doré** du tableau de Margot propose six quêtes indépendantes de l'histoire et des contrats du jour.
+La première est disponible dès la première visite. Chaque quête rendue débloque la suivante. Les pioches achetées, le
+casque équipé et les prises du carnet comptent déjà. Les retours des grottes doivent avoir lieu pendant la quête active.
+La progression est enregistrée dans la sauvegarde existante.
+
+| Quête | Objectif | Récompense |
+|---|---|---|
+| Le foyer du Pic Doré | Livrer 8 charbons | 22 Pièces, 15 renommée |
+| Un outil pour la relève | Posséder la pioche de cuivre | 32 Pièces, 20 renommée |
+| Le casque du veilleur | Porter un casque du sac | 26 Pièces, 20 renommée |
+| Retour des Galeries humides | Miner 4 minerais et sortir vivant de −50 m | 45 Pièces, 30 renommée |
+| Les histoires du Lac des Lueurs | Avoir 3 prises au carnet de pêche | 42 Pièces, 25 renommée |
+| Une ligne de plus au registre | Sortir vivant de −100 m et livrer 4 fers | 78 Pièces, 40 renommée |
+
 | Fichier | Rôle |
 |---|---|
 | `src/partage/Quetes.lua` | Catalogue : histoire, rangs, générateur des contrats. Modifier ici pour équilibrer (récompenses, quantités). |
@@ -346,6 +375,9 @@ de rayon) affiche « 0/1 ». Quand un joueur entre dedans,
 le cercle passe à « 1/1 », lance une gerbe d'étincelles et une colonne de lumière, puis le joueur est téléporté
 en moins d'une seconde dans **sa mine privée**. Un cercle ne prend qu'un joueur à la fois.
 
+Une brume blanche et une lumière douce sont ajoutées côté client autour de chaque entrée marquée `CercleTunnel`.
+Le centre de l'anneau reste dégagé. Les planches du parvis se rejoignent au niveau du seuil.
+
 La mine privée est construite côté serveur pour ce joueur seul (au premier passage), sur une grille d'emplacements
 loin de la carte (`D.MINES_PRIVEES_*` dans `Disposition.lua`, x ≥ 1400, écart 400). Elle est détruite quand le joueur
 prend la Sortie ou quitte le jeu (moins de pièces répliquées). C'est une galerie étayée de 28 studs en Parts (torches,
@@ -374,7 +406,8 @@ Le cercle « Sortie » derrière le point d'apparition ramène le joueur devant 
 | `src/monde/CercleLumineux.lua` | Construit un cercle (anneaux néon, lueurs, compteur) et ses effets (`etat`, `activer`). |
 | `src/monde/MinePrivee.lua` | Construit / retrouve / libère la mine privée d'un joueur (galerie + mur de blocs). |
 | `src/server/CerclesTunnels.server.lua` | Détection serveur des cercles (boucle 0,1 s, morts ignorés, délai 2,5 s), streaming puis téléportation aller et retour. |
-| `src/monde/Mine.lua` | Portes encastrées (`portes`, version 2) et grand cristal ; `preparerPortes` / `preparerCristal` mettent à jour une carte figée. |
+| `src/client/HalosTunnels.client.lua` | Halos des entrées détectées par le tag `CercleTunnel`. |
+| `src/monde/Mine.lua` | Portes encastrées et parvis ; `preparerPortes` met à jour les cartes figées. |
 | `src/monde/CaverneDecor.lua` | Mise en scène de la caverne (pont suspendu, cascade, rayons, frise, sanctuaire du cristal…), sans collision sur les passages. |
 
 ## Grottes profondes (expéditions à 1 ou 2)
@@ -391,6 +424,9 @@ le niveau s'agrandit, la pile s'écarte et les rochers tournent. Le chef peut **
 simplement entrer dans le cercle (« 2/2 »). Quand le chef choisit un niveau, une **grotte aléatoire** est générée
 et le groupe y est téléporté. Le cercle « Sortie » de la grotte ramène devant l'entrée ; la grotte est détruite
 quand plus personne n'est dedans (sortie, mort ou départ du jeu).
+
+La plateforme d'entrée est générée au démarrage dans `Workspace.EntreeGrottes`. Une dalle ronde pleine porte le cercle
+et trois marches jointives mènent au seuil. Les rails, traverses et runes sont décoratifs. Le centre, le rayon et le point de retour du cercle restent identiques.
 
 5 paliers (réglages dans `src/partage/Grottes.lua`) : plus on descend, plus les minerais sont **rares et résistants**
 (du charbon à −50 m jusqu'à surtout de l'or à −500 m) et plus les **mobs** sont dangereux (chauves-souris, zombies,

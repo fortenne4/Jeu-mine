@@ -1,6 +1,6 @@
 --!strict
 -- Guilde des Mineurs · INTERFACE (StarterPlayerScripts › Jeu)
--- 1. Le tableau de la Guilde chez Margot : rang, histoire « La Veine d'Étoile », contrats du jour, parchemin de quête.
+-- 1. Le tableau de la Guilde chez Margot : histoire, quêtes du Pic Doré et contrats du jour.
 -- 2. Le suivi des quêtes en cours à droite de l'écran (cliquer sur l'en-tête pour le replier).
 -- 3. Les bannières (objectif rempli, quête terminée, nouveau rang) et le « ! » / « ? » au-dessus de Margot.
 -- Le serveur (Quetes.server.lua) fait foi : ici on affiche et on demande, rien de plus.
@@ -28,7 +28,7 @@ local ENCRE = Color3.fromRGB(58, 36, 20)
 local ENCRE_CLAIRE = Color3.fromRGB(110, 78, 48)
 
 local etat: {[string]: any}? = nil
-local onglet = "histoire" -- ou "contrats"
+local onglet = "histoire"
 local selection: {cible: string, i: number?} = {cible = "histoire"}
 
 -- ================= Petits dessins =================
@@ -111,9 +111,9 @@ local barreOnglets = creer("Frame", {Position = UDim2.fromScale(0, 0.27), Size =
 	Parent = gauche})
 local boutonsOnglets: {[string]: TextButton} = {}
 local pastilles: {[string]: Frame} = {}
-for k, def in {{"histoire", "HISTOIRE"}, {"contrats", "CONTRATS DU JOUR"}} do
-	local b = creer("TextButton", {Name = def[1], Text = "", AutoButtonColor = false, Position = UDim2.fromScale((k - 1) * 0.505, 0),
-		Size = UDim2.fromScale(0.495, 1), BackgroundColor3 = T.Carte, ZIndex = 3, Parent = barreOnglets},
+for k, def in {{"histoire", "HISTOIRE"}, {"contrats", "CONTRATS"}, {"margot", "PIC DORÉ"}} do
+	local b = creer("TextButton", {Name = def[1], Text = "", AutoButtonColor = false, Position = UDim2.fromScale((k - 1) * 0.337, 0),
+		Size = UDim2.fromScale(0.326, 1), BackgroundColor3 = T.Carte, ZIndex = 3, Parent = barreOnglets},
 		{coin(0.25), trait(T.FerSombre, 2), UI.degrade(Color3.new(1, 1, 1), Color3.fromRGB(150, 140, 135))})
 	texte({Text = def[2], Font = Enum.Font.GothamBlack, Position = UDim2.fromScale(0.06, 0.2), Size = UDim2.fromScale(0.88, 0.6), ZIndex = 4,
 		Parent = b}, 17)
@@ -229,6 +229,9 @@ local function queteSelectionnee(): (Q.Quete?, {[string]: any}?)
 	if selection.cible == "contrat" then
 		local c = selection.i and e.contrats[selection.i]
 		return c and c.def, c
+	elseif selection.cible == "margot" then
+		local m = e.margot
+		return m and Q.MARGOT[m.index], m
 	end
 	return Q.histoire(e.h), nil
 end
@@ -251,7 +254,8 @@ local function remplirParchemin()
 	if not e then
 		return
 	end
-	local def, contrat = queteSelectionnee()
+	local def, suiviQuete = queteSelectionnee()
+	local estPicDore = selection.cible == "margot"
 	for _, enfant in zoneObjectifs:GetChildren() do
 		if enfant:IsA("GuiObject") then
 			enfant:Destroy()
@@ -259,16 +263,18 @@ local function remplirParchemin()
 	end
 	boutonAbandon.Visible = false
 	if not def then
-		-- Histoire terminée
+		-- Épilogue de la chaîne sélectionnée.
+		dernierRecit = ""
 		portraitDonneur("Taverne")
 		nomDonneur.Text, roleDonneur.Text = "Margot", "Aubergiste · Guilde"
 		initialeDonneur.Text = "M"
-		chapitre.Text = "LA VEINE D'ÉTOILE · ÉPILOGUE"
-		titre.Text = "Légende de la Guilde"
-		recit.Text = "Ton nom est gravé au-dessus du comptoir. Les contrats du jour t'attendent toujours au tableau !"
+		chapitre.Text = if estPicDore then "LE PIC DORÉ · ÉPILOGUE" else "LA VEINE D'ÉTOILE · ÉPILOGUE"
+		titre.Text = if estPicDore then "À la table de Margot" else "Légende de la Guilde"
+		recit.Text = if estPicDore then "Tu auras toujours une place à ma table. Passe te réchauffer quand tu remontes de la mine !"
+			else "Ton nom est gravé au-dessus du comptoir. Les contrats du jour t'attendent toujours au tableau !"
 		recit.MaxVisibleGraphemes = -1
 		texteGainPieces.Text, texteGainRenommee.Text = "—", "—"
-		principal.definir("HISTOIRE TERMINÉE", T.Or, false)
+		principal.definir(if estPicDore then "CHAÎNE TERMINÉE" else "HISTOIRE TERMINÉE", T.Or, false)
 		return
 	end
 	local pnj = Q.PNJ[def.pnj]
@@ -277,7 +283,9 @@ local function remplirParchemin()
 	nomDonneur.Text, roleDonneur.Text = pnj.nom, pnj.role
 	sceau.BackgroundColor3 = pnj.couleur:Lerp(Color3.fromRGB(120, 20, 20), 0.55)
 	texteSceau.Text = pnj.nom:sub(1, 1)
-	if contrat then
+	if estPicDore then
+		chapitre.Text = string.format("LE PIC DORÉ  —  QUÊTE %d / %d", e.margot.index, #Q.MARGOT)
+	elseif suiviQuete then
 		chapitre.Text = "CONTRAT DU JOUR · RENOUVELÉ DANS " .. string.upper(duree(e.reset))
 	else
 		chapitre.Text = string.format("CHAPITRE %s · %s  —  QUÊTE %d / %d", chiffreRomain(def.chapitre), string.upper(Q.CHAPITRES[def.chapitre] or ""),
@@ -292,9 +300,9 @@ local function remplirParchemin()
 		TweenService:Create(recit, TweenInfo.new(math.min(n * 0.012, 2.2), Enum.EasingStyle.Linear), {MaxVisibleGraphemes = n}):Play()
 	end
 
-	local etatQuete = if contrat then contrat.etat else e.hEtat
-	local prog = if contrat then contrat.prog else e.hProg
-	local fini = if contrat then contrat.fini else e.hFini
+	local etatQuete = if suiviQuete then suiviQuete.etat else e.hEtat
+	local prog = if suiviQuete then suiviQuete.prog else e.hProg
+	local fini = if suiviQuete then suiviQuete.fini else e.hFini
 	local hauteur = 1 / math.max(3, #def.objectifs) - 0.04
 	for i, o in def.objectifs do
 		local v = math.min(o.n, tonumber(prog[i]) or 0)
@@ -342,7 +350,7 @@ local function remplirParchemin()
 		principal.definir(if #def.objectifs == 1 then string.format("EN COURS · %d / %d", fait, total)
 			else string.format("EN COURS · %d %%", math.floor(fait / math.max(total, 1) * 100)), T.Or, false)
 	end
-	boutonAbandon.Visible = contrat ~= nil and etatQuete == "active"
+	boutonAbandon.Visible = selection.cible == "contrat" and etatQuete == "active"
 end
 
 -- Carte d'une quête dans la liste
@@ -425,6 +433,24 @@ local function remplirListe()
 				liste.CanvasPosition = Vector2.new(0, math.max(0, c.AbsolutePosition.Y - liste.AbsolutePosition.Y + liste.CanvasPosition.Y - 60))
 			end
 		end)
+	elseif onglet == "margot" then
+		local m = e.margot
+		if m then
+			for i, def in Q.MARGOT do
+				local statut = if i < m.index then "faite" elseif i > m.index then "verrou"
+					elseif m.etat == "dispo" then "dispo" elseif m.fini then "fini" else "active"
+				carte(i, def, statut, i == m.index, nil)
+			end
+			local courante = liste:FindFirstChild("Carte" .. m.index)
+			if courante and courante:IsA("GuiObject") then
+				task.defer(function()
+					if courante.Parent == liste then
+						local haut = courante.AbsolutePosition.Y - liste.AbsolutePosition.Y
+						liste.CanvasPosition = Vector2.new(0, math.max(0, haut + liste.CanvasPosition.Y - 60))
+					end
+				end)
+			end
+		end
 	else
 		entete(0, "RENOUVELÉS DANS " .. string.upper(duree(e.reset)))
 		local rendus = 0
@@ -495,6 +521,8 @@ local function remplirListe()
 		end
 	end
 	pastilles.contrats.Visible = aFaire
+	local m = e.margot
+	pastilles.margot.Visible = m ~= nil and m.index <= #Q.MARGOT and (m.etat == "dispo" or m.fini)
 	for nom, b in boutonsOnglets do
 		TweenService:Create(b, UI.FAST, {BackgroundColor3 = if nom == onglet then Color3.fromRGB(150, 104, 60) else T.Carte}):Play()
 	end
@@ -528,8 +556,11 @@ for nom, b in boutonsOnglets do
 	b.Activated:Connect(function()
 		UI.jouer("clic")
 		onglet = nom
+		liste.CanvasPosition = Vector2.zero
 		if nom == "histoire" then
 			selection = {cible = "histoire"}
+		elseif nom == "margot" then
+			selection = {cible = "margot"}
 		elseif selection.cible ~= "contrat" then
 			selection = {cible = "contrat", i = 1}
 		end
@@ -573,17 +604,24 @@ principal.bouton.Activated:Connect(function()
 		UI.secouer(principal.bouton, 5)
 		return
 	end
-	local def, contrat = queteSelectionnee()
+	local def, suiviQuete = queteSelectionnee()
 	if not def then
 		return
 	end
 	local e = etat :: {[string]: any}
-	local etatQuete = if contrat then contrat.etat else e.hEtat
-	local demande = {action = if etatQuete == "dispo" then "accepter" else "rendre", cible = selection.cible, i = selection.i}
+	local etatQuete = if suiviQuete then suiviQuete.etat else e.hEtat
+	local index = if selection.cible == "margot" then e.margot.index else selection.i
+	local demande = {action = if etatQuete == "dispo" then "accepter" else "rendre", cible = selection.cible, i = index}
 	occupe = true
 	UI.jouer("metal")
-	local r = action:InvokeServer(demande)
+	local ok, r = pcall(function()
+		return action:InvokeServer(demande)
+	end)
 	occupe = false
+	if not ok then
+		message("Impossible de joindre la Guilde. Réessaie dans un instant.", false)
+		return
+	end
 	if type(r) ~= "table" then
 		return
 	end
@@ -714,13 +752,19 @@ local function remplirSuivi()
 		n += 1
 		blocSuivi(n, h, e.hProg, e.hFini, true)
 	end
+	local m = e.margot
+	local queteMargot = m and Q.MARGOT[m.index]
+	if queteMargot and m.etat == "active" then
+		n += 1
+		blocSuivi(n, queteMargot, m.prog, m.fini, true)
+	end
 	for _, c in e.contrats do
 		if c.etat == "active" then
 			n += 1
 			blocSuivi(n, c.def, c.prog, c.fini, false)
 		end
 	end
-	if n == 0 and h then
+	if n == 0 and (h or queteMargot) then
 		-- Rien en cours : petite invitation vers Margot
 		n += 1
 		texte({LayoutOrder = 1, Text = "Une nouvelle quête t'attend chez Margot, à la taverne !", Font = Enum.Font.GothamBold, TextColor3 = T.Parchemin,
@@ -782,6 +826,11 @@ local function majMarqueur()
 	end
 	local aRendre = (e.hEtat == "active" and e.hFini)
 	local nouveau = Q.histoire(e.h) ~= nil and e.hEtat == "dispo"
+	local m = e.margot
+	if m and m.index <= #Q.MARGOT then
+		aRendre = aRendre or (m.etat == "active" and m.fini)
+		nouveau = nouveau or m.etat == "dispo"
+	end
 	for _, c in e.contrats do
 		if c.etat == "active" and c.fini then
 			aRendre = true
@@ -854,10 +903,16 @@ evOuvrir.OnClientEvent:Connect(function(nouvelEtat: any, part: any)
 	if promptGuilde then
 		promptGuilde.Enabled = false -- cache l'invite chez ce joueur tant que le tableau est ouvert
 	end
-	-- Ouvre sur ce qui demande de l'attention : quête d'histoire, sinon un contrat à rendre / nouveau
+	-- Rouvre le Pic Doré si le joueur y était ou si une de ses quêtes attend Margot.
 	local e = nouvelEtat
-	if Q.histoire(e.h) and (e.hEtat == "dispo" or e.hFini or e.hEtat == "active") then
+	local m = e.margot
+	local picDoreEnCours = m and m.index <= #Q.MARGOT and m.etat == "active"
+	if m and (onglet == "margot" or (picDoreEnCours and m.fini)) then
+		onglet, selection = "margot", {cible = "margot"}
+	elseif Q.histoire(e.h) and (e.hEtat == "dispo" or e.hFini or e.hEtat == "active") then
 		onglet, selection = "histoire", {cible = "histoire"}
+	elseif m and m.index <= #Q.MARGOT then
+		onglet, selection = "margot", {cible = "margot"}
 	else
 		onglet, selection = "contrats", {cible = "contrat", i = 1}
 		for i, c in e.contrats do

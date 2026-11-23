@@ -478,21 +478,26 @@ end
 -- Portes encastrées dans la paroi. Le terrain (voxels de 4 studs) est trop grossier pour une ouverture
 -- nette : on dégage l'air devant, on rebouche derrière, puis une façade de roche en Parts et une
 -- embrasure sombre (murs, plafond, fond noir) donnent une ouverture propre. Devant : parvis et cercle.
-local VERSION_PORTES = 3
+local VERSION_PORTES = 5
 local ROCHE_PAROI = Color3.fromRGB(112, 104, 98) -- couleur du matériau Rock du terrain
 local EMBRASURE = Color3.fromRGB(28, 25, 24)
 local function portes(f)
 	local m = O.modele(f, "PortesTunnels")
 	for i, pos in D.PORTES do
 		local base = vers(pos, D.CAVERNE_CENTRE) -- -Z vers le centre ; la paroi est derrière (+Z)
-		local cf = base * CFrame.new(0, 0, D.PORTES_ENFONCEMENT) -- plan du cadre, contre la paroi
-		terrain:FillBlock(cf * CFrame.new(0, 13, 10), Vector3.new(24, 34, 16), Enum.Material.Rock)
-		terrain:FillBlock(cf * CFrame.new(0, 12.5, -2), Vector3.new(24, 24, 6), Enum.Material.Air)
-		terrain:FillBlock(cf * CFrame.new(0, 9, 6), Vector3.new(14, 18, 10), Enum.Material.Air)
+		local paroi = base * CFrame.new(0, 0, D.PORTES_ENFONCEMENT)
+		terrain:FillBlock(paroi * CFrame.new(0, 13, 10), Vector3.new(24, 34, 16), Enum.Material.Rock)
+		-- Déborder derrière la face en pierre : les voxels arrondis ne doivent pas reparaître devant.
+		terrain:FillBlock(paroi * CFrame.new(0, 14.5, -0.125), Vector3.new(28, 28, 9.75), Enum.Material.Air)
+		-- Le dégagement mord sur celui de la façade pour effacer le bourrelet de voxels au seuil.
+		terrain:FillBlock(paroi * CFrame.new(0, 9, 5), Vector3.new(18, 18, 12), Enum.Material.Air)
+		-- Le sol visible de la caverne est 2 studs au-dessus du repère de creusement.
+		-- On relève le cadre et le plancher, sans déplacer le cercle devant la porte.
+		local cf = paroi * CFrame.new(0, 2, 0)
 		local g = O.modele(m, "Porte" .. i)
-		-- Façade de roche (Parts) autour de l'ouverture : face avant à z = +1
+		-- Façade autour de l'ouverture : bord intérieur à x = ±4,7 et face avant à z = +1.
 		for _, s in {-1, 1} do
-			O.bloc(g, Vector3.new(7, 22, 2), cf * CFrame.new(s * 8.2, 11, 2), ROCHE_PAROI, M.Roche, "Facade")
+			O.bloc(g, Vector3.new(6, 22, 2), cf * CFrame.new(s * 7.7, 11, 2), ROCHE_PAROI, M.Roche, "Facade")
 		end
 		O.bloc(g, Vector3.new(9.4, 8, 2), cf * CFrame.new(0, 18, 2), ROCHE_PAROI, M.Roche, "Facade")
 		-- Embrasure : galerie sombre jusqu'au fond noir
@@ -500,7 +505,9 @@ local function portes(f)
 			O.bloc(g, Vector3.new(1, 14, 9), cf * CFrame.new(s * 5.2, 7, 5.5), EMBRASURE, M.Ardoise, "Embrasure")
 		end
 		O.bloc(g, Vector3.new(11.4, 1, 9), cf * CFrame.new(0, 14.5, 5.5), EMBRASURE, M.Ardoise, "Embrasure")
-		O.bloc(g, Vector3.new(9.4, 0.3, 9), cf * CFrame.new(0, 0.15, 5.5), EMBRASURE, M.Ardoise, "Embrasure")
+		local epaisseurSol = 0.55
+		local hauteurSol = 0.25 - epaisseurSol / 2
+		O.decor(O.bloc(g, Vector3.new(9.4, epaisseurSol, 9), cf * CFrame.new(0, hauteurSol, 5.5), EMBRASURE, M.Ardoise, "Embrasure"))
 		O.decor(O.bloc(g, Vector3.new(11, 15, 0.4), cf * CFrame.new(0, 7.3, 9.8), Color3.fromRGB(6, 6, 8), M.Lisse, "Obscurite"))
 		-- Cadre de bois et lanternes collés à la façade
 		for _, x in {-5.6, 5.6} do
@@ -509,12 +516,19 @@ local function portes(f)
 		end
 		O.bloc(g, Vector3.new(13.4, 2, 2), cf * CFrame.new(0, 15, 0), C.BoisFonce, M.Bois, "Linteau")
 		O.decor(O.bloc(g, Vector3.new(9, 0.35, 0.2), cf * CFrame.new(0, 15, -1.05), C.Cristal, M.Neon, "Runes"))
-		local panneau = O.bloc(g, Vector3.new(8, 2.6, 0.4), cf * CFrame.new(0, 17.7, 0.6), C.BoisFonce, M.Planches, "Panneau")
+		local panneau = O.decor(O.bloc(g, Vector3.new(8, 2.6, 0.4), cf * CFrame.new(0, 17.7, -0.85), C.BoisFonce, M.Planches, "Panneau"))
 		O.texte(panneau, Enum.NormalId.Front, "Tunnel " .. (ROMAINS[i] or tostring(i)), {lumiere = 0})
-		-- Parvis en planches entre le cercle et le cadre
+		-- Une seule pièce porteuse sous le parvis et l'embrasure ; les joints du bois restent visuels.
+		local profondeurPlanche = 1.65
+		local debutParvis = 1 - 4 * profondeurPlanche
+		local support = O.bloc(g, Vector3.new(9.4, epaisseurSol, 10 - debutParvis), cf * CFrame.new(0, hauteurSol, (10 + debutParvis) / 2),
+			EMBRASURE, M.Ardoise, "SolPorte")
+		support.Transparency = 1
+		support.CastShadow = false
 		for k = 0, 3 do
 			local teinte = if k % 2 == 0 then C.Bois else C.BoisFonce:Lerp(C.Bois, 0.5)
-			O.bloc(g, Vector3.new(9.4, 0.25, 1), cf * CFrame.new(0, 0.125, -1.1 - k * 1.05), teinte, M.Planches, "Planche")
+			O.decor(O.bloc(g, Vector3.new(9.4, epaisseurSol, profondeurPlanche), cf * CFrame.new(0, hauteurSol, 1 - (k + 0.5) * profondeurPlanche),
+				teinte, M.Planches, "Planche"))
 		end
 		local cercle = Cercle.construire(g, base * CFrame.new(0, 0, -D.CERCLES_AVANCE), "CercleTunnel")
 		cercle:SetAttribute("Numero", i)

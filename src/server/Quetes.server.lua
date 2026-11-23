@@ -1,13 +1,13 @@
 --!strict
 -- Guilde des Mineurs · SCRIPT SERVEUR
--- Margot (taverne) tient le tableau de la Guilde : l'histoire « La Veine d'Étoile » et les contrats du jour.
+-- Margot tient le tableau de la Guilde : « La Veine d'Étoile », les contrats du jour et le Pic Doré.
 -- Toute la logique (progression, livraisons, récompenses, rangs) est ici ; le client ne fait qu'afficher et demander.
 --
 -- Remotes (ReplicatedStorage) :
 --   QuetesOuvrir (RemoteEvent, serveur → client) : (etat, pointInteraction)
 --   QuetesMaj    (RemoteEvent, serveur → client) : (etat, evenement?) — suivi à l'écran et notifications
---   QuetesAction (RemoteFunction, client → serveur) : {action = "accepter"|"rendre"|"abandonner"|"coffre", cible = "histoire"|"contrat", i = number?}
--- Progression : ServerStorage.MineraiCasse (pioche) et ServerStorage.QueteEvenement (forge, boutique, wagonnet).
+--   QuetesAction (RemoteFunction, client → serveur) : {action, cible = "histoire"|"contrat"|"margot", i = number?}
+-- Progression : ServerStorage.MineraiCasse et ServerStorage.QueteEvenement (forge, boutique, wagonnet, grottes).
 -- Bonus de rang : attribut « BonusGuilde » du joueur (pourcentage), lu par Marchand.server.lua (vente).
 -- Tests (Studio, partie non sauvegardée) : game.ServerStorage.QuetesAPI:Invoke("renommee", game.Players.TonNom, 500)
 --   autres commandes : "histoire" (index), "finir" (complète les objectifs en cours), "reset"
@@ -79,6 +79,21 @@ local function preparer(joueur: Player, p: Donnees.Profil): {[string]: any}
 	q.h = math.clamp(entier(q.h, 1e4), 1, #Q.HISTOIRE + 1)
 	q.hEtat = if q.hEtat == "active" then "active" else "dispo"
 	q.hProg = if type(q.hProg) == "table" then q.hProg else {}
+	-- Les anciens profils n'ont pas encore de progression du Pic Doré.
+	local m = if type(q.margot) == "table" then q.margot else {}
+	m.index = math.clamp(entier(m.index, #Q.MARGOT + 1), 1, #Q.MARGOT + 1)
+	local def = Q.MARGOT[m.index]
+	m.etat = if def and m.etat == "active" then "active" else "dispo"
+	-- Garder un tableau dense pour la sauvegarde, même si le dernier objectif arrive en premier.
+	local prog = {}
+	if def and m.etat == "active" then
+		local ancienne = if type(m.prog) == "table" then m.prog else {}
+		for i, o in def.objectifs do
+			prog[i] = entier(ancienne[i], o.n)
+		end
+	end
+	m.prog = prog
+	q.margot = m
 	q.rendues = entier(q.rendues, 1e9)
 	local jour = Q.jour()
 	local contratsOk = entier(q.jour, 1e9) == jour and type(q.contrats) == "table" and #q.contrats == Q.NB_CONTRATS
@@ -112,7 +127,7 @@ local function quetes(joueur: Player): {[string]: any}?
 		return nil
 	end
 	local q = p.quetes
-	if q.jour ~= Q.jour() or type(q.contrats) ~= "table" then
+	if q.jour ~= Q.jour() or type(q.contrats) ~= "table" or type(q.margot) ~= "table" then
 		return preparer(joueur, p)
 	end
 	return q
@@ -125,13 +140,23 @@ local function compteur(joueur: Player): IntValue?
 end
 
 -- ===== Progression =====
--- Valeur actuelle d'un objectif : compteur pour miner/forger/wagon, état réel pour livrer/pioche
+-- Les objectifs de possession et le carnet sont lus dans le profil serveur.
 local function valeur(joueur: Player, o: Q.Objectif, prog: {any}, i: number): number
 	local p = Donnees.profil(joueur)
 	if o.type == "livrer" then
 		return math.min(o.n, if p and o.cible then (p.minerais[o.cible] or 0) else 0)
 	elseif o.type == "pioche" then
 		return if p and o.cible and p.pioches[o.cible] then 1 else 0
+	elseif o.type == "equiper" then
+		return if p and o.cible and Donnees.objetDeType(p, p.equipement[o.cible], o.cible) then 1 else 0
+	elseif o.type == "pecher" then
+		local prises = 0
+		if p then
+			for _, n in p.poissons do
+				prises += n
+			end
+		end
+		return math.min(o.n, prises)
 	end
 	return math.min(o.n, entier(prog[i], 1e6))
 end
@@ -153,6 +178,10 @@ local function enCours(q: {[string]: any}): {{def: Q.Quete, prog: {any}, cle: st
 	local h = Q.histoire(q.h)
 	if h and q.hEtat == "active" then
 		table.insert(liste, {def = h, prog = q.hProg, cle = h.id})
+	end
+	local m = Q.MARGOT[q.margot.index]
+	if m and q.margot.etat == "active" then
+		table.insert(liste, {def = m, prog = q.margot.prog, cle = m.id})
 	end
 	for _, c in q.contrats do
 		if c.etat == "active" then
@@ -177,8 +206,15 @@ local function etat(joueur: Player): Etat?
 		local valeurs, fini = progression(joueur, c.def, c.prog)
 		table.insert(contrats, {def = c.def, etat = c.etat, prog = valeurs, fini = fini})
 	end
+	local m = q.margot
+	local mDef = Q.MARGOT[m.index]
+	local mProg, mFini = {}, false
+	if mDef then
+		mProg, mFini = progression(joueur, mDef, m.prog)
+	end
 	local reset = (Q.jour() + 1) * 86400 - os.time()
 	return {renommee = q.renommee, h = q.h, hEtat = q.hEtat, hProg = hProg, hFini = hFini, contrats = contrats,
+		margot = {index = m.index, etat = m.etat, prog = mProg, fini = mFini},
 		coffre = q.coffre, reset = reset, rendues = q.rendues}
 end
 
@@ -325,10 +361,14 @@ action.OnServerInvoke = function(joueur: Player, demande: any)
 			{pieces = pieces, renommee = 25, rangMonte = monte, rang = rang})
 	end
 
-	-- Cible : l'histoire ou un contrat
+	-- Cible : l'histoire, le Pic Doré ou un contrat
 	local def: Q.Quete?, porteur: {[string]: any}? = nil, nil
+	local picDore = demande.cible == "margot"
 	if demande.cible == "histoire" then
 		def = Q.histoire(q.h)
+	elseif picDore and demande.i == q.margot.index then
+		porteur = q.margot
+		def = Q.MARGOT[q.margot.index]
 	elseif demande.cible == "contrat" and type(demande.i) == "number" then
 		porteur = q.contrats[demande.i]
 		def = porteur and porteur.def
@@ -344,14 +384,15 @@ action.OnServerInvoke = function(joueur: Player, demande: any)
 			return reponse(joueur, false, "Quête déjà en cours")
 		end
 		if porteur then
-			porteur.etat, porteur.prog = "active", {}
+			porteur.etat = "active"
+			porteur.prog = if picDore then table.create(#def.objectifs, 0) else {}
 		else
 			q.hEtat, q.hProg = "active", {}
 		end
 		envoyer(joueur)
 		return reponse(joueur, true, "Quête acceptée : " .. def.titre)
 	elseif demande.action == "abandonner" then
-		if not porteur or etatQuete ~= "active" then
+		if not porteur or picDore or etatQuete ~= "active" then
 			return reponse(joueur, false, "Impossible d'abandonner cette quête")
 		end
 		porteur.etat, porteur.prog = "dispo", {}
@@ -368,13 +409,19 @@ action.OnServerInvoke = function(joueur: Player, demande: any)
 		if not fini then
 			return reponse(joueur, false, "Objectifs pas encore remplis")
 		end
+		if picDore and not compteur(joueur) then
+			return reponse(joueur, false, "Patiente un instant…")
+		end
 		-- Livraisons : on retire les minerais du sac (vérifiés juste au-dessus)
 		for _, o in def.objectifs do
 			if o.type == "livrer" and o.cible then
 				Donnees.ajouterMinerai(joueur, o.cible, -o.n)
 			end
 		end
-		if porteur then
+		if picDore then
+			q.margot.index += 1
+			q.margot.etat, q.margot.prog = "dispo", {}
+		elseif porteur then
 			porteur.etat = "rendue"
 		else
 			q.h += 1
@@ -411,14 +458,14 @@ evenementQuete.Event:Connect(function(genre: string, joueur: Player, cible: any)
 	if typeof(joueur) ~= "Instance" or not joueur:IsA("Player") then
 		return
 	end
-	if genre == "forger" or genre == "wagon" then
+	if genre == "forger" or genre == "wagon" or genre == "sortie" then
 		avancer(joueur, genre, if type(cible) == "string" then cible else nil, 1)
 	elseif genre == "pioche" then
 		envoyer(joueur) -- l'objectif « pioche » se lit sur le profil
 	end
 end)
 
--- Le sac change (minage, forge, livraison) : les objectifs « livrer » bougent
+-- Les objectifs liés au sac, à l'équipement et au carnet peuvent changer sans compteur de quête.
 Donnees.surChangement(function(joueur)
 	local q = quetes(joueur)
 	if not q then
@@ -426,7 +473,7 @@ Donnees.surChangement(function(joueur)
 	end
 	for _, c in enCours(q) do
 		for _, o in c.def.objectifs do
-			if o.type == "livrer" then
+			if o.type == "livrer" or o.type == "equiper" or o.type == "pecher" then
 				envoyer(joueur)
 				return
 			end

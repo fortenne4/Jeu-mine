@@ -24,6 +24,7 @@ if carte then
 		local village = carte:FindFirstChild("Village")
 		if village then
 			local Village = require(monde:WaitForChild("Village"))
+			Village.retirerSauleDuPont(village)
 			Village.preparerFontaine(village)
 			Village.preparerToits(village)
 			Village.preparerSentiers(village)

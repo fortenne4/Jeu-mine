@@ -1829,6 +1829,31 @@ local function bosquets(v, rng)
 	print(string.format("[Village] %d arbres plantés dans les bosquets du village", n))
 end
 
+-- Saule de la rive nord, entre le stand de Liesel et le pont de pierre.
+-- Le retirer après la plantation conserve les tirages et l'emplacement des autres arbres.
+function Village.retirerSauleDuPont(village)
+	local bosquets = village:FindFirstChild("Bosquets")
+	if not bosquets then
+		return
+	end
+	local cible = Vector2.new(-10, 55.45)
+	local saule: Model? = nil
+	for _, arbre in bosquets:GetChildren() do
+		if arbre:IsA("Model") and arbre.Name == "Saule" then
+			local p = arbre:GetPivot().Position
+			if (Vector2.new(p.X, p.Z) - cible).Magnitude < 0.75 then
+				if saule then
+					return -- Carte retouchée : aucun retrait si l'emplacement est ambigu.
+				end
+				saule = arbre
+			end
+		end
+	end
+	if saule then
+		saule:Destroy()
+	end
+end
+
 --[[ Dernier passage (après les bordures) : retire tout arbre, rocher, falaise, paroi ou chèvre dont le pied
 	tombe dans un bâtiment ou sur une rue. Appelé par Monde.construire.
 	zone (facultatif) : function(x, z) -> booléen, limite le passage à une partie de la carte. ]]
@@ -2646,6 +2671,7 @@ function Village.construire(carte)
 	Village.terrasser(v) -- aucun bâtiment à moitié dans le pied d'une montagne
 	nature(v, rng, obstacles)
 	bosquets(v, Random.new(5150))
+	Village.retirerSauleDuPont(v)
 	falaises(v, rng)
 	cristaux(v, rng)
 	Village.preparerToits(v)

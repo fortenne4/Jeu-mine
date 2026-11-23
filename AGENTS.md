@@ -97,7 +97,7 @@ C'est un fichier binaire : deux personnes qui le modifient en même temps = un d
 | `src/partage` | ReplicatedStorage › Partage (catalogues, réglages partagés client/serveur) |
 | `src/monde` | ServerStorage › Monde (générateur de carte ; coordonnées dans `Disposition.lua`) |
 | `default.project.json` | Mapping Rojo (ne pas changer sans raison) |
-| `rokit.toml` | Version de Rojo (7.4.4) — installer avec `rokit install` |
+| `rokit.toml` | Versions de Rojo, Wally, StyLua, Selene et luau-lsp — installer avec `rokit install` |
 | `jeu mine .rbxl` | La place Roblox (binaire) |
 | `assets/` | FBX exportés depuis Blender + textures cuites |
 | `blender/` | Scripts Python Blender (headless) + leurs sorties (`out_*`, `apercus/`) |
@@ -127,6 +127,15 @@ de `src/` se synchronisent tout seuls ; **ne pas** éditer ces scripts dans Stud
 - Changements chirurgicaux : ne pas reformater ni « nettoyer » du code sans rapport avec la demande
   (ça crée des conflits pour les autres).
 - Pas de `_G` ; utiliser des ModuleScripts.
+
+### Références Roblox pour le développement
+
+- [Frontière client/serveur](https://create.roblox.com/docs/scripting/security/client-server-boundary). Valider côté serveur le type, la valeur, la distance, les droits et la cadence selon l'action. Le client affiche le résultat confirmé par le serveur.
+- [DataStore](https://create.roblox.com/docs/cloud-services/data-stores). Préserver les anciens profils et passer par `Donnees.lua` pour toute écriture persistante. Vérifier le chargement, la reconnexion et les écritures dans une place de test.
+- [UI](https://create.roblox.com/docs/ui). Réutiliser `InterfaceMine.lua` pour les écrans PNJ et vérifier les entrées clavier, manette et tactile ainsi que la restitution de la caméra et du curseur.
+- [PathfindingService](https://create.roblox.com/docs/characters/pathfinding). Pour un PNJ mobile comme Margot dans la taverne, dimensionner l'agent pour les portes, suivre les points de passage et recalculer le chemin si un obstacle bloque la suite. Conserver une position de repli accessible.
+- [Import 3D](https://create.roblox.com/docs/studio/importer). Conserver les noms de pièces, les pivots et les dossiers d'import des armures. Vérifier les droits des ressources avec un compte collaborateur avant de conclure que le modèle s'affiche pour tous.
+- Avant un changement de code, repérer le système dans le README et utiliser la version d'outil du dépôt. Vérifier le format sur les scripts modifiés et construire une place de test avec Rojo. Le test en Studio sert aux comportements qui dépendent du moteur ou des ressources de la place.
 
 ## 5. Blender
 

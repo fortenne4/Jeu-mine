@@ -8,6 +8,9 @@
 --   forger  : forger des objets chez Brom (cible = type d'objet, ou nil)
 --   pioche  : posséder une pioche (cible = id de Pioches.lua)
 --   wagon   : faire des trajets en wagonnet (aller ou retour)
+--   equiper : porter un objet du type indiqué dans le sac
+--   pecher  : total des prises déjà inscrites au carnet
+--   sortie  : rentrer vivant par la sortie de la grotte à la profondeur indiquée
 --
 -- Équilibrage : un minerai rapporte en moyenne ~3 pièces (Charbon 1, Bronze 3, Fer 8, Or 25 ;
 -- chances 60/25/12/3 %). Les récompenses valent environ la moitié de ce que le joueur gagne déjà
@@ -144,6 +147,34 @@ Q.HISTOIRE = {
 		objectifs = {{type = "miner", cible = "Gold", n = 20}}, recompense = {pieces = 8000, renommee = 600}},
 } :: {Quete}
 
+-- Suite indépendante, accessible dès la première visite chez Margot.
+Q.MARGOT = {
+	{id = "pic1", chapitre = 1, pnj = "Taverne", titre = "Le foyer du Pic Doré",
+		recit = "Viens te réchauffer. Le feu baisse et la salle sera pleine ce soir. Tu me rapportes de quoi rallumer le foyer ?",
+		fin = "Ça crépite déjà. Merci, mon chou. Les mineurs trouveront une salle chaude en remontant.",
+		objectifs = {{type = "livrer", cible = "Charbon", n = 8}}, recompense = {pieces = 22, renommee = 15}},
+	{id = "pic2", chapitre = 1, pnj = "Taverne", titre = "Un outil pour la relève",
+		recit = "Je tiens un registre des sorties pour les nouveaux. Si tu veux y inscrire ton nom, montre-moi une pioche de cuivre. Liesel t'en trouvera une.",
+		fin = "Un bon outil et une main patiente. Te voilà sur mon registre.",
+		objectifs = {{type = "pioche", cible = "Cuivre", n = 1}}, recompense = {pieces = 32, renommee = 20}},
+	{id = "pic3", chapitre = 1, pnj = "Taverne", titre = "Le casque du veilleur",
+		recit = "Avant de descendre, mets un casque de ton sac. Si tu n'en as pas, Brom sait en faire un avec un peu de charbon. Je préfère te revoir avec la tête entière.",
+		fin = "Il te va bien. Garde-le sur la tête, même quand la galerie a l'air tranquille.",
+		objectifs = {{type = "equiper", cible = "Casque", n = 1}}, recompense = {pieces = 26, renommee = 20}},
+	{id = "pic4", chapitre = 1, pnj = "Taverne", titre = "Retour des Galeries humides",
+		recit = "Mine quatre filons où tu veux, et reviens vivant des galeries à cinquante mètres. Si tu passes par le lac, pense à jeter une ligne. Je t'attends ici.",
+		fin = "Te revoilà ! Dis-moi où la roche tient bien. Les suivants seront contents de le savoir.",
+		objectifs = {{type = "miner", n = 4}, {type = "sortie", cible = "50", n = 1}}, recompense = {pieces = 45, renommee = 30}},
+	{id = "pic5", chapitre = 1, pnj = "Taverne", titre = "Les histoires du Lac des Lueurs",
+		recit = "On m'a dit qu'on pêchait même sous la montagne. Montre-moi trois prises dans ton carnet, même celles que tu as déjà faites. Je veux savoir ce qui mord là-dessous !",
+		fin = "Trois prises sous terre ! Voilà une histoire à raconter quand on sert la soupe.",
+		objectifs = {{type = "pecher", n = 3}}, recompense = {pieces = 42, renommee = 25}},
+	{id = "pic6", chapitre = 1, pnj = "Taverne", titre = "Une ligne de plus au registre",
+		recit = "Les Cavernes oubliées sont plus rudes. Sors-en vivant et rapporte quatre fers pour les étais. Quand tu reviendras, on notera le chemin pour les autres.",
+		fin = "Quatre fers et un mineur revenu sain et sauf. Je garde la dernière ligne du registre pour ton nom.",
+		objectifs = {{type = "sortie", cible = "100", n = 1}, {type = "livrer", cible = "Fer", n = 4}}, recompense = {pieces = 78, renommee = 40}},
+} :: {Quete}
+
 -- ===== Contrats du jour =====
 Q.NB_CONTRATS = 3
 Q.BONUS_COFFRE = 0.5 -- les 3 contrats rendus le même jour : +50 % des pièces des contrats en coffre
@@ -163,6 +194,12 @@ function Q.texteObjectif(o: Objectif): string
 		return "Obtiens la pioche « " .. tostring(o.cible) .. " »"
 	elseif o.type == "wagon" then
 		return string.format("Fais %d trajet%s en wagonnet", o.n, if o.n > 1 then "s" else "")
+	elseif o.type == "equiper" then
+		return "Équipe un casque depuis ton sac"
+	elseif o.type == "pecher" then
+		return string.format("Inscris %d prises au carnet de pêche", o.n)
+	elseif o.type == "sortie" then
+		return "Reviens vivant de la grotte à −" .. tostring(o.cible) .. " m"
 	end
 	return "?"
 end
