@@ -101,6 +101,8 @@ local function montrer(id: string, pieces: number, complete: boolean, origine: s
 	entete.Text = if origine == "coffre" then "FRAGMENT TROUVÉ DANS LE COFFRE"
 		elseif origine == "cristal" then "UN FRAGMENT ÉTAIT CACHÉ DANS LE CRISTAL"
 		elseif origine == "luciole" then "LA LUCIOLE DORÉE PORTAIT UN FRAGMENT"
+		elseif origine == "peche" then "UN VIEUX COFFRET REMONTE AU BOUT DE LA LIGNE"
+		elseif origine == "arene" then "LE CHAMPION DE L'ARÈNE REÇOIT UN FRAGMENT"
 		else "FRAGMENT DE CARTE N° " .. f.numero
 	titre.Text = f.titre
 	corps.Text = "« " .. f.texte .. " »"

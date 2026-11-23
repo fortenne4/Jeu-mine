@@ -504,6 +504,22 @@ gisements ni à l'arrivée) :
     fragment de carte.
   Test depuis la barre de commande (serveur) : `require(game.ServerScriptService.Jeu.EvenementsGrotte).forcer(exp,
   "pluie" | "nuee" | "eboulement" | "luciole", joueur)`.
+- **Grand lac à passerelles** (`GrotteLueurs.lua`, section 2) : au centre de la plus grande salle (rayon ≥ 13), un
+  lac recouvre le passage ; chaque galerie qui arrive dans la salle se prolonge par une **passerelle en bois**
+  (planches, longerons, poteaux, rambardes, lanternes) jusqu'à un **îlot** central (colonne de roche et herbe,
+  refaite après la mise en eau). La cascade tombe près de la rive. Les petits lacs restent hors du passage.
+- **Pêche** (`src/partage/Peche.lua`, `src/server/PecheGrotte.server.lua`, `src/client/PecheGrotte.client.lua`) :
+  pontons de pêche (invite « Pêcher ») sur l'îlot et sur la berge des petits lacs. Le bouchon flotte, puis « ÇA
+  MORD ! » : il faut ferrer (clic, Espace, A, bouton à l'écran) quand le curseur passe dans la zone verte, 2 à 5
+  fois selon le poisson (2 ratés = il s'échappe). 7 poissons du Commun au Légendaire (3 à 80 pièces), bien plus
+  de rares sur l'îlot ; carnet de pêche sauvegardé (profil `poissons`, attribut « CarnetPeche ») ; parfois un
+  vieux coffret avec un fragment de carte. Le serveur tire le poisson et refuse une prise trop rapide.
+- **Arène du temple** (`src/server/ArenaTemple.lua` + `src/client/ArenaTemple.client.lua`) : un gong (posé par
+  GrotteLueurs sur le côté du temple) s'éveille quand le coffre du sanctuaire est ouvert. Le frapper lance 8
+  vagues de plus en plus dures (crabes, golems, spectres, chauves-souris ; PV +14 % par vague) qui gardent le
+  temple. Vague k vaincue : 10 × k pièces (une seule fois par vague et par expédition) ; les 8 vagues : +100 pièces
+  et un fragment de carte. Plus de joueur vivant dans le temple pendant 4 s = fin. Record personnel sauvegardé
+  (profil `arene`, attribut « RecordArene », affiché sur l'invite du gong). Gong de nouveau actif 20 s après.
 - Le contrôle « chemin bouché » du générateur ne régénère plus la grotte pour une simple bosse du sol (rayons à 3,
   6 et 9 studs : bouché seulement si les trois touchent) : la grotte n'est plus générée trois fois de suite.
 
@@ -523,6 +539,8 @@ gisements ni à l'arrivée) :
 | `src/client/SonsGrotte.client.lua` | Ambiance sonore et musique par zone de la grotte −50 m. |
 | `src/server/EvenementsGrotte.lua` + `src/client/EvenementsGrotte.client.lua` | Événements aléatoires du palier 1 (pluie de cristaux, nuée, éboulement, luciole dorée). |
 | `src/partage/MobsKit.lua` + `src/partage/MobsVoxels/GolemChampignon.lua`, `CrabeLueur.lua`, `SpectreNain.lua` | Atelier pour écrire un mob en Luau ; les 3 mobs à thème du palier 1. |
+| `src/partage/Peche.lua` + `src/server/PecheGrotte.server.lua` + `src/client/PecheGrotte.client.lua` | Pêche dans les lacs du palier 1 : poissons, mini-jeu, carnet de pêche. |
+| `src/server/ArenaTemple.lua` + `src/client/ArenaTemple.client.lua` | Arène du temple (gong, 8 vagues, record). |
 | `src/client/GrotteReactive.client.lua` | Veines qui s'allument au passage, spores des champignons, onde des coups de pioche (palier 1). |
 | `src/client/BoussoleFeux.client.lua` | Boussole des feux follets (touche F) vers la cachette de fragment la plus proche (palier 1). |
 | `src/server/MobsGrotte.lua` + `src/client/MobsGrotte.client.lua` | IA des mobs, coups d'épée, renforts, boss ; animations et barres de vie. |

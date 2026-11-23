@@ -7,7 +7,9 @@
 -- le sac de minerais, les objets forgés chez Brom, l'équipement porté et les quêtes de la Guilde (schéma v4),
 -- et les minerais déjà minés une fois (« mineraisDecouverts », champ ajouté sans changer de version : absent d'un
 -- ancien profil, il est déduit du sac et des objets forgés). Répliqué au client par l'attribut « MineraisDecouverts ».
--- Idem pour « fragments » (carte naine de la grotte −50 m, CarteNaine.lua), répliqué par l'attribut « FragmentsCarte ».
+-- Idem pour « fragments » (carte naine de la grotte −50 m, CarteNaine.lua), répliqué par l'attribut « FragmentsCarte »,
+-- pour « poissons » (carnet de pêche : nombre de prises par poisson, PecheGrotte.server.lua), répliqué par l'attribut
+-- « CarnetPeche » (« id:n,id:n »), et pour « arene » (meilleure vague de l'arène du temple), attribut « RecordArene ».
 -- Les autres scripts ne touchent jamais au DataStore : ils lisent/modifient le profil en mémoire.
 --   local Donnees = require(script.Parent.Donnees)
 --   local profil = Donnees.attendre(joueur)   -- nil si le joueur est parti avant le chargement
@@ -55,6 +57,8 @@ export type Profil = {
 	quetes: {[string]: any}, -- Guilde des Mineurs (Quetes.server.lua valide le contenu au chargement)
 	mineraisDecouverts: {[string]: boolean}, -- minerais minés au moins une fois (silhouettes du menu des grottes)
 	fragments: {[string]: boolean}, -- fragments de la carte naine trouvés dans la grotte −50 m (Partage.CarteNaine)
+	poissons: {[string]: number}, -- carnet de pêche : prises par poisson (Partage.Peche)
+	arene: number, -- meilleure vague atteinte dans l'arène du temple (0 = jamais)
 	inconnus: {minerais: {[any]: any}, objets: {any}, equipement: {[any]: any}},
 }
 
@@ -73,7 +77,7 @@ local enAttente: {[Player]: {thread}} = {}
 
 local function profilVide(): Profil
 	return {version = VERSION, pieces = 0, pioches = {[Pioches.DEPART] = true}, equipee = Pioches.DEPART,
-		minerais = {}, objets = {}, prochainId = 1, equipement = {}, quetes = {}, mineraisDecouverts = {}, fragments = {}, inconnus = {minerais = {}, objets = {}, equipement = {}}}
+		minerais = {}, objets = {}, prochainId = 1, equipement = {}, quetes = {}, mineraisDecouverts = {}, fragments = {}, poissons = {}, arene = 0, inconnus = {minerais = {}, objets = {}, equipement = {}}}
 end
 
 -- MIGRATIONS[v] transforme une sauvegarde de la version v en v + 1
@@ -205,6 +209,19 @@ local function lire(brut: any): Profil
 			end
 		end
 	end
+	-- Carnet de pêche et record de l'arène (mêmes règles : champs absents d'un ancien profil = vides)
+	if type(brut.poissons) == "table" then
+		local n = 0
+		for id, v in brut.poissons do
+			if type(id) == "string" and #id <= 16 and not id:find("[,:]") and type(v) == "number" and v >= 1 and n < 32 then
+				p.poissons[id] = math.min(math.floor(v), 1e6)
+				n += 1
+			end
+		end
+	end
+	if type(brut.arene) == "number" and brut.arene == brut.arene then
+		p.arene = math.clamp(math.floor(brut.arene), 0, 1000)
+	end
 	for id in p.minerais do
 		p.mineraisDecouverts[id] = true
 	end
@@ -240,7 +257,7 @@ local function serialiser(p: Profil, verrou: any): any
 	end
 	return {version = VERSION, pieces = p.pieces, pioches = pioches, equipee = p.equipee,
 		minerais = table.clone(p.minerais), objets = table.clone(p.objets), prochainId = p.prochainId,
-		equipement = table.clone(p.equipement), quetes = table.clone(p.quetes), mineraisDecouverts = table.clone(p.mineraisDecouverts), fragments = table.clone(p.fragments), verrou = verrou,
+		equipement = table.clone(p.equipement), quetes = table.clone(p.quetes), mineraisDecouverts = table.clone(p.mineraisDecouverts), fragments = table.clone(p.fragments), poissons = table.clone(p.poissons), arene = p.arene, verrou = verrou,
 		inconnus = if next(p.inconnus.minerais) or #p.inconnus.objets > 0 or next(p.inconnus.equipement) then p.inconnus else nil}
 end
 
@@ -467,6 +484,41 @@ function Donnees.ajouterFragment(joueur: Player, id: string): boolean
 	return true
 end
 
+-- Carnet de pêche → attribut « CarnetPeche » (« id:n,id:n », trié) ; record de l'arène → attribut « RecordArene »
+local function publierPeche(joueur: Player, p: Profil)
+	local t = {}
+	for id, n in p.poissons do
+		table.insert(t, id .. ":" .. n)
+	end
+	table.sort(t)
+	joueur:SetAttribute("CarnetPeche", table.concat(t, ","))
+	joueur:SetAttribute("RecordArene", p.arene)
+end
+
+-- Une prise de plus pour ce poisson (PecheGrotte.server.lua). Renvoie le nombre de prises (1 = nouveau).
+function Donnees.ajouterPoisson(joueur: Player, id: string): number
+	local p = Donnees.profil(joueur)
+	if not p or type(id) ~= "string" or #id > 16 or id:find("[,:]") then
+		return 0
+	end
+	p.poissons[id] = (p.poissons[id] or 0) + 1
+	publierPeche(joueur, p)
+	Donnees.notifier(joueur)
+	return p.poissons[id]
+end
+
+-- Vague atteinte dans l'arène (ArenaTemple.lua). Vrai si c'est un nouveau record.
+function Donnees.recordArene(joueur: Player, vague: number): boolean
+	local p = Donnees.profil(joueur)
+	if not p or type(vague) ~= "number" or vague <= p.arene then
+		return false
+	end
+	p.arene = math.clamp(math.floor(vague), 0, 1000)
+	publierPeche(joueur, p)
+	Donnees.notifier(joueur)
+	return true
+end
+
 -- Vrai si la session de ce joueur écrit dans le DataStore (faux en partie de test Studio)
 function Donnees.estSauvegarde(joueur: Player): boolean
 	local s = sessions[joueur]
@@ -536,6 +588,7 @@ local function surJoueur(joueur: Player)
 	joueur:SetAttribute("Pioche", p.equipee)
 	publierDecouverts(joueur, p)
 	publierFragments(joueur, p)
+	publierPeche(joueur, p)
 
 	if RunService:IsStudio() and CONFIG.ARGENT_TEST_STUDIO > 0 then
 		-- On rend tout de suite la sauvegarde intacte (et son verrou), puis la partie de test ne sauvegarde plus rien

@@ -435,6 +435,7 @@ function EvenementsGrotte.lancer(exp)
 			if os.clock() >= prochain then
 				local combat = modele:GetAttribute("SanctuaireEveil") and (modele:GetAttribute("GardiensRestants") or 1) > 0
 					and not modele:GetAttribute("CoffreOuvert")
+				combat = combat or modele:GetAttribute("AreneVague") ~= nil -- pas pendant l'arène du temple
 				local j, r = joueurCible(exp)
 				if j and r and not combat then
 					local ok, fait = pcall(tirer(), exp, j, r)

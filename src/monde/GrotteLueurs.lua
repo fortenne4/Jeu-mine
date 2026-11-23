@@ -403,12 +403,122 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 		table.insert(interdits, {centre = Vector3.new(c.X, solY, c.Z), rayon = f + 8})
 		return lac
 	end
+	-- grand lac à passerelles : au centre de la plus grande salle, il recouvre le passage ; chaque galerie qui
+	-- arrive dans la salle se prolonge par un ponton en bois jusqu'à un îlot central (le meilleur coin de pêche)
+	local ILOT = 5.5
+	local lacPasserelle = nil
+	if grandLac and grandLac ~= foret then
+		local s = grandLac
+		local f = s.r * 0.74
+		for _, g in infos.gisements or {} do
+			if math.abs(s.p.Y - g.centre.Y) < 14 then
+				f = math.min(f, plat(s.p - g.centre).Magnitude - 7)
+			end
+		end
+		f = math.min(f, plat(s.p - depart.p).Magnitude - 30)
+		if f >= 13 then
+			lacPasserelle = creuserLac(s, s.p, f, true)
+		end
+		if lacPasserelle then
+			roles[s] = "lac"
+			local lac = lacPasserelle
+			lac.passerelle = true
+			-- îlot : colonne de roche jusqu'au niveau du sol, coiffée d'herbe (refaite après la mise en eau)
+			local function ilot()
+				local c = lac.c
+				terrain:FillCylinder(CFrame.new(c.X, (lac.fond + lac.solY) / 2 - 2, c.Z), lac.solY - lac.fond + 4, ILOT, ctx.matPart)
+				terrain:FillCylinder(CFrame.new(c.X, lac.solY - 1, c.Z), 2, ILOT - 0.3, Enum.Material.LeafyGrass)
+			end
+			ilot()
+			lac.ilot = ilot
+			-- une passerelle par galerie qui entre dans la salle
+			local dirs = {}
+			for _, g in galeries do
+				local pts = g.pts
+				if #pts > 1 then
+					local liste = if plat(pts[1].p - s.p).Magnitude < 4 then pts
+						elseif plat(pts[#pts].p - s.p).Magnitude < 4 then table.clone(pts) else nil
+					if liste and liste ~= pts then
+						local inv = {}
+						for i = #liste, 1, -1 do
+							table.insert(inv, liste[i])
+						end
+						liste = inv
+					end
+					if liste then
+						for _, pt in liste do
+							if plat(pt.p - s.p).Magnitude > f + 3 then
+								local u = unite(plat(pt.p - s.p), Vector3.xAxis)
+								local doublon = false
+								for _, d in dirs do
+									if d:Dot(u) > 0.9 then
+										doublon = true
+									end
+								end
+								if not doublon then
+									table.insert(dirs, u)
+								end
+								break
+							end
+						end
+					end
+				end
+			end
+			lac.pontons = dirs
+			local BOIS1, BOIS2, BOIS3 = Color3.fromRGB(122, 84, 52), Color3.fromRGB(104, 70, 42), Color3.fromRGB(78, 54, 34)
+			for _, u in dirs do
+				local cote = Vector3.new(-u.Z, 0, u.X)
+				local d0, d1 = ILOT - 0.8, f + 2.5
+				local berge = solEn(lac.c + u * (f + 3), 6)
+				local y0, y1 = lac.solY + 0.15, (if berge then berge.Position.Y else lac.solY) + 0.15
+				local function pos(d: number): Vector3
+					local t = (d - d0) / (d1 - d0)
+					local q = lac.c + u * d
+					return Vector3.new(q.X, y0 + (y1 - y0) * t, q.Z)
+				end
+				local pente = math.atan2(y1 - y0, d1 - d0)
+				local m = O.modele(decor, "Passerelle")
+				-- planches
+				local k = 0
+				local d = d0
+				while d <= d1 do
+					k += 1
+					local q = pos(d)
+					local p = O.bloc(m, Vector3.new(4.6, 0.3, 0.95), CFrame.lookAt(q, q + u) * CFrame.Angles(pente, 0, rng:NextNumber(-0.02, 0.02)),
+						if k % 2 == 0 then BOIS1 else BOIS2, M.Bois, "Planche")
+					p.CanQuery = false
+					d += 1.05
+				end
+				-- longerons, poteaux, rambardes, lanternes
+				local a, b = pos(d0), pos(d1)
+				for _, sx in {-1, 1} do
+					local off = cote * 1.95 * sx
+					local lon = O.decor(O.bloc(m, Vector3.new(0.4, 0.4, (b - a).Magnitude), CFrame.lookAt((a + b) / 2 + off - Vector3.new(0, 0.35, 0), b + off - Vector3.new(0, 0.35, 0)),
+						BOIS3, M.Bois, "Longeron"))
+					lon.CastShadow = false
+					local nP = math.max(2, math.floor((d1 - d0) / 4.2) + 1)
+					for i = 0, nP - 1 do
+						local q = pos(d0 + (d1 - d0) * i / (nP - 1)) + cote * 2.15 * sx
+						local h = q.Y + 2.6 - (lac.fond - 1)
+						O.bloc(m, Vector3.new(0.45, h, 0.45), CFrame.new(q.X, q.Y + 2.6 - h / 2, q.Z), BOIS3, M.Bois, "Poteau").CanQuery = false
+						if i % 2 == 1 then
+							local lanterne = O.decor(O.bloc(m, Vector3.new(0.55, 0.65, 0.55), CFrame.new(q + Vector3.new(0, 3.05, 0)), P.ambre, M.Neon, "Lanterne"))
+							lumiere(lanterne, P.ambre, 0.9, 12)
+						end
+					end
+					local r = O.decor(O.bloc(m, Vector3.new(0.25, 0.25, (b - a).Magnitude), CFrame.lookAt((a + b) / 2 + cote * 2.15 * sx + Vector3.new(0, 2.4, 0),
+						b + cote * 2.15 * sx + Vector3.new(0, 2.4, 0)), BOIS1, M.Bois, "Rambarde"))
+					r.CastShadow = false
+				end
+			end
+		end
+	end
 	-- on mesure la place libre dans chaque salle (hors forêt, départ, boss) ; le grand lac va là où il y en a
 	-- le plus, puis 1–2 petits lacs
-	local voulus = 1 + #autresLacs
+	local voulus = if lacPasserelle then math.max(1, #autresLacs) else 1 + #autresLacs
 	local sites = {}
 	for _, s in salles do
-		if not s.depart and not s.boss and s ~= foret and s.r >= 14 then
+		if not s.depart and not s.boss and s ~= foret and s.r >= 14 and not roles[s] then
 			local c, f = chercherLac(s, s.r * 0.78)
 			if c then
 				table.insert(sites, {s = s, c = c, f = f})
@@ -422,8 +532,9 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 		if i > voulus then
 			break
 		end
-		local f = if i == 1 then site.f else math.min(site.f, site.s.r * 0.55)
-		if creuserLac(site.s, site.c, f, i == 1) then
+		local grand = i == 1 and not lacPasserelle
+		local f = if grand then site.f else math.min(site.f, site.s.r * 0.55)
+		if creuserLac(site.s, site.c, f, grand) then
 			roles[site.s] = "lac"
 		end
 	end
@@ -713,7 +824,8 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 			Color3.fromRGB(150, 255, 240), M.Neon, "CoeurLac"))
 		coeurLac.Transparency = 0.45
 		O.tag(coeurLac, "GrottePulse")
-		local lueurEau = volume(decor, Vector3.new(1, 1, 1), CFrame.new(c - Vector3.new(0, 1.6, 0)), "LueurLac")
+		-- (grand lac à passerelles : la lueur est décalée hors de l'îlot, sinon la roche l'étouffe)
+		local lueurEau = volume(decor, Vector3.new(1, 1, 1), CFrame.new(c - Vector3.new(0, 1.6, 0) + (if lac.passerelle then Vector3.new(ILOT + 3, 0, 0) else Vector3.zero)), "LueurLac")
 		lumiere(lueurEau, P.cyan, 1.8, lac.rw * 2.6)
 		if modeles then
 			for _ = 1, math.max(2, math.floor(lac.rw / 3)) do
@@ -770,7 +882,9 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 		-- cascade qui tombe du plafond dans le grand lac
 		if lac.grand then
 			local _, dir = coin(lac.s, lac.rw * 0.55)
-			local w = c + dir * lac.rw * 0.5
+			-- grand lac à passerelles : la cascade tombe près de la rive, loin de l'îlot central
+			local w = c + dir * lac.rw * (if lac.passerelle then 0.8 else 0.5)
+			lac.dirCascade = dir
 			local haut = plafondEn(Vector3.new(w.X, lac.solY + 2, w.Z))
 			if haut and haut.Position.Y - c.Y > 14 then
 				local top = Vector3.new(w.X, haut.Position.Y + 1, w.Z)
@@ -812,6 +926,82 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 					son.Parent = pied
 					son:Play()
 				end
+			end
+		end
+		-- ponton de pêche (invite « Pêcher », PecheGrotte.server.lua) : sur l'îlot du grand lac à passerelles, côté
+		-- opposé aux passerelles ; sinon sur la berge, le plus loin possible du passage
+		do
+			local u, d0, d1, genre
+			if lac.passerelle then
+				local meilleur, score = Vector3.xAxis, -math.huge
+				for k = 0, 15 do
+					local a = k / 16 * math.pi * 2
+					local v = Vector3.new(math.cos(a), 0, math.sin(a))
+					local m = 2
+					for _, p in lac.pontons or {} do
+						m = math.min(m, 1 - v:Dot(p))
+					end
+					if lac.dirCascade then -- ni vers la cascade
+						m = math.min(m, 1 - v:Dot(lac.dirCascade))
+					end
+					if m > score then
+						meilleur, score = v, m
+					end
+				end
+				u, d0, d1, genre = meilleur, ILOT - 1.2, ILOT + 3.2, "ilot"
+			else
+				local meilleur, score = nil, -math.huge
+				for k = 0, 15 do
+					local a = k / 16 * math.pi * 2
+					local v = Vector3.new(math.cos(a), 0, math.sin(a))
+					local berge = solEn(Vector3.new(c.X, lac.solY, c.Z) + v * (lac.f + 2), 4)
+					if berge and math.abs(berge.Position.Y - lac.solY) < 3 then
+						local m = math.huge
+						for _, q in ptsChemin do
+							m = math.min(m, plat(q - berge.Position).Magnitude)
+						end
+						if m > score then
+							meilleur, score = v, m
+						end
+					end
+				end
+				if meilleur then
+					u, d0, d1, genre = meilleur, lac.f + 2, math.max(lac.rw - 1.5, lac.f * 0.6), "berge"
+				end
+			end
+			if u then
+				local y = lac.solY + 0.15
+				local a = Vector3.new(c.X, y, c.Z) + u * d0
+				local b = Vector3.new(c.X, y, c.Z) + u * d1
+				local dir = unite(b - a, u)
+				local cote = Vector3.new(-dir.Z, 0, dir.X)
+				local m = O.modele(decor, "PontonPeche")
+				for i = 0, math.floor((b - a).Magnitude / 1.05) do
+					local q = a + dir * (i * 1.05)
+					O.bloc(m, Vector3.new(3.4, 0.3, 0.95), CFrame.lookAt(q, q + dir), if i % 2 == 0 then Color3.fromRGB(122, 84, 52) else Color3.fromRGB(104, 70, 42),
+						M.Bois, "Planche").CanQuery = false
+				end
+				for _, sx in {-1, 1} do
+					local q = b + cote * 1.55 * sx
+					local h = q.Y + 1.4 - (lac.fond - 1)
+					O.bloc(m, Vector3.new(0.4, h, 0.4), CFrame.new(q.X, q.Y + 1.4 - h / 2, q.Z), Color3.fromRGB(78, 54, 34), M.Bois, "Poteau").CanQuery = false
+				end
+				local lanterne = O.decor(O.bloc(m, Vector3.new(0.5, 0.6, 0.5), CFrame.new(b + cote * 1.55 + Vector3.new(0, 1.75, 0)), P.ambre, M.Neon, "Lanterne"))
+				lumiere(lanterne, P.ambre, 1, 12)
+				O.decor(O.cylindre(m, 0.8, 0.8, CFrame.new(b - dir * 0.9 - cote * 1.1 + Vector3.new(0, 0.55, 0)), Color3.fromRGB(90, 96, 104), M.Metal, "Seau"))
+				O.decor(O.bloc(m, Vector3.new(0.12, 0.12, 4.5), CFrame.lookAt(b - cote * 1.2 + Vector3.new(0, 0.5, 0), b - cote * 1.2 + dir * 3 + Vector3.new(0, 3, 0))
+					* CFrame.new(0, 0, -2.25), Color3.fromRGB(70, 50, 32), M.Bois, "Canne"))
+				local bout = volume(m, Vector3.new(1, 1, 1), CFrame.new(b + Vector3.new(0, 1.5, 0)), "BoutPonton")
+				local eau = if genre == "ilot" then math.min(ILOT + 8, (ILOT + lac.rw) / 2 + 2) else math.max(lac.rw * 0.35, lac.rw - 7)
+				bout:SetAttribute("Peche", genre)
+				bout:SetAttribute("Eau", Vector3.new(c.X, lac.niveau, c.Z) + u * eau)
+				local invite = Instance.new("ProximityPrompt")
+				invite.ActionText = "Pêcher"
+				invite.ObjectText = if genre == "ilot" then "Îlot · coin des pêcheurs" else "Ponton de pêche"
+				invite.HoldDuration, invite.MaxActivationDistance, invite.RequiresLineOfSight = 0, 7, false
+				invite:SetAttribute("Peche", genre)
+				invite.Parent = bout
+				O.tag(m, "PontonPeche")
 			end
 		end
 		zone(c, lac.f + 16, P.cyan, "Lac")
@@ -1276,6 +1466,38 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 			invite.Parent = caisse
 		end
 	end
+	do -- gong de l'arène (ArenaTemple.lua) : sur le côté du temple, il s'éveille une fois le coffre ouvert
+		local vers = if reperes.fond then unite(plat(reperes.fond.Position - centreT), axeBoss) else axeBoss
+		local cote = Vector3.new(-vers.Z, 0, vers.X)
+		local sol = solEn(centreT + cote * rb * 0.45) or solEn(centreT - cote * rb * 0.45)
+		if sol then
+			local base = CFrame.lookAt(sol.Position, sol.Position - cote)
+			local m = O.modele(decor, "GongArene")
+			local pierre, bronze = Color3.fromRGB(70, 66, 74), Color3.fromRGB(196, 140, 60)
+			for _, x in {-2.7, 2.7} do
+				O.bloc(m, Vector3.new(0.8, 7.4, 0.8), base * CFrame.new(x, 3.7, 0), pierre, M.Pierre, "Pilier").CanQuery = false
+				O.decor(O.bloc(m, Vector3.new(1.3, 0.5, 1.3), base * CFrame.new(x, 0.25, 0), pierre, M.Pierre, "Socle"))
+			end
+			O.decor(O.bloc(m, Vector3.new(6.8, 0.7, 0.9), base * CFrame.new(0, 7.5, 0), pierre, M.Pierre, "Traverse"))
+			for _, x in {-0.9, 0.9} do
+				O.decor(O.bloc(m, Vector3.new(0.12, 1.6, 0.12), base * CFrame.new(x, 6.4, 0), Color3.fromRGB(60, 60, 64), M.Metal, "Chaine"))
+			end
+			local disque = O.decor(O.disque(m, 0.35, 4.4, base * CFrame.new(0, 3.9, 0) * CFrame.Angles(0, math.pi / 2, 0), bronze, M.Metal, "Disque"))
+			local rune = O.decor(O.disque(m, 0.38, 1.6, base * CFrame.new(0, 3.9, 0) * CFrame.Angles(0, math.pi / 2, 0), Color3.fromRGB(45, 30, 60), M.Neon, "RuneGong"))
+			rune:SetAttribute("Couleur", P.violet)
+			O.decor(O.bloc(m, Vector3.new(0.3, 3.2, 0.3), base * CFrame.new(3.4, 1.4, -0.6) * CFrame.Angles(0, 0, -0.25), Color3.fromRGB(90, 62, 40), M.Bois, "Maillet"))
+			O.decor(O.bloc(m, Vector3.new(0.9, 0.9, 0.9), base * CFrame.new(3.8, 2.9, -0.6), Color3.fromRGB(120, 90, 60), M.Bois, "TeteMaillet"))
+			local frappe = volume(m, Vector3.new(1, 1, 1), base * CFrame.new(0, 3.9, -1), "Frappe")
+			local invite = Instance.new("ProximityPrompt")
+			invite.ActionText, invite.ObjectText = "Frapper le gong", "Arène du temple"
+			invite.HoldDuration, invite.MaxActivationDistance, invite.RequiresLineOfSight = 0.6, 10, false
+			invite.Enabled = false -- activée par ArenaTemple.lua quand le coffre du sanctuaire est ouvert
+			invite:SetAttribute("Arene", true)
+			invite.Parent = frappe
+			disque:SetAttribute("Gong", true)
+			modele:SetAttribute("GongArene", sol.Position)
+		end
+	end
 	-- cachettes : fond du grand lac, derrière la géode du temple, sous un champignon géant, sous un rideau de
 	-- mousse, au fond d'une alcôve ; chaque joueur peut ramasser chaque cachette une fois (CarteNaine.lua)
 	local caches = {}
@@ -1546,6 +1768,9 @@ function GrotteLueurs.decorer(ctx, infos, outils)
 		terrain:FillBall(Vector3.new(c.X, lac.cy, c.Z), R - 0.3, EAU)
 		terrain:FillCylinder(CFrame.new(c.X, lac.niveau - 2, c.Z), 4, lac.f * 0.8, EAU)
 		terrain:WriteVoxels(garde, 4, mats, occs)
+		if lac.ilot then
+			lac.ilot() -- l'eau a recouvert le pied de l'îlot
+		end
 	end
 end
 
