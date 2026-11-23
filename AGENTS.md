@@ -97,7 +97,7 @@ C'est un fichier binaire : deux personnes qui le modifient en même temps = un d
 | `src/partage` | ReplicatedStorage › Partage (catalogues, réglages partagés client/serveur) |
 | `src/monde` | ServerStorage › Monde (générateur de carte ; coordonnées dans `Disposition.lua`) |
 | `default.project.json` | Mapping Rojo (ne pas changer sans raison) |
-| `rokit.toml` | Versions de Rojo, Wally, StyLua, Selene et luau-lsp — installer avec `rokit install` |
+| `rokit.toml` | Version de Rojo (**7.4.4**, ne pas changer : choix de toute l'équipe) — installer avec `rokit install` |
 | `jeu mine .rbxl` | La place Roblox (binaire) |
 | `assets/` | FBX exportés depuis Blender + textures cuites |
 | `blender/` | Scripts Python Blender (headless) + leurs sorties (`out_*`, `apercus/`) |
