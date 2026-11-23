@@ -11,13 +11,20 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MobsVoxels = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("MobsVoxels"))
+
+-- Touches : R = rejoindre le portail, X = ignorer (manette : croix haut / croix bas). E sert déjà aux invites.
+local TOUCHES_REJOINDRE = {Enum.KeyCode.R, Enum.KeyCode.DPadUp}
+local TOUCHES_IGNORER = {Enum.KeyCode.X, Enum.KeyCode.DPadDown}
 
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
 local Outils = require(script.Parent:WaitForChild("BossOutils"))
 local creer, coin, trait, texte, T = UI.creer, UI.coin, UI.trait, UI.texte, UI.T
 
-local LARGEUR, HAUTEUR = 600, 132
-local TAILLE = 0.72 -- échelle de la carte (1 = taille d'origine)
+local LARGEUR, HAUTEUR = 600, 160
+local TAILLE = 0.58 -- échelle de la carte (1 = taille d'origine)
 local OMBRE = Color3.fromRGB(16, 8, 4)
 local BLANC = Color3.new(1, 1, 1)
 
@@ -67,8 +74,17 @@ function Annonce.init(ctx)
 		ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 10, 8))}), Parent = carte})
 	local bord = trait(T.Or, 3)
 	bord.Parent = carte
-	creer("UIGradient", {Rotation = 90, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 240, 190)),
-		ColorSequenceKeypoint.new(0.5, T.Or), ColorSequenceKeypoint.new(1, T.OrFonce)}), Parent = bord})
+	-- bord : dégradé or / couleur du boss / blanc qui tourne tout autour de la carte
+	local degradeBord = creer("UIGradient", {Rotation = 0, Parent = bord})
+
+	-- rayures diagonales qui défilent lentement (couleur du boss, très discrètes)
+	local rayures = creer("Frame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 41, Parent = carte})
+	local listeRayures: {Frame} = {}
+	for k = 0, 22 do
+		listeRayures[k + 1] = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, k * 32 - 60, 0.5, 0),
+			Size = UDim2.new(0, 10, 2.4, 0), Rotation = 32, BackgroundColor3 = T.Or, BackgroundTransparency = 0.94, BorderSizePixel = 0,
+			ZIndex = 41, Parent = rayures})
+	end
 
 	-- voile de la couleur du boss, de la gauche vers la droite
 	local voile = creer("Frame", {Size = UDim2.fromScale(0.75, 1), BackgroundColor3 = T.Or, BackgroundTransparency = 0, ZIndex = 41,
@@ -87,7 +103,7 @@ function Annonce.init(ctx)
 		Rotation = 20, BackgroundColor3 = BLANC, BackgroundTransparency = 0.82, ZIndex = 49, Parent = carte})
 
 	-- ===== Emblème (gauche) =====
-	local emb = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(74, HAUTEUR / 2),
+	local emb = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(74, 68),
 		Size = UDim2.fromOffset(150, 150), BackgroundTransparency = 1, ZIndex = 43, Parent = carte})
 	local rayons = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1, ZIndex = 43, Parent = emb})
@@ -106,13 +122,63 @@ function Annonce.init(ctx)
 	local disque = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(74, 74),
 		BackgroundColor3 = T.Or, ZIndex = 45, Parent = anneau}, {coin(1), trait(OMBRE, 2)})
 	local degradeDisque = creer("UIGradient", {Rotation = 120, Parent = disque})
-	Outils.epees(disque, T.Parchemin, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+	-- logo du boss : sa tête en 3D (même modèle voxel que l'écran de chargement), épées croisées en secours
+	local epees = Outils.epees(disque, T.Parchemin, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromScale(0.66, 0.66), ZIndex = 46})
+	local logo = creer("ViewportFrame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1, Ambient = Color3.fromRGB(170, 170, 170), LightColor = BLANC, LightDirection = Vector3.new(-0.4, -0.6, -1),
+		ZIndex = 46, Parent = disque}, {coin(1)})
+	local camLogo = creer("Camera", {FieldOfView = 30, Parent = logo})
+	logo.CurrentCamera = camLogo
+	local mondeLogo = creer("WorldModel", {Parent = logo})
+	local modelesLogo: {[string]: Model | false} = {}
+	-- cadrage courant de la tête (la caméra se balance doucement autour, voir l'animation)
+	local cadrage: {haut: Vector3, avant: Vector3, distance: number, montee: number}? = nil
+	local function poserLogo(def)
+		for _, m in mondeLogo:GetChildren() do m.Parent = nil end
+		local m = modelesLogo[def.id]
+		if m == nil then
+			m = false
+			pcall(function()
+				local nomModele = if MobsVoxels.existe(def.id) then def.id
+					elseif def.secours and MobsVoxels.existe(def.secours) then def.secours else nil
+				if nomModele then
+					local construit = MobsVoxels.construire(nomModele, CFrame.new())
+					for _, piece in construit:GetDescendants() do
+						if piece:IsA("BasePart") then piece.CastShadow = false end
+					end
+					-- le boss respire (animation Idle, comme sur l'écran de chargement)
+					construit.Parent = mondeLogo
+					pcall(function()
+						MobsVoxels.animateur(construit, nomModele):Jouer("Idle", true, 0)
+					end)
+					m = construit
+				end
+			end)
+			modelesLogo[def.id] = m
+		end
+		if m then
+			m.Parent = mondeLogo
+			-- cadrage sur le haut du corps (la tête), de face
+			local cf, taille = m:GetBoundingBox()
+			local haut = cf.Position + Vector3.new(0, taille.Y * 0.28, 0)
+			local d = math.max(taille.X, taille.Y * 0.5) * 0.5 / math.tan(math.rad(camLogo.FieldOfView / 2)) * 1.05
+			cadrage = {haut = haut, avant = cf.LookVector, distance = d, montee = taille.Y * 0.05}
+			camLogo.CFrame = CFrame.lookAt(haut + cf.LookVector * d + Vector3.new(0, taille.Y * 0.05, 0), haut)
+			epees.Visible, logo.Visible = false, true
+		else
+			cadrage = nil
+			epees.Visible, logo.Visible = true, false
+		end
+	end
 
 	-- ===== Textes (milieu) =====
 	local X0 = 150
-	local surtitre = texte({Text = "BOSS DU VILLAGE  ·  ARÈNE DES BOSS", Font = Enum.Font.GothamBlack, TextColor3 = T.Gris,
-		TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(X0, 12), Size = UDim2.fromOffset(300, 14), ZIndex = 46,
+	-- point rouge qui bat + « APPEL AUX ARMES »
+	local pointAlerte = creer("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.fromOffset(X0, 19), Size = UDim2.fromOffset(8, 8),
+		BackgroundColor3 = T.Rouge, ZIndex = 46, Parent = carte}, {coin(1)})
+	local surtitre = texte({Text = "APPEL AUX ARMES  ·  BOSS DU VILLAGE", Font = Enum.Font.GothamBlack, TextColor3 = T.Gris,
+		TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(X0 + 14, 12), Size = UDim2.fromOffset(290, 14), ZIndex = 46,
 		Parent = carte}, 13)
 	local nom = texte({Text = "Titan de cristal", Font = Enum.Font.GothamBlack, TextXAlignment = Enum.TextXAlignment.Left,
 		Position = UDim2.fromOffset(X0, 26), Size = UDim2.fromOffset(310, 40), ZIndex = 46, Parent = carte}, 36)
@@ -147,11 +213,47 @@ function Annonce.init(ctx)
 		UI.reactif(b, 1.04)
 		return b, l, g
 	end
-	local bRejoindre, lRejoindre, degradeRejoindre = bouton("REJOINDRE LE PORTAIL", X0, 250, true)
-	local bIgnorer = bouton("IGNORER", X0 + 262, 110, false)
+	local bRejoindre, lRejoindre, degradeRejoindre = bouton("[R]  REJOINDRE LE PORTAIL", X0, 250, true)
+	local bIgnorer = bouton("[X]  IGNORER", X0 + 262, 110, false)
 	local refletBouton = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(-0.3, 0.5), Size = UDim2.new(0, 26, 2, 0),
 		Rotation = 20, BackgroundColor3 = BLANC, BackgroundTransparency = 0.6, ZIndex = 48, Parent = bRejoindre})
 	local echelleRejoindre = UI.echelle(bRejoindre)
+
+	-- ===== Bande du bas : mineurs déjà prêts (avatars) + attaques du boss =====
+	local Y_BANDE = 130
+	local avatars: {ImageLabel} = {}
+	for i = 1, 5 do
+		local a = creer("ImageLabel", {Position = UDim2.fromOffset(X0 + (i - 1) * 15, Y_BANDE), Size = UDim2.fromOffset(20, 20),
+			BackgroundColor3 = Color3.fromRGB(40, 32, 28), Image = "", ZIndex = 47 + i, Visible = false, Parent = carte},
+			{coin(1), trait(OMBRE, 1.5)})
+		avatars[i] = a
+	end
+	local prets = texte({Text = "Sois le premier dans le cercle !", Font = Enum.Font.GothamBold, TextColor3 = T.Parchemin,
+		TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(X0, Y_BANDE + 3), Size = UDim2.fromOffset(220, 14),
+		ZIndex = 47, RichText = true, Parent = carte}, 14)
+	local attaques = texte({Text = "", Font = Enum.Font.GothamBold, TextColor3 = T.Gris, AnchorPoint = Vector2.new(1, 0),
+		TextXAlignment = Enum.TextXAlignment.Right, Position = UDim2.new(1, -18, 0, Y_BANDE + 3), Size = UDim2.fromOffset(200, 14),
+		ZIndex = 47, RichText = true, Parent = carte}, 13)
+	local NOMS_ATTAQUES = {Onde = "Onde", Poings = "Poings", Eclats = "Éclats", Toile = "Toile", Invocation = "Invocation",
+		Bond = "Bond", Meteores = "Météores", Lave = "Lave", Souffle = "Souffle"}
+	local nombrePrets = -1
+	local function majPrets()
+		local file = dossier:GetAttribute("File")
+		local ids = if type(file) == "string" and file ~= "" then string.split(file, ",") else {}
+		local n = #ids
+		for i, a in avatars do
+			local id = tonumber(ids[i])
+			a.Visible = id ~= nil
+			if id then Outils.avatar(id, a) end
+		end
+		local decalage = math.min(n, 5) * 15 + (if n > 0 then 10 else 0)
+		prets.Position = UDim2.fromOffset(X0 + decalage, Y_BANDE + 3)
+		prets.Text = if n == 0 then "Sois le premier dans le cercle !"
+			else string.format('<font color="#FFCC5C">%d/%d</font> mineurs prêts', n, Config.MAX_JOUEURS)
+		if n > nombrePrets and nombrePrets >= 0 then UI.pop(prets, 0.8) end
+		nombrePrets = n
+	end
+	dossier:GetAttributeChangedSignal("File"):Connect(majPrets)
 
 	-- ===== Barre de temps (bas) =====
 	local barreFond = creer("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, 0), Size = UDim2.new(1, 0, 0, 5),
@@ -178,6 +280,7 @@ function Annonce.init(ctx)
 		couleur = def.couleur
 		local claire = couleur:Lerp(BLANC, 0.55)
 		nom.Text = def.nom
+		poserLogo(def)
 		titre.Text = def.titre or ""
 		titre.TextColor3 = couleur:Lerp(BLANC, 0.35)
 		degradeNom.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 248, 225)),
@@ -193,11 +296,27 @@ function Annonce.init(ctx)
 			degradeRejoindre.Color = ColorSequence.new(claire, couleur:Lerp(OMBRE, 0.3))
 		end
 		degradeBarre.Color = ColorSequence.new(claire, couleur)
+		degradeBord.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, T.Or), ColorSequenceKeypoint.new(0.25, BLANC),
+			ColorSequenceKeypoint.new(0.5, couleur), ColorSequenceKeypoint.new(0.75, claire), ColorSequenceKeypoint.new(1, T.Or)})
+		for _, r in listeRayures do r.BackgroundColor3 = couleur end
+		local liste = {}
+		for _, a in def.attaques or {} do table.insert(liste, NOMS_ATTAQUES[a] or a) end
+		attaques.Text = if #liste > 0 then '<font color="#9C9084">ATTAQUES </font>' .. table.concat(liste, " · ") else ""
+		attaques.TextColor3 = couleur:Lerp(BLANC, 0.45)
+		nombrePrets = -1
+		majPrets()
 		fond.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, couleur:Lerp(OMBRE, 0.78)),
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(14, 10, 8))})
 	end
 
 	-- ================= Apparition =================
+	-- éclair de la couleur du boss sur les bords de l'écran à l'arrivée de l'annonce
+	-- le trait est dessiné autour du cadre : cadre rentré de 40 px pour que l'éclair tombe sur les bords de l'écran
+	local eclair = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -80, 1, -80),
+		BackgroundTransparency = 1, ZIndex = 39, Visible = false, Parent = gui})
+	local traitEclair = creer("UIStroke", {Thickness = 40, Color = T.Or, Transparency = 1,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = eclair})
+	local Y_CARTE = -2 -- position haute de la carte (sous la barre Roblox)
 	local visible = false
 	local ignoreDebut: number? = nil -- DebutBoss du cycle ignoré
 	local enTeleportation = false
@@ -210,7 +329,16 @@ function Annonce.init(ctx)
 			ancre.Visible = true
 			ancre.Position = UDim2.new(0.5, 0, 0, -HAUTEUR - 40)
 			TweenService:Create(ancre, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-				{Position = UDim2.new(0.5, 0, 0, 10)}):Play()
+				{Position = UDim2.new(0.5, 0, 0, Y_CARTE)}):Play()
+			-- éclair sur les bords de l'écran + nom et logo qui jaillissent
+			eclair.Visible = true
+			traitEclair.Color = couleur
+			traitEclair.Transparency = 0.25
+			local fondu = TweenService:Create(traitEclair, TweenInfo.new(0.9, Enum.EasingStyle.Quad), {Transparency = 1})
+			fondu.Completed:Once(function() eclair.Visible = false end)
+			fondu:Play()
+			UI.pop(nom, 0.55)
+			UI.pop(disque, 0.3)
 			halo.BackgroundTransparency = 0.2
 			TweenService:Create(halo, TweenInfo.new(0.9), {BackgroundTransparency = 0.75}):Play()
 			reflet.Position = UDim2.fromScale(-0.2, 0.5)
@@ -227,7 +355,7 @@ function Annonce.init(ctx)
 		end
 	end
 
-	bRejoindre.Activated:Connect(function()
+	local function rejoindre()
 		if enTeleportation then return end
 		if not peutRejoindre() then
 			UI.secouer(bRejoindre, 6)
@@ -238,12 +366,24 @@ function Annonce.init(ctx)
 		Outils.jouer("lame", 1.3, 0.5)
 		action:FireServer("Rejoindre")
 		task.delay(2.5, function() enTeleportation = false end)
-	end)
-	bIgnorer.Activated:Connect(function()
+	end
+	local function ignorer()
 		local debut = dossier:GetAttribute("DebutBoss")
 		ignoreDebut = if type(debut) == "number" then debut else -1
 		Outils.jouer("clic", 0.9)
 		montrer(false)
+	end
+	bRejoindre.Activated:Connect(rejoindre)
+	bIgnorer.Activated:Connect(ignorer)
+	-- raccourcis clavier / manette, seulement quand la carte est affichée (et pas en tapant dans le chat)
+	UserInputService.InputBegan:Connect(function(input, traite)
+		if traite or not visible then return end
+		if table.find(TOUCHES_REJOINDRE, input.KeyCode) then
+			UI.pop(bRejoindre, 0.9)
+			rejoindre()
+		elseif table.find(TOUCHES_IGNORER, input.KeyCode) then
+			ignorer()
+		end
 	end)
 
 	-- ================= Animation (chaque image) =================
@@ -272,11 +412,29 @@ function Annonce.init(ctx)
 		local s = math.ceil(r)
 		if s ~= dernierSecondes then
 			dernierSecondes = s
+			-- chaque seconde, les chiffres tombent en place
+			chrono.Position = UDim2.new(1, -18, 0, 6)
+			chrono.TextTransparency = 0.5
+			TweenService:Create(chrono, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+				{Position = UDim2.new(1, -18, 0, 14), TextTransparency = 0}):Play()
 			if urgent and s > 0 then
 				echelleChrono.Scale = 1.3
 				TweenService:Create(echelleChrono, UI.BOUNCY, {Scale = 1}):Play()
-				Outils.jouer("ping", 0.8 + (10 - s) * 0.05, 0.3)
+				UI.secouer(carte, 3)
 			end
+		end
+		-- bord qui tourne, rayures qui défilent, point d'alerte qui bat
+		degradeBord.Rotation = (t * 90) % 360
+		local decalageRayures = (t * 18) % 32
+		for k, ray in listeRayures do
+			ray.Position = UDim2.new(0, (k - 1) * 32 - 60 + decalageRayures, 0.5, 0)
+		end
+		pointAlerte.BackgroundTransparency = 0.5 - 0.5 * math.sin(t * 6)
+		-- la caméra du logo se balance doucement autour de la tête du boss
+		if cadrage then
+			local angle = math.sin(t * 0.7) * 0.35
+			local avant = CFrame.Angles(0, angle, 0):VectorToWorldSpace(cadrage.avant)
+			camLogo.CFrame = CFrame.lookAt(cadrage.haut + avant * cadrage.distance + Vector3.new(0, cadrage.montee, 0), cadrage.haut)
 		end
 		barre.Size = UDim2.fromScale(math.clamp(r / Config.ANNONCE, 0, 1), 1)
 
@@ -300,7 +458,7 @@ function Annonce.init(ctx)
 		-- bouton Rejoindre : pulse doux + reflet ; grisé hors de la carte principale
 		local possible = peutRejoindre()
 		if not enTeleportation then
-			lRejoindre.Text = if possible then "REJOINDRE LE PORTAIL" else "RETOURNE AU VILLAGE"
+			lRejoindre.Text = if possible then "[R]  REJOINDRE LE PORTAIL" else "RETOURNE AU VILLAGE"
 		end
 		bRejoindre.BackgroundTransparency = if possible then 0 else 0.55
 		echelleRejoindre.Scale = if possible then 1 + 0.03 * math.sin(t * 4) else 1

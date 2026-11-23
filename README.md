@@ -336,6 +336,10 @@ Dans les tunnels privés (mines privées), la caméra est forcée en **1re perso
 
 ## Tunnels privés (mines privées)
 
+**Remonter** : dès qu'on est descendu sous le sol de la galerie dans sa mine privée, un bouton **[H] REMONTER**
+apparaît à droite de l'écran avec la profondeur ; clic ou touche H = retour tout en haut de la mine (point d'apparition),
+validé par le serveur (`src/server/RemonterMine.server.lua`, bouton : `src/client/RemonterMine.client.lua`).
+
 Dans la caverne, les 6 portes (Tunnel I à VI) sont encastrées dans la paroi : cadre en bois, lanternes et fond noir,
 parvis en planches. Devant chaque porte, un **cercle lumineux** au sol (anneau de lumière blanche creux de 5,5 studs
 de rayon) affiche « 0/1 ». Quand un joueur entre dedans,
@@ -644,9 +648,9 @@ fine et des étincelles aux couleurs du boss s'élèvent du cercle.
   dans `src/partage/BossVillage.lua`), les joueurs vivants dans le cercle (20 max, par ordre d'arrivée) partent ensemble
   dans l'arène. Personne : le compte à rebours repart. Un seul combat à la fois (le panneau affiche « Combat en cours »).
 - **Annonce (1 min avant)** : une seule **carte en haut d'écran** (`src/client/BossAnnonce.lua`) : emblème du boss,
-  nom doré, titre, grand compte à rebours (depuis l'heure serveur `DebutBoss`), barre de temps, braises ; rouge qui bat
-  les 10 dernières secondes. Bouton **REJOINDRE LE PORTAIL** : le serveur téléporte le joueur dans le grand cercle
-  (seulement depuis le village ou la mine publique, vivant, hors arène) ; **IGNORER** : la carte disparaît jusqu'au
+  tête 3D du boss, nom doré, titre, grand compte à rebours (depuis l'heure serveur `DebutBoss`), barre de temps, braises ; rouge qui bat
+  les 10 dernières secondes (sans son de décompte). Bouton **REJOINDRE LE PORTAIL** (touche R, manette croix haut) : le serveur téléporte le joueur dans le grand cercle
+  (seulement depuis le village ou la mine publique, vivant, hors arène) ; **IGNORER** (touche X, croix bas) : la carte disparaît jusqu'au
   boss suivant. Dernière minute aussi : **chevrons lumineux au sol** devant le joueur, vers le cercle (en surface).
   Pendant un combat, la puce en haut d'écran dit « combat en cours · entre dans le cercle » ; après le retour,
   « Prochain boss dans 6:12 ».

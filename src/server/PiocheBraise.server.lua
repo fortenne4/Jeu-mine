@@ -63,7 +63,7 @@ local ECLAT_MINERAI = {
 	{"rbxassetid://9118587698", 0.44, 1, 0}, -- Rock Drop On Concrete Breaks 3 : la roche cède
 	{"rbxassetid://9119448154", 0.3, 1.1, 0.06}, -- Sparkle Bell Tree Wind Chimes 2 : clochettes
 	{"rbxassetid://9126073026", 0.35, 1, 0.1}, -- Synth Sparkle Bell Tone Ding : ding
-	{"rbxassetid://1169755927", 0.5, 1.2, 0.14}, -- Coin Collect (Everyedit, libre d'utilisation) : pièce
+	{"rbxassetid://1169755927", 0.3, 1.2, 0.14}, -- Coin Collect (Everyedit, libre d'utilisation) : pièce
 }
 
 -- Endroit du manche tenu par la main (0 = milieu du manche, -2.2 = bout du manche).
