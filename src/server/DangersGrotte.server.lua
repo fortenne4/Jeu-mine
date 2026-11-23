@@ -16,6 +16,12 @@ local DEGATS_LAVE = 10 -- toutes les 0,4 s
 local DEGATS_GEYSER = 18 -- toutes les 0,4 s
 local RAYON_GEYSER = 4
 
+-- dégâts de feu réduits par l'attribut joueur « ResistanceFeu » (0..1, casque magmatique : CasqueMagma.server)
+local function degatsFeu(joueur: Player, degats: number): number
+	local r = joueur:GetAttribute("ResistanceFeu")
+	return degats * (1 - (if type(r) == "number" then math.clamp(r, 0, 0.9) else 0))
+end
+
 local function racines(): {{joueur: Player, r: BasePart, hum: Humanoid}}
 	local t = {}
 	for _, j in Players:GetPlayers() do
@@ -105,7 +111,7 @@ task.spawn(function()
 								-- geyser propulseur : aucun dégât, il projette très haut (corniche secrète)
 								e.r.AssemblyLinearVelocity = Vector3.new(e.r.AssemblyLinearVelocity.X, propulsion, e.r.AssemblyLinearVelocity.Z)
 							else
-								e.hum:TakeDamage(DEGATS_GEYSER)
+								e.hum:TakeDamage(degatsFeu(e.joueur, DEGATS_GEYSER))
 								e.r.AssemblyLinearVelocity = Vector3.new(0, 45, 0)
 							end
 						end
@@ -126,7 +132,7 @@ task.spawn(function()
 						brulent[e.joueur] = true
 						if maintenant - (dernierCoup[e.joueur] or 0) > 0.4 then
 							dernierCoup[e.joueur] = maintenant
-							e.hum:TakeDamage(DEGATS_LAVE)
+							e.hum:TakeDamage(degatsFeu(e.joueur, DEGATS_LAVE))
 						end
 					end
 				end

@@ -19,6 +19,65 @@ if not remote then
 	remote.Parent = ReplicatedStorage
 end
 
+-- Modèle du wagonnet de la course : copie du wagon de la gare (celui qui descend à la mine), sans siège, scripts
+-- ni invites, ancré, recentré pour que sa base (bas, milieu, avant = −Z) soit à l'origine. Le client le clone
+-- (ReplicatedStorage › ModeleWagonCourse) ; sans wagon de gare, il garde son wagonnet construit en code.
+local A_RETIRER = {"JointInstance", "Constraint", "WeldConstraint", "NoCollisionConstraint", "LuaSourceContainer", "Sound",
+	"ProximityPrompt", "Animator", "ForceField", "BillboardGui", "Seat", "ClickDetector"}
+local function preparerModeleWagon()
+	local depart = os.clock()
+	local wagon: Model? = nil
+	while not wagon and os.clock() - depart < 90 do
+		local carte = workspace:FindFirstChild("Carte")
+		local mine = carte and carte:FindFirstChild("Mine")
+		local gare = mine and mine:FindFirstChild("Gare")
+		if gare then
+			for _, d in gare:GetDescendants() do
+				if d:IsA("Seat") and d.Name == "SiegeWagon" and d.Parent and d.Parent:IsA("Model") then
+					wagon = d.Parent :: Model
+					break
+				end
+			end
+		end
+		if not wagon then task.wait(2) end
+	end
+	if not wagon then
+		warn("[MecaniquesGrotte] wagon de la gare introuvable : la course garde son wagonnet construit en code")
+		return
+	end
+	local copie = wagon:Clone()
+	for _, d in copie:GetDescendants() do
+		for _, classe in A_RETIRER do
+			if d:IsA(classe) then
+				d:Destroy()
+				break
+			end
+		end
+	end
+	for _, d in copie:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Anchored, d.CanCollide, d.CanQuery, d.CanTouch = true, false, false, false
+			d.Massless = true
+		end
+	end
+	-- repère de base : milieu du bas de la boîte englobante, longueur du wagon selon Z
+	local cf, taille = copie:GetBoundingBox()
+	local base = cf * CFrame.new(0, -taille.Y / 2, 0)
+	if taille.X > taille.Z then
+		base *= CFrame.Angles(0, math.pi / 2, 0)
+	end
+	for _, d in copie:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.CFrame = base:ToObjectSpace(d.CFrame)
+		end
+	end
+	copie.Name = "ModeleWagonCourse"
+	copie:SetAttribute("Longueur", math.max(taille.X, taille.Z))
+	copie:SetAttribute("Hauteur", taille.Y)
+	copie.Parent = ReplicatedStorage
+end
+task.spawn(preparerModeleWagon)
+
 local function grotteDe(objet: Instance): Model?
 	local dossier = workspace:FindFirstChild("Grottes")
 	local m = objet
@@ -166,6 +225,7 @@ local function basculer(modele: Model, depart: CFrame, de: number, a: number, du
 end
 
 local fonderiesOccupees: {[Instance]: boolean} = {}
+local LINGOT_ROYAL = "LingotRoyal"
 local function fonderieRoyale(invite: ProximityPrompt, joueur: Player)
 	local grotte = grotteDe(invite)
 	local r = racine(joueur)
@@ -174,13 +234,17 @@ local function fonderieRoyale(invite: ProximityPrompt, joueur: Player)
 	if not (grotte and r and membre(grotte, joueur) and creuset) or fonderiesOccupees[fonderie] then
 		return
 	end
-	if dejaFait(grotte, "Fondus", joueur) then
-		remote:FireClient(joueur, "Fonderie", {ok = false, raison = "Tu as déjà coulé ton lingot royal dans cette expédition."})
+	local p = Donnees.profil(joueur)
+	-- une seule fois par joueur, pour toujours (marque « LingotRoyal » sauvegardée dans profil.fragments)
+	if dejaFait(grotte, "Fondus", joueur) or (p and p.fragments[LINGOT_ROYAL]) then
+		remote:FireClient(joueur, "Fonderie", {ok = false, raison = "Tu as déjà coulé ton lingot royal : la fonderie ne s'allume qu'une fois."})
 		return
 	end
-	local p = Donnees.profil(joueur)
 	if not p or (p.minerais.Fer or 0) < FER_REQUIS then
 		remote:FireClient(joueur, "Fonderie", {ok = false, raison = "Il faut " .. FER_REQUIS .. " Fer dans ton sac pour rallumer la fonderie."})
+		return
+	end
+	if not Donnees.ajouterFragment(joueur, LINGOT_ROYAL) then
 		return
 	end
 	Donnees.ajouterMinerai(joueur, "Fer", -FER_REQUIS)

@@ -131,7 +131,7 @@ function GrotteMine.decorer(ctx, infos, outils)
 	local nCadres = 0
 	for _, g in galeries do
 		local dernier = nil
-		local pas = if g.principal then 9 else 12
+		local pas = if g.principal then 30 else 46 -- espacés : quelques cadres seulement, pas un tunnel continu
 		for i, pt in g.pts do
 			if i > 1 and i < #g.pts and (not dernier or (pt.p - dernier).Magnitude > pas) then
 				local loinSalles = true
@@ -155,10 +155,21 @@ function GrotteMine.decorer(ctx, infos, outils)
 						end
 						local g1, g2 = bord(-1), bord(1)
 						local cfBase = CFrame.lookAt(Vector3.new(pt.p.X, y0, pt.p.Z), Vector3.new(pt.p.X, y0, pt.p.Z) + pt.t)
+						-- chaque poteau sur SON sol (pente, marche) : sinon le cadre flotte d'un côté
+						local piedG = T.solEn((cfBase * CFrame.new(-g1, 0, 0)).Position, 4)
+						local piedD = T.solEn((cfBase * CFrame.new(g2, 0, 0)).Position, 4)
+						if not (piedG and piedD) or math.abs(piedG.Position.Y - piedD.Position.Y) > 2.5
+							or math.abs(piedG.Position.Y - y0) > 3 or math.abs(piedD.Position.Y - y0) > 3 then
+							continue -- sol trop irrégulier ou vide sous un poteau : pas de cadre ici
+						end
 						local m = T.modele("CadreMine")
 						local inclin = rng:NextNumber(-0.04, 0.04)
-						T.bloc(m, Vector3.new(0.9, h, 0.9), cfBase * CFrame.new(-g1, h / 2, 0) * CFrame.Angles(0, 0, -0.06 + inclin), P.bois, M.Bois, "Poteau")
-						T.bloc(m, Vector3.new(0.9, h, 0.9), cfBase * CFrame.new(g2, h / 2, 0) * CFrame.Angles(0, 0, 0.06 + inclin), P.bois, M.Bois, "Poteau")
+						local enfonce = 1.2 -- les poteaux s'enfoncent un peu dans le sol
+						for _, cote in {{-g1, piedG.Position.Y, -0.06}, {g2, piedD.Position.Y, 0.06}} do
+							local hp = y0 + h - cote[2] + enfonce
+							T.bloc(m, Vector3.new(0.9, hp, 0.9), cfBase * CFrame.new(cote[1], (cote[2] - y0) - enfonce + hp / 2, 0)
+								* CFrame.Angles(0, 0, cote[3] + inclin), P.bois, M.Bois, "Poteau")
+						end
 						T.bloc(m, Vector3.new(g1 + g2 + 1.6, 0.9, 1.1), cfBase * CFrame.new((g2 - g1) / 2, h, 0), P.boisSombre, M.Bois, "Chapeau")
 						-- planches de garnissage au plafond, une fois sur deux
 						if nCadres % 2 == 0 then

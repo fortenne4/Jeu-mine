@@ -720,6 +720,35 @@ function Generateur.construire(niveau, index, graine, proprietaire, invite, essa
 		if not ok then warn("[Grottes] décor incomplet : " .. tostring(err)) end
 	end
 
+	-- 7. Apparitions revérifiées APRÈS le décor (un thème peut creuser ou poser des choses à l'arrivée) :
+	-- chaque point doit avoir un vrai sol juste dessous ; sinon on cherche du sol en anneaux autour du départ.
+	local function solFiable(p: Vector3): Vector3?
+		local hit = lancer(p + Vector3.new(0, 6, 0), Vector3.new(0, -16, 0))
+		if hit and hit.Normal.Y > 0.7 then
+			local plafond = lancer(hit.Position + Vector3.new(0, 0.5, 0), Vector3.new(0, 7, 0))
+			if not plafond then return hit.Position end
+		end
+		return nil
+	end
+	for i, cf in apparitions do
+		if not solFiable(cf.Position) then
+			local trouve = nil
+			for r = 0, 14, 2 do
+				for k = 0, 11 do
+					local a = k / 12 * 2 * math.pi
+					local essai = solFiable(depart.p + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r))
+					if essai then trouve = essai break end
+				end
+				if trouve then break end
+			end
+			if trouve then
+				apparitions[i] = CFrame.lookAt(trouve, trouve + versSalle)
+			else
+				warn("[Grottes] aucune apparition sûre trouvée (graine " .. tostring(graine) .. ")")
+			end
+		end
+	end
+
 	m.Parent = dossier
 	return {
 		modele = m,

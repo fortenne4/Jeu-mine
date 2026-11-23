@@ -32,6 +32,7 @@ local M, C = O.M, O.C
 local PAS = 0.1
 local RECHARGE = 3          -- délai avant de pouvoir réactiver le cercle après un voyage / une annulation
 local FLUX_LIMITE = 3
+local ANCRAGE_ARRIVEE = 1.2 -- s : joueur figé à l'arrivée dans la grotte, le temps que le sol se charge
 local INVITATION_DUREE = 25
 local RAYON = Grottes.RAYON_CERCLE
 -- Entrée : lobe est de la caverne, à droite du Tunnel VI, face au centre
@@ -333,8 +334,16 @@ local function streamerPuisPoser(joueur: Player, cible: CFrame): boolean
 	if not perso then return false end
 	if humain.Sit then humain.Sit = false end
 	local hauteur = if humain.RigType == Enum.HumanoidRigType.R6 then 3 else humain.HipHeight + racine.Size.Y / 2
+	-- ancré le temps que le sol de la grotte arrive chez le joueur (sinon il traverse un sol pas encore chargé)
+	racine.Anchored = true
 	perso:PivotTo(cible + Vector3.new(0, hauteur + 0.1, 0))
 	racine.AssemblyLinearVelocity = Vector3.zero
+	task.delay(ANCRAGE_ARRIVEE, function()
+		if racine.Parent then
+			racine.Anchored = false
+			racine.AssemblyLinearVelocity = Vector3.zero
+		end
+	end)
 	return true
 end
 
@@ -530,6 +539,15 @@ local function examiner(joueur: Player, maintenant: number)
 	if exp then
 		local grotte = exp.grotte
 		if exp.enSortie[joueur] then return end
+		-- filet de sécurité : tombé sous la grotte (hors de la carte) → ramené à l'arrivée, sans dégâts
+		local modele = grotte.modele
+		local centre, demi = modele and modele:GetAttribute("Centre"), modele and modele:GetAttribute("DemiTaille")
+		if typeof(centre) == "Vector3" and typeof(demi) == "Vector3" and p.Y < centre.Y - demi.Y - 10
+			and grotte.apparitions and grotte.apparitions[1] then
+			racine.AssemblyLinearVelocity = Vector3.zero
+			task.spawn(streamerPuisPoser, joueur, grotte.apparitions[1])
+			return
+		end
 		if grotte.sortie and grotte.sortie.Parent and dedans(grotte.centreSortie, p, Cercle.RAYON)
 			and maintenant - (derniers[joueur] or -math.huge) > RECHARGE then
 			task.spawn(sortir, joueur, exp)

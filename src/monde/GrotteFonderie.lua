@@ -177,6 +177,17 @@ function GrotteFonderie.decorer(ctx, infos, outils)
 			T.bloc(enclume, Vector3.new(2.4, 1.6, 1.4), CFrame.new(c + Vector3.new(1.5, 0.8, 0)), P.pierreSombre, Enum.Material.Slate, "Socle")
 			T.bloc(enclume, Vector3.new(3.4, 0.9, 1.3), CFrame.new(c + Vector3.new(1.5, 2.05, 0)), P.fonte, M.Metal, "Table")
 			T.coin(enclume, Vector3.new(1.3, 0.9, 1.6), CFrame.new(c + Vector3.new(3.9, 2.05, 0)) * CFrame.Angles(0, -math.pi / 2, 0), P.fonte, M.Metal, "Bigorne")
+			-- l'enclume forge le Casque du Cœur Magmatique avec les 3 reliques (CasqueMagma.server / EnclumeMagma.client)
+			local tableEnclume = enclume:FindFirstChild("Table")
+			if tableEnclume then
+				local fente = T.bloc(enclume, Vector3.new(2.2, 0.06, 0.5), CFrame.new(c + Vector3.new(1.5, 2.52, 0)), P.fondu, M.Neon, "FenteMagma")
+				fente.CastShadow = false
+				local invite = Instance.new("ProximityPrompt")
+				invite.ActionText, invite.ObjectText = "Forger", "Enclume des Maîtres"
+				invite.HoldDuration, invite.MaxActivationDistance, invite.RequiresLineOfSight = 0.5, 10, false
+				invite:SetAttribute("EnclumeMagma", true)
+				invite.Parent = tableEnclume
+			end
 			brasero(c + Vector3.new(-2.5, 0, 1.5), 2.5)
 			-- chaînes géantes qui plongent du plafond dans le gouffre
 			for k = 1, 5 do
@@ -537,6 +548,65 @@ function GrotteFonderie.decorer(ctx, infos, outils)
 				Size = NumberSequence.new({T.kp(0, 0.15), T.kp(1, 0)}), Lifetime = NumberRange.new(3, 6), Rate = 6,
 				Speed = NumberRange.new(0.5, 1.2), SpreadAngle = Vector2.new(180, 180), Acceleration = Vector3.new(0, 0.6, 0),
 			})
+		end
+	end
+
+	-- ===== 7b. Reliques du Casque du Cœur Magmatique (une par cachette, CasqueMagma.server) =====
+	-- dans la fonderie, la salle des rouages, puis la salle la plus éloignée du départ ; au fond d'un coin de salle
+	do
+		local choix, pris = {}, {}
+		for _, s in {fonderie, rouages} do
+			if s then
+				table.insert(choix, s)
+				pris[s] = true
+			end
+		end
+		local autres = {}
+		for _, s in salles do
+			if not s.depart and not pris[s] and roles[s] ~= "abime" then
+				table.insert(autres, s)
+			end
+		end
+		table.sort(autres, function(a, b)
+			return (a.p - depart.p).Magnitude > (b.p - depart.p).Magnitude
+		end)
+		for _, s in autres do
+			table.insert(choix, s)
+		end
+		local couleurs = {Color3.fromRGB(120, 70, 160), Color3.fromRGB(150, 120, 110), Color3.fromRGB(255, 110, 30)}
+		local n = 0
+		for _, s in choix do
+			if n >= 3 then
+				break
+			end
+			local q = T.coinSalle(s, math.max(4, s.r - 5))
+			local sol = T.solEn(q, 8) or T.solEn(s.p, 8)
+			if not sol then
+				continue
+			end
+			n += 1
+			local base = sol.Position
+			local m = T.modele("ReliqueMagma")
+			local cf = CFrame.new(base) * CFrame.Angles(0, rng:NextNumber(0, math.pi * 2), 0)
+			-- petit autel de basalte et la relique qui flotte au-dessus
+			T.bloc(m, Vector3.new(2.2, 0.6, 2.2), cf * CFrame.new(0, 0.3, 0), P.pierreSombre, Enum.Material.Basalt, "Autel")
+			T.bloc(m, Vector3.new(1.4, 0.5, 1.4), cf * CFrame.new(0, 0.85, 0) * CFrame.Angles(0, math.pi / 4, 0), P.fonte, Enum.Material.Basalt, "Autel")
+			T.bloc(m, Vector3.new(1.5, 0.08, 1.5), cf * CFrame.new(0, 1.12, 0) * CFrame.Angles(0, math.pi / 4, 0), P.fondu, M.Neon, "Rune").CastShadow = false
+			local relique = T.bloc(m, Vector3.new(0.7, 0.9, 0.7), cf * CFrame.new(0, 2.1, 0) * CFrame.Angles(math.rad(35), 0, math.rad(45)), couleurs[n], M.Neon, "Relique")
+			relique.CastShadow = false
+			T.emetteur(relique, {
+				Name = "Braises", Texture = GT.TEX_ETINCELLE, LightEmission = 1, LightInfluence = 0, Color = ColorSequence.new(couleurs[n], P.braise),
+				Size = NumberSequence.new({T.kp(0, 0.25), T.kp(1, 0)}), Lifetime = NumberRange.new(1, 2), Rate = 8,
+				Speed = NumberRange.new(0.5, 1.5), SpreadAngle = Vector2.new(180, 180), Acceleration = Vector3.new(0, 1.5, 0),
+			})
+			T.lumiere(relique, couleurs[n], 1.2, 12)
+			local invite = Instance.new("ProximityPrompt")
+			invite.ActionText, invite.ObjectText = "Ramasser", "Relique volcanique"
+			invite.HoldDuration, invite.MaxActivationDistance, invite.RequiresLineOfSight = 0.5, 9, false
+			invite:SetAttribute("ReliqueMagma", "Magma" .. n)
+			invite.Parent = relique
+			m:SetAttribute("Relique", "Magma" .. n)
+			T.tag(m, "ReliqueMagma")
 		end
 	end
 

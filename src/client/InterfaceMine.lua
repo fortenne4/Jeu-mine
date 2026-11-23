@@ -399,38 +399,495 @@ function UI.tampon(parent: GuiObject, txt: string, y: number?, hauteur: number?)
 	end)
 end
 
--- ================= Message (plaque en bas de l'écran) =================
-function UI.toast(gui: ScreenGui): (string, boolean) -> ()
-	local plaque = creer("Frame", {Name = "Message", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.94),
-		Size = UDim2.fromScale(0.46, 0.055), BackgroundColor3 = T.BoisSombre, Visible = false, ZIndex = 50, Parent = gui},
-		{coin(0.35), creer("UISizeConstraint", {MaxSize = Vector2.new(620, 52)})})
-	local bord = trait(T.Vert, 2.5)
-	bord.Parent = plaque
-	local l = texte({Font = Enum.Font.GothamBlack, Position = UDim2.fromScale(0.04, 0.18), Size = UDim2.fromScale(0.92, 0.64),
-		ZIndex = 51, Parent = plaque}, 24)
-	local id = 0
-	return function(txt: string, ok: boolean)
-		id += 1
-		local moi = id
-		l.Text = (if ok then "✔  " else "✖  ") .. txt
-		l.TextColor3 = if ok then T.Vert else T.Rouge
-		bord.Color = l.TextColor3
-		plaque.Visible = true
-		plaque.Position = UDim2.fromScale(0.5, 0.99)
-		TweenService:Create(plaque, BOUNCY, {Position = UDim2.fromScale(0.5, 0.94)}):Play()
-		pop(plaque, 0.7)
-		task.delay(2.4, function()
-			if moi == id then
-				TweenService:Create(plaque, FAST, {Position = UDim2.fromScale(0.5, 1.06)}):Play()
-				task.delay(0.16, function()
-					if moi == id then
-						plaque.Visible = false
-					end
-				end)
+-- ================= Messages : cartes de notification empilées (bas de l'écran) =================
+-- Une seule pile partagée par toutes les interfaces (ScreenGui « NotificationsMine ») : les messages de scripts
+-- différents s'empilent au lieu de s'écraser. Icônes dessinées en Frames (aucune image ni emoji).
+local NOTIF_RATIO = 7.2 -- largeur / hauteur d'une carte
+local NOTIF_MAX = 3 -- cartes visibles en même temps
+local NOTIF_ECART = 6 -- pixels entre deux cartes
+local NOTIF_MEDAILLON_X = 0.42 / NOTIF_RATIO + 0.014 -- centre du médaillon (échelle X de la carte)
+local BLANC = Color3.new(1, 1, 1)
+local NOIR = Color3.new(0, 0, 0)
+local BRUN = Color3.fromRGB(40, 22, 10)
+
+type TonNotif = {accent: Color3, clair: Color3, fond: Color3, fondHaut: Color3, chiffre: string, titre: string?}
+local TONS_NOTIF: {[string]: TonNotif} = {
+	succes = {accent = Color3.fromRGB(255, 186, 64), clair = Color3.fromRGB(255, 236, 168), fond = Color3.fromRGB(28, 18, 11),
+		fondHaut = Color3.fromRGB(80, 52, 26), chiffre = "#FFD45C"},
+	erreur = {accent = Color3.fromRGB(240, 84, 54), clair = Color3.fromRGB(255, 188, 150), fond = Color3.fromRGB(30, 13, 10),
+		fondHaut = Color3.fromRGB(88, 30, 20), chiffre = "#FFC27A", titre = "ATTENTION"},
+	info = {accent = Color3.fromRGB(150, 186, 214), clair = Color3.fromRGB(226, 238, 248), fond = Color3.fromRGB(20, 22, 26),
+		fondHaut = Color3.fromRGB(54, 60, 68), chiffre = "#FFD45C", titre = "INFO"},
+}
+local TITRES_NOTIF: {[string]: string} = {piece = "BUTIN", pepite = "MINERAI", coffre = "TRÉSOR", flamme = "FOURNAISE",
+	wagon = "WAGONNET", quete = "QUÊTE", gemme = "RELIQUE", etoile = "ÉVÉNEMENT", ok = "RÉUSSITE"}
+-- Mots-clés (texte en minuscules) → icône ; la première ligne qui correspond gagne
+local MOTS_NOTIF: {{string}} = {
+	{"piece", "pièce", "piece"},
+	{"coffre", "coffre", "trésor"},
+	{"quete", "quête", "quete", "guilde"},
+	{"gemme", "relique", "cristal", "gemme", "rune", "diamant", "rubis", "émeraude", "saphir"},
+	{"flamme", "lave", "%f[%w]feux?%f[%W]", "fonderie", "braise", "flamme", "magma", "creuset", "fournaise"},
+	{"wagon", "wagon", "en voiture", "terminus", "%f[%w]rails?%f[%W]"},
+	{"pepite", "minerai", "%f[%w]fer%f[%W]", "%f[%w]or%f[%W]", "bronze", "cuivre", "veine", "lingot", "pépite", "charbon"},
+}
+local function iconeDuTexteNotif(txt: string): string?
+	local bas = string.lower(txt)
+	for _, ligne in MOTS_NOTIF do
+		for k = 2, #ligne do
+			if string.find(bas, ligne[k]) then
+				return ligne[1]
+			end
+		end
+	end
+	return nil
+end
+
+-- Nombres du message en gras doré (RichText ; le texte brut est échappé d'abord)
+local function texteRicheNotif(txt: string, couleur: string): string
+	local s = string.gsub(txt, "&", "&amp;")
+	s = string.gsub(s, "<", "&lt;")
+	s = string.gsub(s, ">", "&gt;")
+	s = string.gsub(s, "[%+%-]?%d+", '<font color="' .. couleur .. '"><b>%0</b></font>')
+	return s
+end
+
+-- ---- Dessin des icônes (boîte carrée, coordonnées en échelle 0..1) ----
+local function formeNotif(parent: Instance, x: number, y: number, l: number, h: number, couleur: Color3, enfants: {Instance}?, rotation: number?): Frame
+	return creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(x, y), Size = UDim2.fromScale(l, h),
+		Rotation = rotation or 0, BackgroundColor3 = couleur, BorderSizePixel = 0, Parent = parent}, enfants)
+end
+local function bombeNotif(rotation: number?): UIGradient -- relief « métal bombé » (multiplie la couleur)
+	return creer("UIGradient", {Rotation = rotation or 60, Color = ColorSequence.new({ColorSequenceKeypoint.new(0, BLANC),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(222, 222, 222)), ColorSequenceKeypoint.new(1, Color3.fromRGB(135, 135, 135))})})
+end
+local function barreNotif(b: Instance, x: number, y: number, l: number, couleur: Color3, rotation: number)
+	formeNotif(b, x, y, l, 0.16, couleur, {coin(0.5), trait(BRUN, 1.5)}, rotation)
+end
+local function refletNotif(b: Instance, x: number, y: number, l: number, h: number, rotation: number?)
+	formeNotif(b, x, y, l, h, BLANC, {coin(0.5)}, rotation).BackgroundTransparency = 0.35
+end
+
+local OR_CLAIR = Color3.fromRGB(255, 224, 124)
+local DESSINS_NOTIF: {[string]: (Frame, Color3) -> ()} = {
+	ok = function(b, encre)
+		barreNotif(b, 0.32, 0.6, 0.32, encre, 45)
+		barreNotif(b, 0.6, 0.48, 0.62, encre, -48)
+	end,
+	croix = function(b, encre)
+		barreNotif(b, 0.5, 0.5, 0.82, encre, 45)
+		barreNotif(b, 0.5, 0.5, 0.82, encre, -45)
+	end,
+	info = function(b, encre)
+		formeNotif(b, 0.5, 0.2, 0.2, 0.2, encre, {coin(0.5), trait(BRUN, 1.5)})
+		formeNotif(b, 0.5, 0.64, 0.18, 0.5, encre, {coin(0.5), trait(BRUN, 1.5)})
+	end,
+	piece = function(b)
+		formeNotif(b, 0.5, 0.5, 0.9, 0.9, T.Or, {coin(0.5), trait(T.OrFonce, 1.5), bombeNotif()})
+		formeNotif(b, 0.5, 0.5, 0.62, 0.62, T.Or, {coin(0.5), trait(Color3.fromRGB(196, 128, 40), 1.5, 0.15)}).BackgroundTransparency = 1
+		formeNotif(b, 0.5, 0.5, 0.13, 0.36, T.OrFonce, {coin(0.5)})
+		refletNotif(b, 0.33, 0.28, 0.22, 0.12, -35)
+	end,
+	pepite = function(b)
+		formeNotif(b, 0.42, 0.58, 0.58, 0.5, T.Or, {coin(0.35), trait(T.OrFonce, 1.5), bombeNotif()}, -12)
+		formeNotif(b, 0.63, 0.42, 0.42, 0.4, OR_CLAIR, {coin(0.4), trait(T.OrFonce, 1.5), bombeNotif()}, 20)
+		refletNotif(b, 0.6, 0.36, 0.12, 0.12, 45)
+		formeNotif(b, 0.84, 0.16, 0.05, 0.26, BLANC, {coin(0.5)})
+		formeNotif(b, 0.84, 0.16, 0.26, 0.05, BLANC, {coin(0.5)})
+	end,
+	coffre = function(b)
+		local bois = Color3.fromRGB(128, 78, 40)
+		formeNotif(b, 0.5, 0.66, 0.88, 0.46, bois, {coin(0.12), trait(BRUN, 1.5), bombeNotif(90)})
+		formeNotif(b, 0.5, 0.34, 0.88, 0.32, bois:Lerp(BLANC, 0.1), {coin(0.45), trait(BRUN, 1.5), bombeNotif(90)})
+		formeNotif(b, 0.5, 0.47, 0.94, 0.08, T.Fer, {trait(T.FerSombre, 1), bombeNotif(90)})
+		formeNotif(b, 0.24, 0.56, 0.08, 0.7, T.Fer, {bombeNotif(0)})
+		formeNotif(b, 0.76, 0.56, 0.08, 0.7, T.Fer, {bombeNotif(0)})
+		formeNotif(b, 0.5, 0.55, 0.18, 0.22, T.Or, {coin(0.25), trait(T.OrFonce, 1), bombeNotif()})
+	end,
+	flamme = function(b)
+		local function goutte(cx: number, cy: number, r: number, haut: Color3, basC: Color3)
+			formeNotif(b, cx, cy, r, r, BLANC, {coin(0.5), UI.degrade(haut, basC, 90)})
+			formeNotif(b, cx, cy - r * 0.3, r * 0.72, r * 0.72, BLANC, {coin(0.12), UI.degrade(haut, basC, 45)}, 45)
+		end
+		goutte(0.5, 0.62, 0.68, Color3.fromRGB(255, 196, 60), Color3.fromRGB(226, 64, 20))
+		goutte(0.5, 0.72, 0.36, Color3.fromRGB(255, 248, 200), Color3.fromRGB(255, 190, 70))
+	end,
+	wagon = function(b)
+		local c1 = formeNotif(b, 0.36, 0.26, 0.24, 0.22, T.Or, {coin(0.45), bombeNotif()})
+		local c2 = formeNotif(b, 0.6, 0.23, 0.28, 0.26, OR_CLAIR, {coin(0.45), bombeNotif()})
+		c1.ZIndex, c2.ZIndex = 1, 1
+		formeNotif(b, 0.5, 0.5, 0.82, 0.4, T.Fer, {coin(0.12), trait(T.FerSombre, 1.5), bombeNotif(90)}).ZIndex = 2
+		formeNotif(b, 0.5, 0.32, 0.96, 0.1, Color3.fromRGB(120, 122, 130), {coin(0.3), trait(T.FerSombre, 1)}).ZIndex = 3
+		for _, x in {0.28, 0.72} do
+			formeNotif(b, x, 0.78, 0.26, 0.26, Color3.fromRGB(28, 28, 32), {coin(0.5), trait(T.Rivet, 1.5)}).ZIndex = 4
+			formeNotif(b, x, 0.78, 0.09, 0.09, T.Rivet, {coin(0.5)}).ZIndex = 5
+		end
+	end,
+	quete = function(b)
+		local brun = Color3.fromRGB(120, 78, 40)
+		formeNotif(b, 0.5, 0.52, 0.64, 0.64, T.Parchemin, {coin(0.08), trait(brun, 1.2), bombeNotif(90)})
+		formeNotif(b, 0.5, 0.18, 0.82, 0.15, Color3.fromRGB(214, 184, 132), {coin(0.5), trait(brun, 1.2)})
+		formeNotif(b, 0.5, 0.86, 0.82, 0.15, Color3.fromRGB(214, 184, 132), {coin(0.5), trait(brun, 1.2)})
+		for k, y in {0.38, 0.5, 0.62} do
+			formeNotif(b, 0.46, y, if k == 3 then 0.28 else 0.4, 0.05, brun, {coin(0.5)})
+		end
+		formeNotif(b, 0.68, 0.68, 0.2, 0.2, Color3.fromRGB(190, 40, 36), {coin(0.5), trait(Color3.fromRGB(90, 16, 14), 1), bombeNotif()})
+	end,
+	gemme = function(b)
+		formeNotif(b, 0.5, 0.5, 0.62, 0.62, BLANC, {coin(0.12), trait(Color3.fromRGB(220, 250, 255), 1.5),
+			UI.degrade(Color3.fromRGB(150, 236, 255), Color3.fromRGB(70, 90, 230), 0)}, 45)
+		formeNotif(b, 0.42, 0.4, 0.24, 0.24, BLANC, {coin(0.1)}, 45).BackgroundTransparency = 0.4
+		formeNotif(b, 0.82, 0.18, 0.05, 0.24, BLANC, {coin(0.5)})
+		formeNotif(b, 0.82, 0.18, 0.24, 0.05, BLANC, {coin(0.5)})
+	end,
+	etoile = function(b)
+		formeNotif(b, 0.5, 0.5, 0.64, 0.64, T.Or, {coin(0.1), trait(T.OrFonce, 1.5), bombeNotif()})
+		formeNotif(b, 0.5, 0.5, 0.64, 0.64, T.Or, {coin(0.1), trait(T.OrFonce, 1.5), bombeNotif()}, 45)
+		formeNotif(b, 0.5, 0.5, 0.32, 0.32, Color3.fromRGB(255, 244, 200), {coin(0.5)})
+	end,
+}
+
+-- ---- Pile de cartes ----
+type CarteNotif = {cle: string, groupe: CanvasGroup, echelle: UIScale, contour: UIStroke, reflet: UIGradient, remplissage: Frame,
+	badge: Frame, badgeTexte: TextLabel, bouton: TextButton, compte: number, duree: number, minuteur: Tween?, boucles: {Tween},
+	ferme: boolean, survol: boolean}
+local notifCadre: Frame? = nil
+local notifCartes: {CarteNotif} = {}
+local notifSons: {[string]: Sound} = {}
+local SONS_NOTIF: {[string]: {any}} = {
+	succes = {"rbxasset://sounds/electronicpingshort.wav", 0.28, 1.3},
+	erreur = {"rbxasset://sounds/button.wav", 0.4, 0.75},
+	info = {"rbxasset://sounds/clickfast.wav", 0.3, 1.1},
+}
+local function jouerNotif(nom: string, vitesse: number?)
+	local d = SONS_NOTIF[nom]
+	if not d then
+		return
+	end
+	local s = notifSons[nom]
+	if not s then
+		s = creer("Sound", {Name = "UI_notif_" .. nom, SoundId = d[1], Volume = d[2], Parent = SoundService})
+		notifSons[nom] = s
+	end
+	s.PlaybackSpeed = (vitesse or d[3]) * (0.96 + math.random() * 0.08)
+	SoundService:PlayLocalSound(s)
+end
+
+local function hauteurNotif(largeur: number): number
+	local cadre = notifCadre
+	return (if cadre and cadre.AbsoluteSize.X > 1 then cadre.AbsoluteSize.X else 400) * largeur / NOTIF_RATIO
+end
+
+-- Range les cartes de bas en haut (la plus récente en bas ; les anciennes, plus petites et plus pâles, remontent)
+local function placerNotifs(instantane: boolean?)
+	local y = 0
+	for i, c in notifCartes do
+		local largeur = 1 - (i - 1) * 0.045
+		local pos = UDim2.new(0.5, 0, 1, -y)
+		local taille = UDim2.fromScale(largeur, 1)
+		local transp = if i == 1 then 0 elseif i == 2 then 0.12 else 0.3
+		y += hauteurNotif(largeur) + NOTIF_ECART
+		if instantane then
+			c.groupe.Position, c.groupe.Size, c.groupe.GroupTransparency = pos, taille, transp
+		else
+			TweenService:Create(c.groupe, TweenInfo.new(0.42, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = pos, Size = taille}):Play()
+			TweenService:Create(c.groupe, TweenInfo.new(0.22, Enum.EasingStyle.Quad), {GroupTransparency = transp}):Play()
+		end
+	end
+end
+
+local function cadreNotif(): Frame
+	local existant = notifCadre
+	if existant and existant.Parent and existant.Parent.Parent then
+		return existant
+	end
+	local sg = creer("ScreenGui", {Name = "NotificationsMine", ResetOnSpawn = false, DisplayOrder = 32,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling, Parent = Players.LocalPlayer:WaitForChild("PlayerGui")})
+	local cadre = creer("Frame", {Name = "Pile", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 0.968),
+		Size = UDim2.fromScale(0.5, 0.45), BackgroundTransparency = 1, Active = false, Parent = sg},
+		{creer("UISizeConstraint", {MinSize = Vector2.new(280, 0), MaxSize = Vector2.new(540, 400)})})
+	notifCadre = cadre
+	table.clear(notifCartes)
+	cadre:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+		placerNotifs()
+	end)
+	return cadre
+end
+
+local function balayerNotif(c: CarteNotif)
+	c.reflet.Offset = Vector2.new(-1, 0)
+	TweenService:Create(c.reflet, TweenInfo.new(0.75, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Offset = Vector2.new(1, 0)}):Play()
+end
+
+local function fermerNotif(c: CarteNotif)
+	if c.ferme then
+		return
+	end
+	c.ferme = true
+	local i = table.find(notifCartes, c)
+	if i then
+		table.remove(notifCartes, i)
+	end
+	if c.minuteur then
+		c.minuteur:Cancel()
+	end
+	for _, t in c.boucles do
+		t:Cancel()
+	end
+	c.bouton.Visible = false -- ne bloque plus les clics pendant le fondu
+	local info = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	TweenService:Create(c.groupe, info, {GroupTransparency = 1, Position = c.groupe.Position - UDim2.fromOffset(0, 14)}):Play()
+	TweenService:Create(c.echelle, info, {Scale = 0.9}):Play()
+	Debris:AddItem(c.groupe, 0.35)
+	placerNotifs()
+end
+
+-- Barre de temps : se vide, la carte part quand elle est vide (en pause pendant le survol à la souris)
+local function lancerMinuteurNotif(c: CarteNotif)
+	if c.minuteur then
+		c.minuteur:Cancel()
+	end
+	c.remplissage.Size = UDim2.fromScale(1, 1)
+	local t = TweenService:Create(c.remplissage, TweenInfo.new(c.duree, Enum.EasingStyle.Linear), {Size = UDim2.fromScale(0, 1)})
+	c.minuteur = t
+	t.Completed:Connect(function(etat)
+		if etat == Enum.PlaybackState.Completed and c.minuteur == t then
+			fermerNotif(c)
+		end
+	end)
+	t:Play()
+	if c.survol then
+		t:Pause()
+	end
+end
+
+-- Étincelles + onde autour du médaillon de la carte du bas (dans la pile, hors CanvasGroup : pas rognées)
+local function etincellesNotif(cadre: Frame, ton: TonNotif)
+	local w = cadre.AbsoluteSize.X
+	local h = w / NOTIF_RATIO
+	local centre = UDim2.new(0, w * NOTIF_MEDAILLON_X, 1, -h / 2)
+	local anneau = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = centre, Size = UDim2.fromOffset(h * 0.6, h * 0.6),
+		BackgroundTransparency = 1, ZIndex = 20, Parent = cadre}, {coin(0.5), trait(ton.clair, 3)})
+	local s = anneau:FindFirstChildOfClass("UIStroke") :: UIStroke
+	local info = TweenInfo.new(0.55, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+	TweenService:Create(anneau, info, {Size = UDim2.fromOffset(h * 1.9, h * 1.9)}):Play()
+	TweenService:Create(s, info, {Transparency = 1, Thickness = 0}):Play()
+	Debris:AddItem(anneau, 0.6)
+	for k = 1, 9 do
+		local a = (k / 9) * math.pi * 2 + math.random() * 0.5
+		local t = h * (0.08 + math.random() * 0.07)
+		local e = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = centre, Size = UDim2.fromOffset(t, t), Rotation = 45,
+			BorderSizePixel = 0, BackgroundColor3 = if k % 3 == 0 then BLANC else ton.accent:Lerp(ton.clair, math.random()),
+			ZIndex = 21, Parent = cadre})
+		local d = h * (0.55 + math.random() * 0.5)
+		TweenService:Create(e, TweenInfo.new(0.5 + math.random() * 0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+			Position = centre + UDim2.fromOffset(math.cos(a) * d, math.sin(a) * d * 0.8 - h * 0.15),
+			Size = UDim2.fromOffset(t * 0.3, t * 0.3), Rotation = 225, BackgroundTransparency = 1,
+		}):Play()
+		Debris:AddItem(e, 0.9)
+	end
+end
+
+local function creerCarteNotif(cadre: Frame, txt: string, nomTon: string, ton: TonNotif, icone: string, cle: string): CarteNotif
+	local groupe = creer("CanvasGroup", {Name = "Notification", AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, hauteurNotif(1) * 0.9), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1,
+		GroupTransparency = 1, Active = false, Parent = cadre},
+		{creer("UIAspectRatioConstraint", {AspectRatio = NOTIF_RATIO, DominantAxis = Enum.DominantAxis.Width})})
+	local echelle = creer("UIScale", {Scale = 0.86, Parent = groupe})
+	-- ombre portée
+	creer("Frame", {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(0.992, 0.565), Size = UDim2.fromScale(0.93, 0.8),
+		BackgroundColor3 = NOIR, BackgroundTransparency = 0.45, BorderSizePixel = 0, ZIndex = 1, Parent = groupe}, {coin(0.3)})
+	-- carte bois sombre teintée
+	local carte = creer("Frame", {Name = "Carte", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(0.985, 0.5),
+		Size = UDim2.fromScale(0.93, 0.8), BackgroundColor3 = BLANC, BorderSizePixel = 0, ZIndex = 2, Parent = groupe},
+		{coin(0.3), UI.degrade(ton.fondHaut, ton.fond, 90)})
+	local contour = creer("UIStroke", {Color = BLANC, Thickness = 2, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = carte})
+	local sombre = ton.accent:Lerp(NOIR, 0.4)
+	local lisere = creer("UIGradient", {Offset = Vector2.new(-1, 0), Color = ColorSequence.new({ColorSequenceKeypoint.new(0, sombre),
+		ColorSequenceKeypoint.new(0.42, ton.accent), ColorSequenceKeypoint.new(0.5, ton.clair), ColorSequenceKeypoint.new(0.58, ton.accent),
+		ColorSequenceKeypoint.new(1, sombre)}), Parent = contour})
+	-- lueur chaude derrière le médaillon, veines du bois, filet clair en haut, rivets
+	creer("Frame", {Size = UDim2.fromScale(0.55, 1), BackgroundColor3 = ton.accent, BorderSizePixel = 0, Parent = carte}, {coin(0.3),
+		creer("UIGradient", {Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 1)})})})
+	for _, y in {0.36, 0.68} do
+		creer("Frame", {Position = UDim2.fromScale(0.03, y), Size = UDim2.new(0.94, 0, 0, 1), BackgroundColor3 = NOIR,
+			BackgroundTransparency = 0.82, BorderSizePixel = 0, Parent = carte})
+	end
+	creer("Frame", {Position = UDim2.fromScale(0.04, 0.07), Size = UDim2.new(0.92, 0, 0, 1), BackgroundColor3 = ton.clair,
+		BackgroundTransparency = 0.55, BorderSizePixel = 0, Parent = carte}, {creer("UIGradient", {Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.3, 0.2), NumberSequenceKeypoint.new(0.7, 0.2), NumberSequenceKeypoint.new(1, 1)})})})
+	UI.rivet(carte, UDim2.fromScale(0.978, 0.24), 0.13)
+	UI.rivet(carte, UDim2.fromScale(0.978, 0.76), 0.13)
+	-- reflet qui balaie la carte (dégradé : suit les coins arrondis)
+	local voileReflet = creer("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = BLANC, BorderSizePixel = 0, ZIndex = 8, Parent = carte}, {coin(0.3)})
+	local reflet = creer("UIGradient", {Rotation = 15, Offset = Vector2.new(-1, 0), Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.42, 1), NumberSequenceKeypoint.new(0.5, 0.65),
+		NumberSequenceKeypoint.new(0.58, 1), NumberSequenceKeypoint.new(1, 1)}), Parent = voileReflet})
+
+	-- médaillon : halo pulsant, disque de fer bordé, icône dessinée
+	local halo = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(NOTIF_MEDAILLON_X, 0.5),
+		Size = UDim2.fromScale(0.86, 0.86), SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = ton.accent,
+		BackgroundTransparency = 0.7, BorderSizePixel = 0, ZIndex = 3, Parent = groupe}, {coin(0.5)})
+	local medaillon = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(NOTIF_MEDAILLON_X, 0.5),
+		Size = UDim2.fromScale(0.84, 0.84), SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = BLANC,
+		BorderSizePixel = 0, ZIndex = 4, Parent = groupe},
+		{coin(0.5), trait(ton.accent, 2.5), UI.degrade(ton.fondHaut:Lerp(ton.accent, 0.3), ton.fond, 90)})
+	creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.8, 0.8),
+		BackgroundTransparency = 1, Parent = medaillon}, {coin(0.5), trait(ton.clair, 1, 0.55)})
+	local boite = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.6, 0.6),
+		BackgroundTransparency = 1, Rotation = -30, Parent = medaillon})
+	local echelleIcone = creer("UIScale", {Scale = 0, Parent = boite})
+	local dessin = DESSINS_NOTIF[icone] or DESSINS_NOTIF.etoile
+	dessin(boite, ton.clair)
+	if nomTon == "succes" and icone ~= "ok" then -- pastille ✔ dessinée sur le médaillon
+		local pastille = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.86, 0.84), Size = UDim2.fromScale(0.36, 0.36),
+			BackgroundColor3 = ton.accent, BorderSizePixel = 0, Parent = medaillon}, {coin(0.5), trait(BRUN, 1.5), bombeNotif()})
+		DESSINS_NOTIF.ok(creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(0.7, 0.7), BackgroundTransparency = 1, Parent = pastille}), BRUN)
+	end
+
+	-- textes : petit titre de catégorie + message (nombres en or)
+	UI.texte({Text = ton.titre or TITRES_NOTIF[icone] or "ÉVÉNEMENT", Font = Enum.Font.GothamBlack, TextColor3 = ton.accent,
+		TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.fromScale(0.155, 0.17), Size = UDim2.fromScale(0.6, 0.2),
+		ZIndex = 5, Parent = groupe}, 13)
+	local message = UI.texte({Text = texteRicheNotif(txt, ton.chiffre), RichText = true, Font = Enum.Font.GothamMedium,
+		TextColor3 = T.Parchemin, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.fromScale(0.155, 0.38),
+		Size = UDim2.fromScale(0.79, 0.38), ZIndex = 5, Parent = groupe}, 20)
+	creer("UIStroke", {Thickness = 1.2, Color = Color3.fromRGB(14, 8, 4), Transparency = 0.35, Parent = message})
+
+	-- barre de temps
+	local rail = creer("Frame", {Position = UDim2.fromScale(0.155, 0.8), Size = UDim2.new(0.8, 0, 0.035, 1), BackgroundColor3 = NOIR,
+		BackgroundTransparency = 0.5, BorderSizePixel = 0, ZIndex = 5, Parent = groupe}, {coin(0.5)})
+	local remplissage = creer("Frame", {Size = UDim2.fromScale(1, 1), BackgroundColor3 = BLANC, BorderSizePixel = 0, Parent = rail},
+		{coin(0.5), UI.degrade(ton.accent, ton.clair, 0)})
+
+	-- badge « x2 » (message répété)
+	local badge = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.95, 0.2), Size = UDim2.fromScale(0.62, 0.36),
+		SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = T.Or, BorderSizePixel = 0, Visible = false, ZIndex = 7,
+		Parent = groupe}, {coin(0.5), trait(BRUN, 1.5), bombeNotif(90)})
+	local badgeTexte = UI.texte({Text = "x2", Font = Enum.Font.GothamBlack, TextColor3 = BRUN, AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.84, 0.78), Parent = badge}, 16)
+
+	-- zone cliquable (seul élément actif : le reste de la pile laisse passer les clics)
+	local bouton = creer("TextButton", {Name = "Fermer", Text = "", AutoButtonColor = false, BackgroundTransparency = 1, Selectable = false,
+		AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(0.985, 0.5), Size = UDim2.fromScale(0.975, 0.84), ZIndex = 10, Parent = groupe})
+
+	local n = utf8.len(txt) or #txt
+	local c: CarteNotif = {cle = cle, groupe = groupe, echelle = echelle, contour = contour, reflet = reflet, remplissage = remplissage,
+		badge = badge, badgeTexte = badgeTexte, bouton = bouton, compte = 1, duree = 3 + math.clamp((n - 38) * 0.05, 0, 3),
+		minuteur = nil, boucles = {}, ferme = false, survol = false}
+
+	-- boucles de vie : lisere lumineux qui balaie le contour, halo qui respire
+	local b1 = TweenService:Create(lisere, TweenInfo.new(2.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false, 0.4), {Offset = Vector2.new(1, 0)})
+	local b2 = TweenService:Create(halo, TweenInfo.new(1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+		{BackgroundTransparency = 0.9, Size = UDim2.fromScale(0.98, 0.98)})
+	c.boucles = {b1, b2}
+	b1:Play()
+	b2:Play()
+
+	-- entrée : la carte glisse et rebondit, l'icône éclate avec une rotation
+	TweenService:Create(echelle, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Scale = 1}):Play()
+	local infoIcone = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out, 0, false, 0.12)
+	TweenService:Create(echelleIcone, infoIcone, {Scale = 1}):Play()
+	TweenService:Create(boite, infoIcone, {Rotation = 0}):Play()
+	if nomTon == "erreur" then
+		task.delay(0.4, function()
+			if medaillon.Parent then
+				UI.secouer(medaillon, 4)
+			end
+		end)
+	end
+
+	-- survol : mise en avant + pause du minuteur (souris) ; clic / tap : ferme
+	bouton.MouseEnter:Connect(function()
+		if c.ferme or not UserInputService.MouseEnabled then
+			return
+		end
+		c.survol = true
+		TweenService:Create(echelle, FAST, {Scale = 1.03}):Play()
+		TweenService:Create(contour, FAST, {Thickness = 3}):Play()
+		if c.minuteur then
+			c.minuteur:Pause()
+		end
+		balayerNotif(c)
+		jouer("survol", 1.6)
+	end)
+	bouton.MouseLeave:Connect(function()
+		c.survol = false
+		if c.ferme then
+			return
+		end
+		TweenService:Create(echelle, FAST, {Scale = 1}):Play()
+		TweenService:Create(contour, FAST, {Thickness = 2}):Play()
+		local m = c.minuteur
+		if m and m.PlaybackState == Enum.PlaybackState.Paused then
+			m:Play()
+		end
+	end)
+	bouton.Activated:Connect(function()
+		jouer("clic", 1.3)
+		fermerNotif(c)
+	end)
+	return c
+end
+
+-- local toast = UI.toast(gui) ; toast(texte, ok, genre?)
+--   genre (optionnel) : "info" (ton neutre) ou un nom d'icône pour la forcer
+--   (piece, pepite, coffre, flamme, wagon, quete, gemme, etoile, ok, croix) ; sinon l'icône est déduite du texte.
+-- `gui` est gardé pour la compatibilité : la pile de messages est commune à toutes les interfaces.
+function UI.toast(gui: ScreenGui): (string, boolean, string?) -> ()
+	local _ = gui
+	return function(txt: string, ok: boolean, genre: string?)
+		txt = tostring(txt)
+		local cadre = cadreNotif()
+		local nomTon = if genre == "info" then "info" elseif ok then "succes" else "erreur"
+		local ton = TONS_NOTIF[nomTon]
+		local icone: string
+		if genre and genre ~= "info" and DESSINS_NOTIF[genre] then
+			icone = genre
+		elseif nomTon == "erreur" then
+			icone = "croix"
+		else
+			icone = iconeDuTexteNotif(txt) or (if nomTon == "info" then "info" else "etoile")
+		end
+		local cle = nomTon .. "|" .. icone .. "|" .. txt
+		-- message identique encore affiché : badge x2, x3… au lieu d'un doublon
+		for i, c in notifCartes do
+			if c.cle == cle and not c.ferme then
+				c.compte += 1
+				c.badgeTexte.Text = "x" .. c.compte
+				c.badge.Visible = true
+				pop(c.badge, 0.3)
+				c.echelle.Scale = 1.07
+				TweenService:Create(c.echelle, BOUNCY, {Scale = if c.survol then 1.03 else 1}):Play()
+				balayerNotif(c)
+				lancerMinuteurNotif(c)
+				if i ~= 1 then
+					table.remove(notifCartes, i)
+					table.insert(notifCartes, 1, c)
+					placerNotifs()
+				end
+				jouerNotif(nomTon, 1.2 + math.min(c.compte, 6) * 0.05)
+				return
+			end
+		end
+		local c = creerCarteNotif(cadre, txt, nomTon, ton, icone, cle)
+		table.insert(notifCartes, 1, c)
+		while #notifCartes > NOTIF_MAX do
+			fermerNotif(notifCartes[#notifCartes])
+		end
+		placerNotifs()
+		lancerMinuteurNotif(c)
+		jouerNotif(nomTon)
+		task.delay(0.14, function()
+			if not c.ferme then
+				etincellesNotif(cadre, ton)
+				balayerNotif(c)
 			end
 		end)
 	end
 end
+
 
 -- ================= Portrait 3D du PNJ =================
 local pnjConnus: {[string]: Instance} = {} -- mémoire : on ne parcourt le workspace qu'une fois par PNJ

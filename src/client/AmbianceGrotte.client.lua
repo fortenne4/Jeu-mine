@@ -76,6 +76,30 @@ local function infosNiveau(grotte: Model)
 	return amb.lumiere, amb.brouillard, THEMES[id]
 end
 
+-- Anti-éblouissement : les pièces en néon de la grotte (lave, fer fondu, cristaux, lanternes) sont assombries
+-- chez soi d'un tiers ; le néon garde sa lueur, mais n'est plus « fluo ». Une seule fois par grotte.
+-- Les pièces qui arrivent plus tard (streaming) sont adoucies à leur arrivée.
+local ADOUCIR = 0.45
+local LUMIERES = 0.6
+local function adoucirUn(d: Instance)
+	if d:GetAttribute("Adouci") then return end
+	if d:IsA("BasePart") and d.Material == Enum.Material.Neon then
+		d:SetAttribute("Adouci", true) -- attribut local : posé côté client seulement
+		d.Color = d.Color:Lerp(Color3.new(), ADOUCIR)
+	elseif d:IsA("PointLight") or d:IsA("SpotLight") or d:IsA("SurfaceLight") then
+		d:SetAttribute("Adouci", true)
+		d.Brightness *= LUMIERES
+	end
+end
+local function adoucirNeon(grotte: Model)
+	if grotte:GetAttribute("NeonAdouci") then return end
+	grotte:SetAttribute("NeonAdouci", true)
+	for _, d in grotte:GetDescendants() do
+		adoucirUn(d)
+	end
+	grotte.DescendantAdded:Connect(adoucirUn)
+end
+
 local function entrer(grotte: Model)
 	local lueur, brouillard, theme = infosNiveau(grotte)
 	local atmo = Lighting:FindFirstChildOfClass("Atmosphere")
@@ -119,10 +143,10 @@ local function entrer(grotte: Model)
 	Lighting.ClockTime = 0 -- plus de soleil qui « traverse » la roche
 	local ambiance = if theme then theme.ambiance else lueur
 	versCible(Lighting, {
-		Ambient = ambiance:Lerp(Color3.new(), 0.68), -- la lisibilité vient surtout des lumières de voûte du décor
-		OutdoorAmbient = ambiance:Lerp(Color3.new(), 0.78),
-		Brightness = 0.4,
-		ExposureCompensation = 0.4,
+		Ambient = ambiance:Lerp(Color3.new(), 0.74), -- la lisibilité vient surtout des lumières de voûte du décor
+		OutdoorAmbient = ambiance:Lerp(Color3.new(), 0.82),
+		Brightness = 0.3,
+		ExposureCompensation = -0.2, -- moins éclatant : la lave et le néon ne brûlent plus les yeux
 		EnvironmentDiffuseScale = 0.15,
 		EnvironmentSpecularScale = 0.7, -- la roche mouillée et l'eau gardent des reflets
 		FogColor = brouillard,
@@ -139,14 +163,15 @@ local function entrer(grotte: Model)
 		bloom.Parent = Lighting
 		bloomCree = bloom
 	end
-	versCible(bloom, {Intensity = 0.55, Size = 26, Threshold = 0.9})
+	versCible(bloom, {Intensity = 0.14, Size = 16, Threshold = 1.25}) -- halo doux, seulement sur le plus lumineux
 	if not cc then
 		cc = Instance.new("ColorCorrectionEffect")
 		cc.Name = "GrotteCC"
 		cc.Parent = Lighting
 	end
 	teinteZone = nil
-	versCible(cc, {Contrast = 0.08, Saturation = 0.2, TintColor = Color3.new(1, 1, 1):Lerp(lueur, 0.12), Brightness = 0.02})
+	versCible(cc, {Contrast = 0.06, Saturation = -0.05, TintColor = Color3.new(1, 1, 1):Lerp(lueur, 0.08), Brightness = -0.03})
+	adoucirNeon(grotte)
 end
 
 -- Teinte de la zone la plus proche (camp ambré, lacs cyan, forêt magenta, temple violet…)
@@ -174,7 +199,7 @@ local function suivreZones(grotte: Model, pos: Vector3)
 	if atmo then
 		versCible(atmo, {Color = brouillard:Lerp(teinte, 0.18), Decay = brouillard:Lerp(teinte, 0.08)}, FONDU_ZONE)
 	end
-	versCible(Lighting, {Ambient = teinte:Lerp(Color3.new(), 0.78)}, FONDU_ZONE)
+	versCible(Lighting, {Ambient = teinte:Lerp(Color3.new(), 0.8)}, FONDU_ZONE)
 end
 
 local function sortir()

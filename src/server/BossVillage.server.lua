@@ -356,7 +356,10 @@ local function blesserZone(c, test: (Vector3) -> boolean, degats: number, hauteu
 			local dy = racine.Position.Y - c.centre.Y
 			if dy < (hauteurMax or 12) and dy > -4 and test(racine.Position) then
 				local defense = j:GetAttribute("StatDefense")
-				humain:TakeDamage(degats * Grottes.reductionDefense(if type(defense) == "number" then defense else 0))
+				-- Seigneur de braise : coups de feu, réduits par la résistance au feu (casque magmatique)
+				local feu = if c.def.id == "SeigneurBraise" then j:GetAttribute("ResistanceFeu") else nil
+				local resFeu = if type(feu) == "number" then math.clamp(feu, 0, 0.9) else 0
+				humain:TakeDamage(degats * Grottes.reductionDefense(if type(defense) == "number" then defense else 0) * (1 - resFeu))
 			end
 		end
 	end

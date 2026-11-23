@@ -14,6 +14,7 @@ local SoundService = game:GetService("SoundService")
 
 local Carte = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("CarteNaine"))
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
+local PopupCoffre = require(script.Parent:WaitForChild("PopupCoffre"))
 local T, creer, coin, trait, texte = UI.T, UI.creer, UI.coin, UI.trait, UI.texte
 
 local joueur = Players.LocalPlayer
@@ -351,9 +352,8 @@ end
 
 remote.OnClientEvent:Connect(function(genre, d)
 	if genre == "Coffre" and type(d) == "table" then
-		toast("Coffre du sanctuaire : +" .. tostring(d.pieces) .. " pièces, +" .. tostring(d.nombre) .. " " .. tostring(d.minerai), true)
-		UI.celebrer(gui, T.Or, nil)
-		UI.jouer("succes")
+		PopupCoffre.afficher({titre = "Coffre du sanctuaire", theme = "Sanctuaire", recompenses = {
+			{genre = "pieces", n = tonumber(d.pieces) or 0}, {genre = "minerai", id = tostring(d.minerai), n = tonumber(d.nombre) or 0}}})
 	end
 end)
 

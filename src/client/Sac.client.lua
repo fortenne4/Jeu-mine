@@ -87,6 +87,9 @@ end
 local function rareteObjet(o: Objet): (string, Color3, number)
 	local echelle = Forge.ECHELLES[o.type]
 	local palier = echelle and o.rang and echelle[o.rang]
+	if o.modele == "CasqueMagma" then -- casque de quête unique (Partage.CasqueMagma)
+		return rarete("Mythique")
+	end
 	if palier then
 		return rarete(palier.rarete)
 	end

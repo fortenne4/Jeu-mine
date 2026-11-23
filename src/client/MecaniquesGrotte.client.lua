@@ -10,6 +10,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
+local PopupCoffre = require(script.Parent:WaitForChild("PopupCoffre"))
 
 local joueur = Players.LocalPlayer
 local remote = ReplicatedStorage:WaitForChild("MecaniquesGrotte") :: RemoteEvent
@@ -20,6 +21,8 @@ local ROUILLE = Color3.fromRGB(110, 62, 38)
 local BOIS = Color3.fromRGB(96, 66, 42)
 local AMBRE = Color3.fromRGB(255, 176, 90)
 local HAUTEUR = 3.1 -- racine du personnage au-dessus du rail
+local ECHELLE_WAGON = 0.7 -- wagon de la gare réduit : il cache moins l'écran et le décor
+local VITESSE = 1.25 -- multiplicateur de vitesse de la course
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "MecaniquesGrotte"
@@ -39,6 +42,71 @@ local function piece(parent: Instance, taille: Vector3, couleur: Color3, mat: En
 	p.TopSurface, p.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
 	p.Parent = parent
 	return p
+end
+
+-- Le même wagon que celui de la gare (voyage vers la mine), préparé par le serveur (ReplicatedStorage ›
+-- ModeleWagonCourse, base à l'origine) ; lampe et étincelles ajoutées ici. nil si le modèle n'existe pas.
+local function wagonDeLaGare(): (Model?, {{part: BasePart, offset: CFrame}}?)
+	local modele = ReplicatedStorage:FindFirstChild("ModeleWagonCourse")
+	if not (modele and modele:IsA("Model")) then return nil, nil end
+	local m = modele:Clone()
+	m.Name = "WagonCourse"
+	-- réduit autour de sa base (posée à l'origine par le serveur)
+	m.WorldPivot = CFrame.new()
+	m:ScaleTo(ECHELLE_WAGON)
+	local morceaux = {}
+	local plusGros: BasePart? = nil
+	for _, d in m:GetDescendants() do
+		if d:IsA("BasePart") then
+			table.insert(morceaux, {part = d, offset = d.CFrame})
+			if not plusGros or d.Size.Magnitude > plusGros.Size.Magnitude then plusGros = d end
+		end
+	end
+	if not plusGros then
+		m:Destroy()
+		return nil, nil
+	end
+	-- la plus grosse pièce en tête : elle porte les étincelles
+	for i, mo in morceaux do
+		if mo.part == plusGros then
+			table.remove(morceaux, i)
+			table.insert(morceaux, 1, mo)
+			break
+		end
+	end
+	local longueur = (m:GetAttribute("Longueur") or 6) * ECHELLE_WAGON
+	local hauteur = (m:GetAttribute("Hauteur") or 3) * ECHELLE_WAGON
+	local fond = plusGros :: BasePart
+	local origine = morceaux[1].offset
+	-- phare à l'avant
+	local lampe = piece(m, Vector3.new(0.45, 0.55, 0.45), AMBRE, Enum.Material.Neon, "Lampe")
+	table.insert(morceaux, {part = lampe, offset = CFrame.new(0, hauteur + 0.3, -longueur / 2 - 0.1)})
+	local l = Instance.new("PointLight")
+	l.Color, l.Brightness, l.Range, l.Shadows = AMBRE, 0.7, 14, false
+	l.Parent = lampe
+	local feu = Instance.new("SpotLight")
+	feu.Color, feu.Brightness, feu.Range, feu.Angle, feu.Face = AMBRE, 2, 40, 55, Enum.NormalId.Front
+	feu.Parent = lampe
+	for _, x in {-1, 1} do
+		local a = Instance.new("Attachment")
+		a.Name = "Etincelles"
+		a.Parent = fond
+		a.CFrame = origine:ToObjectSpace(CFrame.new(x * 1.3, 0.1, longueur * 0.3))
+		local e = Instance.new("ParticleEmitter")
+		e.Texture = TEX_ETINCELLE
+		e.Color = ColorSequence.new(Color3.fromRGB(255, 220, 140), Color3.fromRGB(255, 120, 40))
+		e.LightEmission, e.LightInfluence = 1, 0
+		e.Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.14), NumberSequenceKeypoint.new(1, 0)})
+		e.Lifetime = NumberRange.new(0.25, 0.5)
+		e.Speed = NumberRange.new(6, 12)
+		e.SpreadAngle = Vector2.new(30, 30)
+		e.EmissionDirection = Enum.NormalId.Back
+		e.Acceleration = Vector3.new(0, -30, 0)
+		e.Rate = 0
+		e.Parent = a
+	end
+	m.Parent = workspace
+	return m, morceaux
 end
 
 local function construireWagon(): (Model, {{part: BasePart, offset: CFrame}})
@@ -101,17 +169,36 @@ local function construireWagon(): (Model, {{part: BasePart, offset: CFrame}})
 end
 
 local wagons: {[Player]: {modele: Model, morceaux: any, vitesse: number}} = {}
+-- Le wagonnet décoratif de la gare (« WagonGare ») se cache chez soi tant qu'un wagon de course roule :
+-- sinon les deux se superposent au départ
+local function majWagonGare()
+	local dossier = workspace:FindFirstChild("Grottes")
+	if not dossier then return end
+	local cache = next(wagons) ~= nil
+	for _, d in dossier:GetDescendants() do
+		if d.Name == "WagonGare" and d:IsA("Model") then
+			for _, p in d:GetDescendants() do
+				if p:IsA("BasePart") then p.LocalTransparencyModifier = if cache then 1 else 0 end
+			end
+		end
+	end
+end
+
 local function majWagons()
 	for _, j in Players:GetPlayers() do
 		local en = j:GetAttribute("EnWagon") == true
 		if en and not wagons[j] then
-			local m, morceaux = construireWagon()
+			local m, morceaux = wagonDeLaGare()
+			if not m or not morceaux then
+				m, morceaux = construireWagon()
+			end
 			wagons[j] = {modele = m, morceaux = morceaux, vitesse = 26}
 		elseif not en and wagons[j] then
 			wagons[j].modele:Destroy()
 			wagons[j] = nil
 		end
 	end
+	majWagonGare()
 end
 local function suivreJoueur(j: Player)
 	j:GetAttributeChangedSignal("EnWagon"):Connect(majWagons)
@@ -122,6 +209,7 @@ Players.PlayerRemoving:Connect(function(j)
 		wagons[j].modele:Destroy()
 		wagons[j] = nil
 	end
+	majWagonGare()
 end)
 for _, j in Players:GetPlayers() do
 	suivreJoueur(j)
@@ -226,8 +314,8 @@ local function course(points: {Vector3})
 		idx = i
 		-- vitesse : départ en douceur, plus vite dans les descentes, freinage à l'arrivée
 		local pente = -t.Y
-		local cible = math.clamp(28 + pente * 45, 18, 46)
-		if L - s < 25 then
+		local cible = math.clamp(28 + pente * 45, 18, 46) * VITESSE
+		if L - s < 25 * VITESSE then
 			cible = math.max(6, (L - s) * 1.1)
 		end
 		v += (cible - v) * math.min(1, dt * 1.6)
@@ -406,8 +494,7 @@ remote.OnClientEvent:Connect(function(genre, d)
 			toast("Le fer tombe dans le creuset… la fonderie royale se rallume !", true)
 			UI.jouer("metal", 0.4)
 		elseif d.etape == "lingot" then
-			toast("Lingot royal coulé : +" .. tostring(d.pieces or 0) .. " pièces", true)
-			UI.celebrer(gui, Color3.fromRGB(255, 160, 50), "LINGOT ROYAL !")
+			PopupCoffre.afficher({titre = "Lingot royal", theme = "Fonderie", recompenses = {{genre = "pieces", n = tonumber(d.pieces) or 0}}})
 		end
 	elseif genre == "Rouages" then
 		local fini = (d.n or 0) >= (d.total or 3)
@@ -418,8 +505,8 @@ remote.OnClientEvent:Connect(function(genre, d)
 		if d.pret then
 			toast("Le coffre de l'Abîme est remonté près du pilier !", true)
 		else
-			toast("Coffre de l'Abîme : +" .. tostring(d.pieces or 0) .. " pièces et " .. tostring(d.gold or 0) .. " Or", true)
-			UI.celebrer(gui, Color3.fromRGB(255, 200, 80), "TRÉSOR DE L'ABÎME")
+			PopupCoffre.afficher({titre = "Coffre de l'Abîme", theme = "Abime", recompenses = {
+				{genre = "pieces", n = tonumber(d.pieces) or 0}, {genre = "minerai", id = "Gold", n = tonumber(d.gold) or 0}}})
 		end
 	end
 end)

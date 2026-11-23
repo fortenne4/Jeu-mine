@@ -470,11 +470,53 @@ function GrotteTheme.nouveau(ctx, infos, outils)
 			terrain:FillCylinder(CFrame.new(c.X, y0 - prof / 2 - 1, c.Z), prof + 2, rp, ctx.matPart)
 		end
 		pilier()
+		-- PLATEFORME au sommet du pilier : un vrai palier construit (dalle ronde, bordure, poteaux), au niveau
+		-- exact des ponts. On vide la roche au-dessus pour qu'aucun bout de terrain lissé ne dépasse.
+		local rPlat = rp + 2.5
+		terrain:FillCylinder(CFrame.new(c.X, y0 + 6.3, c.Z), 12, rPlat + 1.5, Enum.Material.Air)
+		local palier = T.modele("Plateforme")
+		local dalle = O.cylindre(palier, 1.4, rPlat * 2, CFrame.new(c.X, y0 + 0.3 - 0.7, c.Z), opts.couleurDalle or Color3.fromRGB(78, 72, 70),
+			opts.materiauDalle or Enum.Material.Slate, "Dalle")
+		dalle.CanQuery = false
 		local dirs = T.directionsGaleries(s, f + 3)
+		-- bordure basse et poteaux tout autour, sauf là où arrivent les ponts
+		local nBord = 16
+		for k = 0, nBord - 1 do
+			local a = k / nBord * 2 * math.pi
+			local v = Vector3.new(math.cos(a), 0, math.sin(a))
+			local libre = true
+			for _, u in dirs do
+				if v:Dot(u) > 0.88 then libre = false end
+			end
+			if libre then
+				local q = c + v * (rPlat - 0.35)
+				local cf = CFrame.lookAt(Vector3.new(q.X, y0 + 0.55, q.Z), Vector3.new(c.X, y0 + 0.55, c.Z))
+				T.bloc(palier, Vector3.new(rPlat * 2 * math.pi / nBord + 0.1, 0.5, 0.6), cf, opts.couleurBord or Color3.fromRGB(58, 54, 54), Enum.Material.Slate, "Bordure")
+				if k % 2 == 0 then
+					T.bloc(palier, Vector3.new(0.5, 3, 0.5), cf * CFrame.new(0, 1.25, 0), opts.couleurPoteau or Color3.fromRGB(70, 70, 78), Enum.Material.Metal, "Poteau")
+				end
+			end
+		end
+		-- colonne visible sous la dalle (le pilier ne s'arrête plus en rocher informe)
+		local col = O.cylindre(palier, 6, rp * 2 + 0.6, CFrame.new(c.X, y0 - 3.6, c.Z), opts.couleurDalle or Color3.fromRGB(78, 72, 70), Enum.Material.Slate, "Colonne")
+		col.CanQuery = false
 		for _, u in dirs do
-			local berge = T.solEn(c + u * (f + 3.5), 6)
-			local yB = if berge then berge.Position.Y else y0
-			opts.pont(u, rp - 0.8, f + 2.5, y0, yB)
+			-- berge : on cherche le sol plus loin si le bord de la fosse est irrégulier, pour que le pont y repose
+			local d1, yB = f + 2.5, nil
+			for _, d in {f + 3.5, f + 5.5, f + 8} do
+				local berge = T.solEn(c + u * d, 6)
+				if berge and math.abs(berge.Position.Y - y0) < 10 then
+					d1, yB = d - 1, berge.Position.Y
+					break
+				end
+			end
+			opts.pont(u, rPlat - 0.6, d1, y0, yB or y0)
+			-- appuis : une poutre sous chaque extrémité du pont
+			for _, e in {{rPlat - 0.6, y0}, {d1, yB or y0}} do
+				local q = c + u * e[1]
+				T.bloc(palier, Vector3.new(4.8, 0.6, 0.8), CFrame.lookAt(Vector3.new(q.X, e[2] - 0.25, q.Z), Vector3.new(q.X, e[2] - 0.25, q.Z) + u),
+					opts.couleurPoteau or Color3.fromRGB(70, 70, 78), Enum.Material.Metal, "Appui")
+			end
 		end
 		T.interdire(c, f + 3)
 		if opts.chute ~= false and dirs[1] then

@@ -472,6 +472,11 @@ function ArmuresVoxels.construire(id: string, teinte: Color3?, tailleTete: Vecto
 			warn("[ArmuresVoxels] casque mesh illisible, version lisse :", id, mesh)
 		end
 	end
+	if (d :: any).Format == "Code" then
+		local m = (d :: any).construire()
+		echelle(m, tailleTete)
+		return m
+	end
 	if (d :: any).Format == "Lisse" then
 		local g = gabaritLisse(id, d)
 		local m = if gabarits[id] == g then g:Clone() else g

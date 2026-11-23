@@ -552,8 +552,14 @@ pose ses zones d'ambiance (musique de `SonsGrotte` par alias) et le dossier `Gui
     descentes, caméra qui s'incline dans les virages) ; **ascenseur du Grand Puits** (plateforme physique, leviers
     haut/bas) jusqu'à la **Réserve du contremaître**, galerie secrète avec 3 minerais.
   - −200 m : **creuset de la Fonderie royale** (verser 3 Fer → le creuset bascule, le métal remplit les moules,
-    +120 pièces, une fois par expédition) ; **3 manivelles** remettent les rouages en marche, et quand tout tourne
+    +120 pièces, une seule fois par joueur, pour toujours) ; **3 manivelles** remettent les rouages en marche, et quand tout tourne
     le **coffre de l'Abîme** remonte du fond du gouffre (+80 pièces, +2 Or).
+    **Quête du Casque du Cœur Magmatique** : 3 reliques volcaniques sont cachées sur de petits autels de basalte
+    (salle de la Fonderie, salle des Rouages, salle la plus éloignée du départ). Chaque joueur les ramasse une fois
+    pour toujours (sauvegardées). Sur le pilier du gouffre, l'**Enclume des Maîtres** (« Forger ») ouvre une
+    interface à 3 ronds, un par relique ; avec les 3, on forge le **Casque du Cœur Magmatique**, unique (un seul par
+    joueur, obtenable seulement ainsi) : Défense +15, Vie maximale +25, Résistance au feu +8 % (lave, geysers,
+    Seigneur de braise), aucun bonus de vitesse. Modèle en Parts (visible par tous) + FBX/OBJ dans `assets/casques/`.
   - −350 m : **la lave monte** toutes les 2 à 3 min (alerte 6 s, crue sur les berges pendant 16 s : on se réfugie
     sur les prismes de basalte « Refuge ») ; **geyser bleu** propulseur (sans dégâts) vers la **corniche secrète** (2 Or).
   - −500 m : le boss est relié au **Cœur maudit** : à 75, 50 et 25 % de ses PV une des 6 chaînes cède, et dès la
@@ -576,6 +582,7 @@ pose ses zones d'ambiance (musique de `SonsGrotte` par alias) et le dossier `Gui
 | `src/client/FeuxFollets.client.lua` | Feux follets guides, lucioles, pas lumineux et lueur des méduses (palier 1). |
 | `src/server/Sanctuaire.lua` + `src/client/Sanctuaire.client.lua` | Éveil du sanctuaire (cinématique), vague de gardiens, coffre du temple (palier 1). |
 | `src/partage/CarteNaine.lua` + `src/server/CarteNaine.lua` + `src/client/CarteNaine.client.lua` | Fragments de la carte naine : cachettes, récompenses, sauvegarde, parchemin. |
+| `src/partage/CasqueMagma.lua` + `src/server/CasqueMagma.server.lua` + `src/client/EnclumeMagma.client.lua` + `src/client/ReliquesMagma.client.lua` | Quête du Casque du Cœur Magmatique (−200 m) : reliques, enclume, forge unique, bonus de vie et résistance au feu. |
 | `src/server/SecretsGrotte.server.lua` | Énigme des pierres runiques, porte de la salle secrète, récompense des cristaux de lueur (palier 1). |
 | `src/client/SonsGrotte.client.lua` | Ambiance sonore et musique par zone de la grotte −50 m. |
 | `src/server/EvenementsGrotte.lua` + `src/client/EvenementsGrotte.client.lua` | Événements aléatoires du palier 1 (pluie de cristaux, nuée, éboulement, luciole dorée). |
@@ -586,6 +593,7 @@ pose ses zones d'ambiance (musique de `SonsGrotte` par alias) et le dossier `Gui
 | `src/monde/GrotteMine.lua`, `GrotteFonderie.lua`, `GrotteLave.lua`, `GrotteCoeur.lua` | Thèmes des paliers −100, −200, −350 et −500 m. |
 | `src/server/DangersGrotte.server.lua` + `src/client/MachinesGrotte.client.lua` | Gouffres, lave, geysers ; rouages qui tournent. |
 | `src/server/MecaniquesGrotte.server.lua` + `src/client/MecaniquesGrotte.client.lua` | Mécaniques signature : wagonnet, ascenseur, creuset, rouages et coffre de l'Abîme, lave montante, phases du Cœur maudit. |
+| `src/client/PopupCoffre.lua` | Pop-up d'ouverture de coffre (coffre dessiné qui tremble et s'ouvre, rayons, étincelles, récompenses en cartes avec minerais 3D) : coffres du sanctuaire et de l'Abîme, lingot royal. |
 | `src/client/GrotteReactive.client.lua` | Veines qui s'allument au passage, spores des champignons, onde des coups de pioche (palier 1). |
 | `src/client/BoussoleFeux.client.lua` | Boussole des feux follets (touche F) vers la cachette de fragment la plus proche (palier 1). |
 | `src/server/MobsGrotte.lua` + `src/client/MobsGrotte.client.lua` | IA des mobs, coups d'épée, renforts, boss ; animations et barres de vie. |

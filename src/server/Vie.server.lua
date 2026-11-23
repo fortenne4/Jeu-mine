@@ -14,11 +14,18 @@ local PAS = 0.25
 
 local suivis: {[Humanoid]: number} = {} -- humanoïde → os.clock() du dernier dégât
 
+-- PV max = PV_MAX + bonus d'équipement (attribut joueur « BonusVie », posé par CasqueMagma.server)
+local function pvMax(perso: Model): number
+	local j = Players:GetPlayerFromCharacter(perso)
+	local bonus = j and j:GetAttribute("BonusVie")
+	return PV_MAX + (if type(bonus) == "number" then math.clamp(bonus, 0, 1000) else 0)
+end
+
 local function appliquer(perso: Model)
 	local h = perso:WaitForChild("Humanoid", 10)
 	if h and h:IsA("Humanoid") and h.Parent == perso then
-		h.MaxHealth = PV_MAX
-		h.Health = PV_MAX
+		h.MaxHealth = pvMax(perso)
+		h.Health = h.MaxHealth
 		local defaut = perso:FindFirstChild("Health") -- régénération Roblox par défaut : remplacée ci-dessous
 		if defaut and defaut:IsA("Script") then defaut:Destroy() end
 		local avant = h.Health
@@ -35,6 +42,16 @@ end
 
 local function lier(joueur: Player)
 	joueur.CharacterAdded:Connect(appliquer)
+	-- casque équipé / retiré : PV max ajustés tout de suite, en gardant la même proportion de vie
+	joueur:GetAttributeChangedSignal("BonusVie"):Connect(function()
+		local perso = joueur.Character
+		local h = perso and perso:FindFirstChildOfClass("Humanoid")
+		if perso and h and h.Health > 0 then
+			local part = h.Health / math.max(h.MaxHealth, 1)
+			h.MaxHealth = pvMax(perso)
+			h.Health = math.min(h.MaxHealth, h.MaxHealth * part)
+		end
+	end)
 	if joueur.Character then
 		task.spawn(appliquer, joueur.Character)
 	end
