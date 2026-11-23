@@ -683,7 +683,8 @@ fine et des étincelles aux couleurs du boss s'élèvent du cercle.
 - **Cycle** : toutes les 7 minutes (45 s dans Studio tant que `DEBUT_RAPIDE_STUDIO = true` ; `CYCLE` / `CYCLE_STUDIO`
   dans `src/partage/BossVillage.lua`), les joueurs vivants dans le cercle (20 max, par ordre d'arrivée) partent ensemble
   dans l'arène. Personne : le compte à rebours repart. Un seul combat à la fois (le panneau affiche « Combat en cours »).
-- **Annonce (1 min avant)** : une seule **carte en haut d'écran** (`src/client/BossAnnonce.lua`) : emblème du boss,
+- **Annonce (1 min avant)** : une seule **carte** (`src/client/BossAnnonce.lua`), **en haut d'écran** au village / en surface,
+  **compacte sur le bord droit** dans une grotte ou une mine privée (elle bascule toute seule si on change de lieu) : emblème du boss,
   tête 3D du boss, nom doré, titre, grand compte à rebours (depuis l'heure serveur `DebutBoss`), barre de temps, braises ; rouge qui bat
   les 10 dernières secondes (sans son de décompte). Bouton **REJOINDRE LE PORTAIL** (touche R, manette croix haut) : le serveur téléporte le joueur dans le grand cercle
   (seulement depuis le village ou la mine publique, vivant, hors arène) ; **IGNORER** (touche X, croix bas) : la carte disparaît jusqu'au
@@ -694,9 +695,17 @@ fine et des étincelles aux couleurs du boss s'élèvent du cercle.
   avatars ronds des participants, son + éclat à chaque arrivée, conseil du boss). Au-delà de 20 : « en réserve ».
 - **Départ** : fondu au noir, **écran de chargement** (nom et titre du boss, anneaux de runes qui tournent, barre de
   progression, astuce au hasard), contrôles bloqués et joueurs gelés côté serveur ; téléportation 0,8 s après, puis
-  **intro** quand tous sont posés (3 s max).
-- **Intro du boss (6,5 s)** : bandes noires, plan large qui tourne autour de l'arène, plan bas sur le boss qui rugit
-  (FOV 70 → 55, forte secousse), carte de nom dorée façon Souls, puis retour au joueur et la barre de PV apparaît.
+  **intro** quand tous sont posés : chargement de **5 s** au total (6 s max d'attente si quelqu'un traîne). Le boss
+  est répliqué tout de suite chez tous (`ModelStreamingMode` Persistent) ; si son modèle manque encore, le chargement
+  attend 3 s au plus (messages `[BossEntrees]` dans l'Output).
+- **Intro du boss (8,6 à 8,8 s, `BossVillage.INTRO`)** : entrée en scène propre à chaque boss (`src/client/BossEntrees.lua`,
+  tout en local), filmée en **plans fixes** comme une scène de film — le **Titan de cristal** est une statue de pierre
+  (titan pétrifié dans une coque de roche) : gros plan sur un cristal qui tremble à son pied, puis plan large, la statue
+  se fissure de veines bleues sous des secousses croissantes, éclate en débris et le titan grogne les bras levés, poings
+  tremblants ; la **Reine araignée** descend du haut de l'écran au bout d'un fil en tournoyant, atterrit, se cabre et
+  crache une toile qui couvre l'écran puis se dissout ; le **Seigneur de braise** allume un cercle runique, ouvre un
+  portail de feu, en jaillit d'un bond vers la caméra et brûle l'herbe en atterrissant (forte secousse, marque
+  calcinée). Puis plan bas fixe sur le boss qui rugit, carte de nom dorée façon Souls, retour au joueur et barre de PV.
   Boss invulnérable et immobile, joueurs gelés pendant ce temps. Bouton « Passer » (affichage local seulement).
   Pendant le combat, entrer dans le cercle fait rejoindre l'arène tout de suite, tant qu'il y a moins de 20 joueurs dedans
   (un joueur mort peut revenir ainsi).
@@ -729,7 +738,7 @@ fine et des étincelles aux couleurs du boss s'élèvent du cercle.
   Dans l'arène, l'éclairage prend l'ambiance de son boss (`src/client/AmbianceArene.client.lua` : lave chaude,
   géode froide bleutée, nid verdâtre ; attribut joueur `DansArene` + index du boss en cours), restauré en sortant.
 - **Boss** : IA et coups d'épée de `MobsGrotte` ; PV = Σ épée de chaque joueur (bornée 15…310) × 190 × bonus du boss
-  (~3 min de combat quel que soit le groupe). Coups au corps à corps très forts (200 à 240) et attaques de zone
+  (~3 min de combat), avec au moins 4 joueurs comptés (épée moyenne du groupe) : infaisable à 1 à 3 joueurs (`JOUEURS_MIN`). Coups au corps à corps très forts (200 à 240) et attaques de zone
   **télégraphiées** (zone rouge qui se remplit ~1 s) :
   Titan = onde de choc en anneau (sauter ou se coller à lui), frappe des poings, éclats de cristal sous les joueurs ;
   Reine = crachat de toile en cône, invocation d'araignées (6 max), bond sur un joueur ;
@@ -777,6 +786,7 @@ fine et des étincelles aux couleurs du boss s'élèvent du cercle.
 | `src/client/BossVillage.client.lua` | Barre de PV du boss, annonces, aiguillage des événements vers les modules ci-dessous. |
 | `src/client/BossAttente.lua` | Puce en haut d'écran, chevrons de guidage au sol, panneau « PRÊT AU COMBAT ». |
 | `src/client/BossCinematique.lua` | Fondus, écran de chargement, intro du boss (caméra, carte de nom), retour au village. |
+| `src/client/BossEntrees.lua` | Entrée en scène propre à chaque boss pendant l'intro (statue, descente au fil, portail de feu), en local. |
 | `src/client/BossCombat.lua` | Bandeau de phase, secousses, éclat rouge (touché), « mineurs debout », écran K.O. |
 | `src/client/BossResultats.lua` | Bannière VICTOIRE / ÉCHEC, écran de résultats (MVP, classement, retour). |
 | `src/client/BossOutils.lua` | Sons, secousse de caméra, blocage des contrôles, avatars, icônes dessinées. |

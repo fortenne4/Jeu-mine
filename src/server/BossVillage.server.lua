@@ -1182,28 +1182,38 @@ local function commencer(c)
 	dossier:SetAttribute("FinCombat", workspace:GetServerTimeNow() + Config.DUREE_MAX)
 end
 
--- Attend que tous les partants soient posés (ATTENTE_ARRIVEE s au plus), puis lance l'intro chez eux
+-- Attend que tous les partants soient posés et que l'écran de chargement ait duré CHARGEMENT s (lancé DELAI_DEPART s
+-- après le départ, le client finit sa jauge en CHARGEMENT_FIN s), ATTENTE_ARRIVEE s au plus, puis lance l'intro
 local function introduire(c)
 	local debut = os.clock()
-	while not c.fini and os.clock() - debut < Config.ATTENTE_ARRIVEE do
-		local tous = true
-		for j in c.joueurs do
-			if not c.arrives[j] then
-				tous = false
-				break
+	local mini = Config.CHARGEMENT - Config.DELAI_DEPART - Config.CHARGEMENT_FIN
+	while not c.fini do
+		local ecoule = os.clock() - debut
+		if ecoule >= Config.ATTENTE_ARRIVEE then break end
+		if ecoule >= mini then
+			local tous = true
+			for j in c.joueurs do
+				if not c.arrives[j] then
+					tous = false
+					break
+				end
 			end
+			if tous then break end
 		end
-		if tous then break end
-		task.wait(0.1)
+		task.wait(0.05)
 	end
 	if c.fini then return end
 	c.introEnvoyee = true
 	local m = c.boss
-	envoyer(c, "Intro", {centre = c.centre, boss = m.modele, duree = Config.DUREE_INTRO, roar = Config.ROAR_INTRO})
-	apres(c, Config.ROAR_INTRO, function()
+	local intro = Config.INTRO[c.def.id]
+	local duree = if intro then intro.duree else Config.DUREE_INTRO
+	local roar = if intro then intro.roar else Config.ROAR_INTRO
+	envoyer(c, "Intro", {centre = c.centre, boss = m.modele, id = c.def.id, duree = duree, roar = roar})
+	-- le client joue l'intro après sa fin de jauge (CHARGEMENT_FIN s) : même décalage ici
+	apres(c, Config.CHARGEMENT_FIN + roar, function()
 		if c.intro then etatBoss(m, "Roar") end
 	end)
-	apres(c, Config.DUREE_INTRO, function() commencer(c) end)
+	apres(c, Config.CHARGEMENT_FIN + duree, function() commencer(c) end)
 end
 
 local function lancer(partants: {Player})
@@ -1223,6 +1233,11 @@ local function lancer(partants: {Player})
 		local e = j:GetAttribute("StatEpee")
 		somme += math.clamp(if type(e) == "number" then e else Forge.EPEE_BASE.valeur, Config.EPEE_MIN, Config.EPEE_MAX)
 	end
+	-- petit groupe : complété jusqu'à JOUEURS_MIN « joueurs fantômes » portant l'épée moyenne du groupe
+	local n = #partants
+	if n > 0 and n < Config.JOUEURS_MIN then
+		somme += (somme / n) * (Config.JOUEURS_MIN - n)
+	end
 	local pv = math.max(Config.PV_MIN, math.floor(somme * Config.PV_PAR_DEGAT * def.pvMult / 100 + 0.5) * 100)
 	local h = nil
 	if MobsVoxels.existe(def.id) then h = creerBoss(c, partants, def.id, pv) end
@@ -1233,6 +1248,9 @@ local function lancer(partants: {Player})
 	end
 	c.h, c.boss = h, h.boss
 	local m = h.boss
+	-- StreamingEnabled : le boss (Atomic par défaut) n'arrivait pas chez le client avant le message « Intro »
+	-- (référence nil → pas d'entrée en scène). Persistent : répliqué tout de suite chez tous les joueurs.
+	m.modele.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 	m.modele:SetAttribute("Nom", def.nom)
 	-- intro : invulnérable et immobile jusqu'à commencer()
 	m.invulnerable = true

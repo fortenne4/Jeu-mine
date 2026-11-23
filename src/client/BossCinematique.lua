@@ -1,20 +1,45 @@
 -- Boss du village · CLIENT, transitions et intro (module de BossVillage.client) :
 -- « Depart »  : fondu au noir (0,6 s ; 0,35 s pour rejoindre), puis écran de chargement propre au boss (module
 --               BossChargement : décor, portrait 3D, nom en impact, infos du combat, jauge, astuces), contrôles bloqués.
--- « Intro »   : la barre se remplit, bandes noires, caméra Scriptable : plan large qui tourne autour de l'arène,
---               plan bas sur le boss qui rugit (FOV 70 → 55, forte secousse), carte de nom façon Souls, puis les
---               bandes repartent et la caméra revient au joueur. Bouton « Passer » : n'abrège que l'affichage local.
+-- « Intro »   : la barre se remplit (chargement de CHARGEMENT s au total), bandes noires, caméra Scriptable :
+--               entrée en scène propre au boss (BossEntrees, plans fixes) jusqu'au rugissement, puis plan bas fixe sur
+--               le boss qui rugit (FOV → 55, forte secousse), carte de nom façon Souls, puis les bandes repartent et la
+--               caméra revient au joueur. Modèle du boss pas encore répliqué : le chargement attend ATTENTE_BOSS s au
+--               plus ; sans entrée : plan fixe sur le boss (warn dans l'Output). Bouton « Passer » : coupe l'entrée et
+--               n'abrège que l'affichage local.
 -- « Arrivee » / « Annule » : fin du chargement sans intro (rejoindre en cours de combat, départ annulé).
 -- « Retour »  : fondu au noir, attente de la téléportation (DansArene retiré par le serveur), fondu retour.
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
 local Outils = require(script.Parent:WaitForChild("BossOutils"))
+local Entrees = require(script.Parent:WaitForChild("BossEntrees"))
 local creer, coin, trait, texte, T = UI.creer, UI.coin, UI.trait, UI.texte, UI.T
 
 local Cinematique = {}
+
+local ATTENTE_BOSS = 3 -- s max d'attente du modèle du boss chez le client avant de lancer l'intro
+
+-- modèle de boss utilisable par une entrée : présent, avec sa Root et son rig
+local function bossComplet(m: any): Model?
+	if typeof(m) == "Instance" and m:IsA("Model") and m.Parent and m.PrimaryPart and m:FindFirstChild("Joints") then return m end
+	return nil
+end
+
+-- boss (tag MobGrotte, attribut Boss) le plus proche du centre de l'arène
+local function chercherBoss(centre: Vector3): Model?
+	local meilleur, dMin = nil, 150
+	for _, m in CollectionService:GetTagged("MobGrotte") do
+		if m:GetAttribute("Boss") == true and bossComplet(m) then
+			local d = ((m :: Model).PrimaryPart.Position - centre).Magnitude
+			if d < dMin then meilleur, dMin = m, d end
+		end
+	end
+	return meilleur
+end
 
 function Cinematique.init(ctx)
 	local cinema: ScreenGui = ctx.cinema
@@ -48,7 +73,7 @@ function Cinematique.init(ctx)
 
 	local function montrerChargement(d)
 		Ecran.montrer(d)
-		progresser(0.88, if d.court then 0.8 else Config.DELAI_DEPART + 1.6)
+		progresser(0.88, if d.court then 0.8 else Config.CHARGEMENT - Config.FONDU - Config.CHARGEMENT_FIN)
 	end
 
 	local function cacherChargement()
@@ -153,11 +178,20 @@ function Cinematique.init(ctx)
 	end
 
 	local connexionPasser: RBXScriptConnection? = nil
+	local entree = nil -- entrée en scène du boss (BossEntrees) en cours
+
+	local function finirEntree()
+		if entree then
+			entree.fin()
+			entree = nil
+		end
+	end
 
 	local function finirIntro()
 		if not enIntro then return end
 		enIntro = false
 		RunService:UnbindFromRenderStep("BossIntro")
+		finirEntree()
 		if connexionPasser then
 			connexionPasser:Disconnect()
 			connexionPasser = nil
@@ -195,12 +229,18 @@ function Cinematique.init(ctx)
 		end)
 	end
 
-	local function terminerChargement(s: number, suite: () -> ())
-		progresser(1, 0.25, Enum.EasingStyle.Linear)
+	-- pret : tant qu'il renvoie false (boss pas encore reçu), l'écran de chargement reste, ATTENTE_BOSS s au plus
+	local function terminerChargement(s: number, suite: () -> (), pret: (() -> boolean)?)
+		progresser(1, Config.CHARGEMENT_FIN * 0.7, Enum.EasingStyle.Linear)
 		etatCharge.Text = "Arène prête !"
 		Outils.jouer("ping", 1.2, 0.3)
-		task.delay(0.35, function()
+		task.delay(Config.CHARGEMENT_FIN, function()
 			if session ~= s then return end
+			if pret and not pret() then
+				local limite = os.clock() + ATTENTE_BOSS
+				repeat task.wait(0.05) until session ~= s or pret() or os.clock() >= limite
+				if session ~= s then return end
+			end
 			cacherChargement()
 			etatCharge.Text = "Chargement de l'arène…"
 			suite()
@@ -230,10 +270,26 @@ function Cinematique.init(ctx)
 		session += 1
 		local s = session
 		if not ctx.etat.cinematique then debut() end
+		local recu = os.clock()
+		local centre: Vector3 = if typeof(d.centre) == "Vector3" then d.centre else Vector3.zero
+		-- avec StreamingEnabled, la référence du message peut arriver nil si le modèle n'est pas encore répliqué :
+		-- on le retrouve alors par son tag (boss le plus proche du centre de l'arène)
+		local boss: Model? = bossComplet(d.boss)
+		if not boss then
+			warn("[BossEntrees] boss pas encore répliqué à la réception de l'intro (StreamingEnabled ?) : attente " .. ATTENTE_BOSS .. " s max")
+		end
+		local function pret(): boolean
+			boss = boss or bossComplet(d.boss) or chercherBoss(centre)
+			return boss ~= nil
+		end
 		terminerChargement(s, function()
 			camera = workspace.CurrentCamera
-			local centre: Vector3 = if typeof(d.centre) == "Vector3" then d.centre else Vector3.zero
-			local boss = if typeof(d.boss) == "Instance" and d.boss:IsA("Model") then d.boss else nil
+			if not boss then
+				warn("[BossEntrees] boss toujours introuvable chez ce client : plan fixe de secours sans entrée")
+			end
+			-- attente du modèle au-delà de la fin de jauge : on rattrape le minutage du serveur
+			local retard = math.max(0, os.clock() - recu - Config.CHARGEMENT_FIN - 0.1)
+			if retard > 0 then warn(string.format("[BossEntrees] boss reçu avec %.2f s de retard : début de l'entrée sauté d'autant", retard)) end
 			local D = tonumber(d.duree) or Config.DUREE_INTRO
 			local R = tonumber(d.roar) or Config.ROAR_INTRO
 			local nom = ctx.dossier:GetAttribute("Nom") or "Boss"
@@ -264,31 +320,42 @@ function Cinematique.init(ctx)
 			carte.Visible, carte.GroupTransparency = true, 1
 			carteTrait.Size = UDim2.new(0, 0, 0, 3)
 
-			local t0 = os.clock()
-			local _, _, avant0 = infosBoss()
-			local a0 = math.atan2(avant0.X, avant0.Z) + math.pi * 0.75 -- départ de trois quarts dos, on tourne vers sa face
+			local t0 = os.clock() - retard
 			local roarFait, carteFaite, sortieFaite = false, false, false
 			local FOV_BAS = 55
+			local def = Config.BOSS[ctx.dossier:GetAttribute("Index") or 0]
+			finirEntree()
+			entree = Entrees.creer(if type(d.id) == "string" then d.id elseif def then def.id else nil, boss, cinema, R)
 
 			RunService:BindToRenderStep("BossIntro", Enum.RenderPriority.Camera.Value + 1, function()
 				local t = os.clock() - t0
+				local cfE: CFrame? = nil
+				if entree then
+					local ok, res = pcall(entree.pas, t)
+					if ok then
+						cfE = res
+					else
+						warn("[BossCinematique] " .. tostring(res))
+						finirEntree()
+					end
+				end
 				local pos, h, avant = infosBoss()
 				local cf: CFrame
-				if t < R then
-					-- 1. plan large qui tourne autour de l'arène
+				if cfE then
+					cf = cfE
+				elseif t < R then
+					-- 1. secours (pas d'entrée) : plan fixe de trois quarts face sur le boss, zoom lent
 					local k = t / R
 					local e = k * k * (3 - 2 * k)
-					local a = a0 + e * 1.5
-					local rayon = 70 - 12 * e
-					local oeil = centre + Vector3.new(math.sin(a) * rayon, 34 - 12 * e, math.cos(a) * rayon)
-					cf = CFrame.lookAt(oeil, pos + Vector3.new(0, h * 0.45, 0))
+					local dir = (avant + avant:Cross(Vector3.yAxis) * 0.3).Unit
+					local oeil = pos + dir * (h * 1.4 + 14 - 4 * e) + Vector3.new(0, h * 0.35, 0)
+					cf = CFrame.lookAt(oeil, pos + Vector3.new(0, h * 0.5, 0))
 				else
-					-- 2. plan bas sur le boss qui rugit, poussée lente, puis léger contournement pendant la carte de nom
+					-- 2. plan bas fixe sur le boss qui rugit, très lente poussée pendant la carte de nom
 					local k = math.clamp((t - R) / (D - R), 0, 1)
-					local dist = (h * 0.9 + 9) * (1.12 - 0.12 * math.min(k * 2, 1))
-					local cote = avant:Cross(Vector3.yAxis)
-					local dir = (avant + cote * (0.15 + 0.35 * k)).Unit
-					local oeil = pos + dir * dist + Vector3.new(0, 2.2 + k * 2.5, 0)
+					local dist = (h * 0.9 + 9) * (1.1 - 0.1 * k * k * (3 - 2 * k))
+					local dir = (avant + avant:Cross(Vector3.yAxis) * 0.22).Unit
+					local oeil = pos + dir * dist + Vector3.new(0, 2.6, 0)
 					cf = CFrame.lookAt(oeil, pos + Vector3.new(0, h * 0.72, 0))
 					if not roarFait then
 						roarFait = true
@@ -303,7 +370,7 @@ function Cinematique.init(ctx)
 					Outils.secouer(0.85)
 					Outils.jouer("grondement", 0.55, 0.6)
 					Outils.jouer("impact", 0.4, 0.5)
-					task.delay(1.0, function()
+					task.delay(0.4, function()
 						if not enIntro or session ~= s then return end
 						Outils.jouer("lame", 0.8)
 						TweenService:Create(carte, TweenInfo.new(0.6, Enum.EasingStyle.Quad), {GroupTransparency = 0}):Play()
@@ -326,9 +393,12 @@ function Cinematique.init(ctx)
 					connexionPasser = nil
 				end
 				Outils.jouer("clic")
-				if enIntro and session == s then t0 = os.clock() - (D - 0.5) end
+				if enIntro and session == s then
+					finirEntree()
+					t0 = os.clock() - (D - 0.5)
+				end
 			end)
-		end)
+		end, pret)
 	end
 
 	function api.retour()

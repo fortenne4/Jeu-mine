@@ -15,12 +15,22 @@ BossVillage.GUIDE = 40              -- s avant le boss : flèches au sol vers le
 BossVillage.ANNONCE = 60            -- s avant le boss : bandeau + puce en haut d'écran + guide vers le cercle
 
 -- Déroulé (s). Départ : fondu au noir + écran de chargement, téléportation après DELAI_DEPART, intro quand tous
--- sont posés (au plus ATTENTE_ARRIVEE s). Intro : boss invulnérable et immobile, joueurs gelés.
+-- sont posés, CHARGEMENT s après le départ (au plus ATTENTE_ARRIVEE s d'attente). Intro : boss invulnérable et
+-- immobile, joueurs gelés.
 BossVillage.FONDU = 0.6
 BossVillage.DELAI_DEPART = 0.8
-BossVillage.ATTENTE_ARRIVEE = 3
-BossVillage.DUREE_INTRO = 6.5
-BossVillage.ROAR_INTRO = 2.6        -- instant du rugissement dans l'intro (plan bas sur le boss)
+BossVillage.CHARGEMENT = 5          -- fondu + écran de chargement, du départ au début de l'intro
+BossVillage.CHARGEMENT_FIN = 0.5    -- dont la fin de jauge (« Arène prête ! ») une fois l'intro reçue
+BossVillage.ATTENTE_ARRIVEE = 6     -- attente max des retardataires (≥ CHARGEMENT − DELAI_DEPART − CHARGEMENT_FIN)
+BossVillage.DUREE_INTRO = 8.8       -- intro par défaut (la plus longue)
+BossVillage.ROAR_INTRO = 6.2        -- instant du rugissement dans l'intro (plan bas sur le boss)
+-- Entrée en scène propre à chaque boss (client BossEntrees, plans fixes, minutée sur roar) : durée et rugissement.
+-- Le serveur décale roar et la fin de l'intro de CHARGEMENT_FIN (temps de fin de jauge côté client).
+BossVillage.INTRO = {
+	TitanCristal = {duree = 8.6, roar = 6.1},   -- gros plan cristal 1,8 s, fissures, éclate à roar − 2,1, bras levés
+	ReineAraignee = {duree = 8.8, roar = 6.4},  -- descente au fil, atterrit à roar − 3, crache à roar − 2, toile dissoute à roar
+	SeigneurBraise = {duree = 8.8, roar = 6.3}, -- portail à roar − 3,55, bond à roar − 2,15, atterrit à roar − 1,2
+}
 -- Phases : sous 66 % puis 33 % de PV, le boss s'enrage (2 s invulnérable, rugissement, attaques plus rapides)
 BossVillage.PHASES = {0.66, 0.33}
 BossVillage.PHASE_INVULNERABLE = 2
@@ -96,6 +106,9 @@ BossVillage.PV_PAR_DEGAT = 190
 BossVillage.EPEE_MIN = 15           -- un joueur à l'épée de base compte comme une épée de 15
 BossVillage.EPEE_MAX = 310
 BossVillage.PV_MIN = 4000
+-- Minimum de joueurs : en dessous, les PV sont calculés comme si le groupe comptait JOUEURS_MIN joueurs (épée
+-- moyenne du groupe) : un boss n'est pas faisable à 1 à 3 joueurs ; au-delà, PV proportionnels au nombre de joueurs.
+BossVillage.JOUEURS_MIN = 4
 
 -- Récompenses (pièces) : BONUS_MIN à tout joueur ayant touché le boss + sa part du pot (au prorata des dégâts),
 -- pot = POT_PAR_JOUEUR × nombre de participants × mult du boss.
@@ -142,7 +155,7 @@ BossVillage.SBIRES_MAX = 6
 --   RemoteEvent « Evenement » : serveur → client (type, données)
 --     "Annonce" (texte, couleur?)                       tous les joueurs (bandeau)
 --     "Depart" {nom, titre, couleur, index, court}       partant : fondu noir + écran de chargement (court = rejoindre)
---     "Intro" {centre, boss (Model?), duree, roar}       posé dans l'arène : cinématique d'entrée du boss
+--     "Intro" {centre, boss (Model?), id, duree, roar}   posé dans l'arène : cinématique d'entrée du boss
 --     "Arrivee" {}                                       posé (rejoindre / arrivé en retard) : fin du chargement
 --     "Annule" {}                                        départ annulé (mort, erreur) : fin du chargement
 --     "Phase" {phase, nom, couleur}                      changement de phase (bannière, secousse)
