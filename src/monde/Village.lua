@@ -974,11 +974,10 @@ local MAISONS = {
 	-- rue est
 	{102, R.EST_Z - 15, 16, 14, 1, Vector3.new(102, 0, R.EST_Z)}, {130, R.EST_Z - 15, 20, 15, 2, Vector3.new(130, 0, R.EST_Z)},
 	{102, R.EST_Z + 15, 18, 14, 2, Vector3.new(102, 0, R.EST_Z)}, {130, R.EST_Z + 15, 16, 14, 1, Vector3.new(130, 0, R.EST_Z)},
-	-- rue du sud, après le pont : deux maisons de chaque côté et une au bout de la rue
-	-- (le terrain monte au-delà de z = 144 : la maison du bout reste juste avant la pente)
+	-- rue du sud, après le pont : deux maisons de chaque côté ; au bout de la rue, la place du boss du village
+	-- (ancienne Maison13, retirée : Village.preparerCercleBoss)
 	{-19, 108, 16, 14, 1, Vector3.new(0, 0, 108)}, {19, 108, 16, 14, 2, Vector3.new(0, 0, 108)},
 	{-19, 127, 16, 14, 2, Vector3.new(0, 0, 127)}, {19, 127, 16, 14, 1, Vector3.new(0, 0, 127)},
-	{0, R.SUD_FIN + 10, 20, 14, 2, Vector3.new(0, 0, 0)},
 }
 
 local function maisons(v, rng, obstacles)
@@ -1824,6 +1823,654 @@ function Village.degager(carte)
 	if retires > 0 then
 		print(string.format("[Village] %d éléments de décor retirés (sur une rue ou dans un bâtiment)", retires))
 	end
+end
+
+--[[ Place du boss du village : « l'Arène des boss », au bout de la rue du sud (à la place de l'ancienne Maison13).
+	Esplanade pavée (dalle ronde + parvis) fermée au sud par la PORTE DES BOSS, porte naine taillée dans la montagne :
+	façade en gradins (corps central ≤ 33 studs, ailes plus basses) en moellons sombres, portail à deux battants de fer
+	et de bois gravés de runes, chaînes et cadenas, fronton, crâne du Seigneur de braise au-dessus, frise aux emblèmes
+	des 3 boss, couronnements crénelés ; au-dessus et sur les côtés, talus de roche (terrain) semés de rochers, pins et
+	buissons qui cachent la coupe. Deux nains gardiens géants (marteau, hache), bannières, braseros sur piliers à côté
+	des trophées du Titan et de la Reine (hauts socles), gradins ; murs de soutènement en pierre taillée à l'est et à
+	l'ouest. Côté rue : deux piliers bas à lanternes (la vue depuis le pont reste dégagée).
+	Éclairage chaud et doux : 6 lumières (luminosité ≤ 1,4), néon seulement sur de petits détails assombris.
+	Le cercle lumineux (rayon D.CERCLE_BOSS_RAYON) et le panneau sont posés par BossVillage.server (attribut « Centre »).
+	Cartes figées ou non : le relief d'origine (Terrain.hauteur) est d'abord rétabli autour de la place (creusements
+	des versions précédentes), puis seul le parvis est creusé, aligné sur les voxels de 4 studs. Retire ce qui tombe
+	dans l'emprise (Maison13, pierres d'allée, arbres, rochers), jamais un bâtiment ; ne creuse jamais sous une maison.
+	Reconstruite quand PLACE_BOSS_VERSION change. ]]
+local PLACE_BOSS_VERSION = 6
+local PLACE_BOSS_CENTRE = Vector3.new(0, 0, 151) -- = D.CERCLE_BOSS : l'esplanade reste à l'écart des Maison11/12
+local PLACE_BOSS_RAYON = 18 -- dalle ; le cercle des joueurs (rayon 14) au milieu, le décor au-delà de 14,5
+local PLACE_BOSS_DEMI_LARGEUR = 20 -- parvis creusé : x ∈ [-20, 20] (multiple de 4 : coupe nette des voxels)
+local PLACE_BOSS_NORD = 140 -- début du parvis et des murs latéraux (≥ 5 studs des Maison11/12)
+local PLACE_BOSS_FACADE_Z = 168 -- face avant de la Porte des boss (multiple de 4)
+-- couleurs des 3 boss (Partage › BossVillage.BOSS) : Titan de cristal, Reine araignée, Seigneur de braise
+local COULEURS_BOSS = {Color3.fromRGB(110, 205, 255), Color3.fromRGB(190, 110, 255), Color3.fromRGB(255, 120, 50)}
+
+function Village.preparerCercleBoss(village)
+	if not village then
+		return
+	end
+	local ancienne = village:FindFirstChild("PlaceBoss")
+	if ancienne then
+		if ancienne:GetAttribute("Version") == PLACE_BOSS_VERSION then
+			return ancienne
+		end
+		ancienne:Destroy()
+	end
+	local c, RE = PLACE_BOSS_CENTRE, PLACE_BOSS_RAYON
+	local DL, ZN, ZF = PLACE_BOSS_DEMI_LARGEUR, PLACE_BOSS_NORD, PLACE_BOSS_FACADE_Z
+	local terrain = workspace.Terrain
+	local filtre = RaycastParams.new()
+	filtre.FilterType = Enum.RaycastFilterType.Include
+	filtre.FilterDescendantsInstances = {terrain}
+	local function hauteur(x, z)
+		local r = workspace:Raycast(Vector3.new(x, 400, z), Vector3.new(0, -600, 0), filtre)
+		return r and r.Position.Y
+	end
+	-- angle 0 = nord (vers la rue, -Z), sens horaire vu du dessus
+	local function pt(a, r, y)
+		return Vector3.new(c.X + math.sin(a) * r, y, c.Z - math.cos(a) * r)
+	end
+	local function versCentre(p) -- -Z local tourné vers le centre
+		return CFrame.lookAt(p, Vector3.new(c.X, p.Y, c.Z))
+	end
+	local niveau = hauteur(c.X, c.Z - RE - 3) or 2 -- niveau de la rue
+	local y = niveau + 0.6 -- dessus de la dalle (et sol de tout le décor)
+
+	-- 1. Ancienne maison du bout de la rue (cartes figées) ; bâtiments à ménager
+	for _, e in village:GetChildren() do
+		local maison13 = e:FindFirstChild("Maison13")
+		if maison13 and maison13:IsA("Model") then
+			maison13:Destroy()
+		end
+	end
+	local bats = batiments(village)
+	local function presBatiment(x, z, marge)
+		for _, b in bats do
+			if horsBoite(b, x, z) < marge then
+				return true
+			end
+		end
+		return false
+	end
+
+	-- 2. Emprise libérée : pierres d'allée, tonneaux, arbres, rochers (marge : le feuillage déborde).
+	--    Les bâtiments (attribut Accueil) ne sont jamais touchés.
+	local function dansEmprise(p, marge)
+		return math.abs(p.X - c.X) < DL + 4 + marge and p.Z > ZN - 4 - marge and p.Z < ZF + 10 + marge
+	end
+	local NATURE = {Nature = true, Bosquets = true, Falaises = true}
+	local conteneurs = {}
+	for _, e in village:GetChildren() do
+		table.insert(conteneurs, {e, if NATURE[e.Name] then 4 else 0.5})
+	end
+	local carte = village.Parent
+	for _, e in (if carte then carte:GetChildren() else {}) do
+		if e.Name == "Bordures" then
+			for _, s in e:GetChildren() do
+				table.insert(conteneurs, {s, 4})
+			end
+		elseif e ~= village and e.Name ~= "Mine" and (e:IsA("Model") or e:IsA("Folder")) then
+			table.insert(conteneurs, {e, 0.5})
+		end
+	end
+	for _, k in conteneurs do
+		for _, e in k[1]:GetChildren() do
+			local p = if e:IsA("Model") then e:GetPivot().Position elseif e:IsA("BasePart") then e.Position else nil
+			if p and e:GetAttribute("Accueil") == nil then
+				local d = Vector2.new(p.X - c.X, p.Z - c.Z).Magnitude
+				if d < RE + 1.5 + k[2] or dansEmprise(p, k[2]) then
+					e:Destroy()
+				end
+			end
+		end
+	end
+
+	-- 3. Relief d'origine rétabli autour de la place (cartes figées : anciens bols, talus et gradins creusés par
+	--    les versions précédentes). Même relief que Terrain.hauteur, aplani près des maisons comme Village.terrasser.
+	local function attendu(x, z)
+		local h = T.hauteur(x, z)
+		for _, b in bats do
+			local d = horsBoite(b, x, z)
+			if d < 14 then
+				local cible = if d <= 4 then 2 else 2 + (d - 4) * 0.85
+				if h > cible + 0.8 then
+					h = cible
+				end
+			end
+		end
+		return h
+	end
+	local restaures = 0
+	for x = -70, 70, 4 do -- centres des colonnes de voxels (4k + 2)
+		for z = 134, 222, 4 do
+			local px = c.X + x
+			if (math.abs(x) < DL and z < ZF) or Vector2.new(x, z - c.Z).Magnitude > 76 or presBatiment(px, z, 4) then
+				continue
+			end
+			local ha, hs = attendu(px, z), hauteur(px, z)
+			if hs and hs < ha - 1.5 then
+				local pente = math.max(math.abs(T.hauteur(px + 4, z) - T.hauteur(px - 4, z)), math.abs(T.hauteur(px, z + 4) - T.hauteur(px, z - 4))) / 8
+				local surface = if pente > 1.05 then Enum.Material.Rock elseif pente > 0.6 then Enum.Material.Ground else Enum.Material.Grass
+				local bas = hs - 4
+				if ha - 3 > bas then
+					terrain:FillBlock(CFrame.new(px, (bas + ha - 3) / 2, z), Vector3.new(4, ha - 3 - bas, 4), Enum.Material.Rock)
+				end
+				terrain:FillBlock(CFrame.new(px, ha - 1.5, z), Vector3.new(4, 3, 4), surface)
+				restaures += 1
+			end
+		end
+	end
+	if restaures > 0 then
+		print(string.format("[Village] place du boss : relief d'origine rétabli sur %d colonnes", restaures))
+	end
+
+	-- 4. Relevé du terrain (avant creusement) : la façade et les murs latéraux couvrent toute la coupe
+	local function hautMax(points)
+		local hm = -math.huge
+		for _, q in points do
+			local h = hauteur(q.X, q.Y)
+			if h then
+				hm = math.max(hm, h)
+			end
+		end
+		return hm
+	end
+	local pts = {}
+	for x = -DL - 2, DL + 2, 4 do
+		table.insert(pts, Vector2.new(c.X + x, ZF + 0.5))
+		table.insert(pts, Vector2.new(c.X + x, ZF + 2.5))
+	end
+	-- façade à taille humaine (≤ 33) : au-dessus, la coupe est couverte de roche (étape 5b), pas d'un mur lisse
+	local hCoupe = hautMax(pts)
+	local HF = math.clamp(math.ceil(hCoupe - y + 1.5), 28, 33) -- corps central de la façade
+	local HA = HF - 7 -- ailes de la façade (silhouette en gradins)
+	local ptsSud = {}
+	for x = -DL - 8, DL + 8, 4 do
+		table.insert(ptsSud, Vector2.new(c.X + x, ZF + 6))
+		table.insert(ptsSud, Vector2.new(c.X + x, ZF + 10))
+	end
+	local hSud = math.max(hCoupe, hautMax(ptsSud)) -- crête de la colline derrière la façade
+	local murs = {} -- tronçons de 4 studs le long de z, de chaque côté (le dernier, au coin de la façade, sans mur)
+	for z = ZN, ZF, 4 do
+		for _, s in {-1, 1} do
+			local xi, xe = c.X + s * (DL + 0.5), c.X + s * (DL + 3.5)
+			local h = hautMax({Vector2.new(xi, z + 0.5), Vector2.new(xi, z + 3.5), Vector2.new(xe, z + 0.5), Vector2.new(xe, z + 3.5)})
+			local coin = z >= ZF
+			table.insert(murs, {s = s, z = z, hT = h, coin = coin, h = if coin then HA else math.clamp(math.ceil(h - y + 1), 4, HA)})
+		end
+	end
+
+	-- 5. Creusement aligné sur les voxels de 4 studs : la couche qui contient la rue est vidée (sinon l'herbe lissée
+	--    dépasse la dalle) ; parvis rectangulaire jusqu'à la façade, bord nord de la dalle en cylindre bas
+	local fond = math.floor(niveau / 4) * 4
+	terrain:FillCylinder(CFrame.new(c.X, fond + 6, c.Z), 12, RE + 1.5, Enum.Material.Air) -- axe du cylindre = Y
+	-- +4 studs derrière la façade et les murs latéraux : le terrain lissé d'une couche pleine voisine dépasse de ~2 studs
+	-- et recouvrait la façade (vu en jeu). La façade et les murs cachent le vide derrière eux.
+	terrain:FillBlock(CFrame.new(c.X, fond + 80, (ZN + ZF + 4) / 2), Vector3.new(2 * DL + 8, 160, ZF + 4 - ZN), Enum.Material.Air)
+
+	-- 5b. Roche de la montagne au-dessus et autour de la façade : talus de roche (terrain) qui retombe sur la coupe,
+	--     à 3 studs derrière le bord des ailes et des murs (le lissage des voxels ne recouvre pas la pierre taillée)
+	local talusSud = nil
+	do
+		local H = hSud - (y + HA) + 4
+		if H > 2 then
+			local L = H / 1.8
+			terrain:FillWedge(CFrame.new(c.X, y + HA + H / 2, ZF + 3 + L / 2), Vector3.new(2 * DL + 24, H, L), Enum.Material.Rock)
+			talusSud = {H = H, L = L}
+		end
+	end
+	local talusCotes = {}
+	for _, w in murs do
+		local H = w.hT - (y + w.h) + 3
+		if H > 1.5 then
+			local L = math.max(H / 1.6, 4)
+			terrain:FillWedge(CFrame.new(c.X + w.s * (DL + 2 + L / 2), y + w.h + H / 2, w.z + 2) * CFrame.Angles(0, w.s * math.pi / 2, 0),
+				Vector3.new(4.2, H, L), Enum.Material.Rock)
+			table.insert(talusCotes, {w = w, H = H, L = L})
+		end
+	end
+
+	-- palette sombre et contrastée : gris ardoise / brun, fer sombre, or
+	local m = O.modele(village, "PlaceBoss")
+	local rng = Random.new(1313)
+	local claire, moyenne, foncee = Color3.fromRGB(118, 110, 102), Color3.fromRGB(92, 86, 82), Color3.fromRGB(52, 50, 54)
+	local pierre = Color3.fromRGB(84, 80, 80)
+	local pierreClaire = Color3.fromRGB(112, 104, 96)
+	local pierreSombre = Color3.fromRGB(46, 44, 46)
+	local pierreStatue = Color3.fromRGB(72, 68, 66)
+	local orVieilli = Color3.fromRGB(184, 140, 60)
+	local orTexte = Color3.fromRGB(236, 186, 90)
+	local fer = Color3.fromRGB(40, 38, 42)
+	local rune = Color3.fromRGB(150, 70, 28) -- néon assombri : lueur de braise discrète
+	local feu = Color3.fromRGB(255, 150, 80)
+
+	-- segment de section w entre deux points du monde
+	local function segment(a, b, w, couleur, mat, nom)
+		local d = b - a
+		local haut = if math.abs(d.Unit.Y) > 0.98 then Vector3.xAxis else Vector3.yAxis
+		return O.bloc(m, Vector3.new(w, w, d.Magnitude), CFrame.lookAt((a + b) / 2, b, haut), couleur, mat, nom)
+	end
+	-- chaîne pendante de a à b (maillons alternés)
+	local function chaine(a, b, chute, n)
+		local function p(t)
+			return a:Lerp(b, t) - Vector3.new(0, 4 * chute * t * (1 - t), 0)
+		end
+		for i = 0, n - 1 do
+			local p0, p1 = p(i / n), p((i + 1) / n)
+			local cf = CFrame.lookAt((p0 + p1) / 2, p1) * CFrame.Angles(0, 0, if i % 2 == 0 then 0 else math.pi / 2)
+			O.decor(O.bloc(m, Vector3.new(0.22, 0.55, (p1 - p0).Magnitude * 1.12), cf, fer, M.Metal, "Chaine"))
+		end
+	end
+
+	-- 6. Sol : dalle ronde (rosace, anneaux de dalles), parvis rectangulaire jusqu'à la façade, marches au nord
+	O.cylindre(m, 1.4, RE * 2, CFrame.new(c.X, y - 0.7, c.Z), moyenne:Lerp(claire, 0.3), M.Paves, "Dalle")
+	O.bloc(m, Vector3.new(2 * DL + 0.4, 1.4, ZF - ZN + 0.6), CFrame.new(c.X, y - 0.76, (ZN + ZF) / 2), moyenne:Lerp(foncee, 0.3), M.Paves, "Parvis")
+	local function anneau(r, n, largeur, couleurs, nom)
+		local l = 2 * math.pi * r / n
+		for k = 0, n - 1 do
+			local a = (k + 0.5) / n * 2 * math.pi
+			local coul = couleurs[k % #couleurs + 1]
+			O.decor(O.bloc(m, Vector3.new(l * 0.94, 0.1, largeur), versCentre(pt(a, r, y + 0.02)), coul,
+				if coul == foncee then M.Ardoise else M.Ardoise, nom))
+		end
+	end
+	anneau(16.3, 40, 3.2, {claire, moyenne}, "Dallage")
+	anneau(14, 36, 1.3, {foncee}, "Liseré") -- sous l'anneau des joueurs
+	anneau(7.6, 20, 1.6, {claire, moyenne}, "Rosace")
+	for k = 0, 7 do -- rayons de la rosace
+		local a = k * math.pi / 4
+		O.decor(O.bloc(m, Vector3.new(0.3, 0.08, 9.6), versCentre(pt(a, 8.5, y + 0.01)), foncee, M.Ardoise, "Joint"))
+	end
+	O.decor(O.cylindre(m, 0.12, 7.2, CFrame.new(c.X, y + 0.03, c.Z), foncee, M.Ardoise, "Medaillon"))
+	O.decor(O.cylindre(m, 0.14, 5, CFrame.new(c.X, y + 0.04, c.Z), moyenne, M.Ardoise, "Medaillon"))
+	for k = 0, 3 do -- étoile à 8 branches en laiton
+		O.decor(O.bloc(m, Vector3.new(0.5, 0.06, 4.6), CFrame.new(c.X, y + 0.12, c.Z) * CFrame.Angles(0, k * math.pi / 4, 0), orVieilli, M.Metal, "Etoile"))
+	end
+	local N = 40
+	local Lm = 2 * math.pi * (RE + 0.6) / N * 1.04
+	for k = 0, N - 1 do -- marche basse sur le bord nord de la dalle (hors du parvis)
+		local p = pt((k + 0.5) * 2 * math.pi / N, RE + 0.6, niveau - 0.15)
+		if p.Z < ZN - 0.4 and not presBatiment(p.X, p.Z, 0.6) then
+			O.bloc(m, Vector3.new(Lm, 0.9, 1.2), versCentre(p), foncee:Lerp(moyenne, 0.4), M.Ardoise, "Marche")
+		end
+	end
+	local xMarche = math.sqrt((RE + 0.6) ^ 2 - (c.Z - ZN) ^ 2) -- la dalle croise le bord nord du parvis
+	for _, s in {-1, 1} do
+		local l = DL + 0.2 - xMarche
+		O.bloc(m, Vector3.new(l, 0.9, 1.2), CFrame.new(c.X + s * (xMarche + l / 2), niveau - 0.15, ZN - 0.6), foncee:Lerp(moyenne, 0.4), M.Ardoise, "Marche")
+	end
+
+	-- 7. Murs de soutènement est / ouest : pierre taillée, aussi hauts que le terrain retenu (aucune terre à nu)
+	for _, w in murs do
+		if w.coin then
+			continue
+		end
+		local zc = w.z + 2
+		local coul = pierre:Lerp(pierreClaire, rng:NextNumber(0, 0.25))
+		O.bloc(m, Vector3.new(4, w.h + 3, 4.05), CFrame.new(c.X + w.s * (DL + 2), y - 3 + (w.h + 3) / 2, zc), coul, M.Ardoise, "Mur")
+		O.bloc(m, Vector3.new(4.8, 0.7, 4.1), CFrame.new(c.X + w.s * (DL + 1.6), y + w.h + 0.35, zc), pierreClaire, M.Ardoise, "Couronnement")
+		O.bloc(m, Vector3.new(0.6, 1.6, 4.05), CFrame.new(c.X + w.s * (DL - 0.3), y + 0.8, zc), pierreSombre, M.Ardoise, "Soubassement")
+		if (w.z - ZN) % 8 == 4 then -- pilastre tous les 8 studs
+			O.bloc(m, Vector3.new(0.8, w.h - 0.4, 1.6), CFrame.new(c.X + w.s * (DL - 0.4), y + (w.h - 0.4) / 2, zc), pierreClaire:Lerp(pierre, 0.5), M.Ardoise, "Pilastre")
+		end
+		for _, yy in {6.5, 13, 19.5, 26} do -- assises claires
+			if yy < w.h - 1 then
+				O.decor(O.bloc(m, Vector3.new(0.3, 0.45, 4.05), CFrame.new(c.X + w.s * (DL - 0.15), y + yy, zc), pierreClaire, M.Ardoise, "Assise"))
+			end
+		end
+	end
+
+	-- 8. La Porte des boss : porte naine taillée dans la montagne (face avant à ZF, corps de 8 studs dans la roche).
+	--    Silhouette en gradins : corps central (x ±16, hauteur HF), ailes plus basses (HA) ; roche au-dessus (5b).
+	local function plaque(l, h, x, yy, saillie, couleur, mat, nom) -- bloc plaqué : face avant à ZF - saillie
+		return O.bloc(m, Vector3.new(l, h, saillie + 0.5), CFrame.new(c.X + x, y + yy, ZF + (0.5 - saillie) / 2), couleur, mat, nom)
+	end
+	local texte = {couleur = orTexte, lumiere = 0.2, ppp = 40}
+	O.bloc(m, Vector3.new(32, HF + 3, 8), CFrame.new(c.X, y - 3 + (HF + 3) / 2, ZF + 4), pierreSombre, M.Ardoise, "Facade")
+	for _, s in {-1, 1} do
+		O.bloc(m, Vector3.new(8, HA + 3, 8), CFrame.new(c.X + s * 20, y - 3 + (HA + 3) / 2, ZF + 4), pierreSombre, M.Ardoise, "Facade")
+	end
+	plaque(2 * DL + 8, 2.2, 0, 0.1, 1, pierreSombre, M.Ardoise, "Soubassement")
+	-- appareil de pierre taillée : moellons décalés d'une rangée à l'autre, teintes et saillies variées, joints sombres
+	local rangee = 0
+	for yy = 1.2, HF - 3.5, 3 do
+		rangee += 1
+		local x = -DL + (if rangee % 2 == 0 then 2.5 else 0)
+		while x < DL - 0.1 do
+			local fin = x + rng:NextNumber(4, 6.5)
+			for _, borne in {-16, 16, DL} do -- coupe aux angles du corps central
+				if x < borne - 0.01 then
+					fin = math.min(fin, borne)
+					break
+				end
+			end
+			local xm = (x + fin) / 2
+			local limite = if math.abs(xm) > 16 then HA else HF
+			local portail = math.abs(xm) < 9 and yy < 21.6
+			if fin - x > 1 and yy + 3 <= limite - 0.4 and not portail then
+				local coul = pierre:Lerp(pierreSombre, rng:NextNumber(0, 0.4)):Lerp(pierreClaire, rng:NextNumber(0, 0.25))
+				plaque(fin - x - 0.3, 2.7, xm, yy + 1.5, rng:NextNumber(0.12, 0.4), coul, M.Ardoise, "Moellon")
+			end
+			x = fin
+		end
+	end
+	for _, d in {{-9.6, 2, HF}, {9.6, 2, HF}, {-15.6, 1.6, HF}, {15.6, 1.6, HF}} do -- pilastres
+		plaque(d[2], d[3] + 1, d[1], (d[3] - 1) / 2, 1.2, pierreClaire:Lerp(pierre, 0.35), M.Ardoise, "Pilastre")
+		plaque(d[2] + 0.8, 1.6, d[1], 0.8, 1.6, pierreSombre, M.Ardoise, "BasePilastre")
+		plaque(d[2] + 0.8, 0.8, d[1], 21.4, 1.6, pierreClaire, M.Ardoise, "Chapiteau")
+	end
+	-- portail : montants, linteau gravé, fronton en pointe (style nain)
+	for _, s in {-1, 1} do
+		plaque(2.4, 14, s * 7.2, 8.2, 1.6, pierreClaire, M.Ardoise, "Montant")
+		plaque(3, 1.2, s * 7.2, 1.8, 2, pierreSombre, M.Ardoise, "BaseMontant")
+		O.coin(m, Vector3.new(1.4, 4, 8.6), CFrame.new(c.X + s * 4.3, y + 19.6, ZF - 0.5) * CFrame.Angles(0, -s * math.pi / 2, 0), pierreClaire, M.Ardoise, "Fronton")
+	end
+	local linteau = plaque(17.2, 2.4, 0, 16.4, 1.8, pierreClaire, M.Ardoise, "Linteau")
+	O.texte(linteau, Enum.NormalId.Front, "ARÈNE DES BOSS", {couleur = orTexte, lumiere = 0.2, ppp = 30})
+	plaque(12.6, 14.2, 0, 8.2, 0.2, Color3.fromRGB(20, 18, 20), M.Ardoise, "Embrasure")
+	-- battants de fer sombre sur âme de bois foncé, runes, anneaux
+	for _, s in {-1, 1} do
+		plaque(5.9, 14, s * 3, 8.2, 0.5, Color3.fromRGB(44, 42, 46), M.Metal, "Battant")
+		for _, x in {-1.5, 1.5} do -- planches de bois foncé entre les ferrures
+			plaque(2.6, 13.4, s * 3 + x, 8.2, 0.6, Color3.fromRGB(46, 32, 24), M.Bois, "Planche")
+		end
+		for _, yy in {3.4, 8.2, 13} do
+			plaque(5.7, 0.7, s * 3, yy, 0.8, fer, M.Rouille, "Ferrure")
+		end
+		for _, yy in {5.8, 10.6} do
+			local r = O.decor(O.bloc(m, Vector3.new(0.9, 0.9, 0.3), CFrame.new(c.X + s * 3, y + yy, ZF - 0.7) * CFrame.Angles(0, 0, math.pi / 4), rune, M.Neon, "Rune"))
+			r.Transparency = 0.35
+			O.decor(O.bloc(m, Vector3.new(1.4, 0.16, 0.3), CFrame.new(c.X + s * 3, y + yy - 0.95, ZF - 0.7), rune:Lerp(Color3.new(), 0.3), M.Neon, "Rune")).Transparency = 0.45
+		end
+		local cx = c.X + s * 1.3 -- anneau de tirage
+		for _, d in {{0, 0.55, 1.3, 0.25}, {0, -0.55, 1.3, 0.25}, {0.55, 0, 0.25, 1.3}, {-0.55, 0, 0.25, 1.3}} do
+			O.decor(O.bloc(m, Vector3.new(d[3], d[4], 0.25), CFrame.new(cx + d[1], y + 6.4 + d[2], ZF - 1.0), orVieilli, M.Metal, "Anneau"))
+		end
+	end
+	plaque(0.35, 14, 0, 8.2, 0.9, fer, M.Metal, "Joint")
+	-- chaînes croisées et cadenas : la porte est scellée
+	O.bloc(m, Vector3.new(1.8, 2, 0.8), CFrame.new(c.X, y + 8.4, ZF - 1.5), orVieilli, M.Metal, "Cadenas")
+	O.decor(O.bloc(m, Vector3.new(0.3, 0.6, 0.1), CFrame.new(c.X, y + 8.2, ZF - 1.92), Color3.fromRGB(26, 22, 20), M.Metal, "Serrure"))
+	for _, s in {-1, 1} do
+		O.decor(O.bloc(m, Vector3.new(0.28, 1, 0.28), CFrame.new(c.X + s * 0.6, y + 9.8, ZF - 1.5), fer, M.Metal, "Anse"))
+		chaine(Vector3.new(c.X + s * 7.2, y + 14.6, ZF - 1.9), Vector3.new(c.X + s * 0.6, y + 10.2, ZF - 1.6), 0.8, 9)
+	end
+	O.decor(O.bloc(m, Vector3.new(1.5, 0.28, 0.28), CFrame.new(c.X, y + 10.3, ZF - 1.5), fer, M.Metal, "Anse"))
+	-- frise et emblèmes des 3 boss (couleurs mates), sur le corps central
+	plaque(30, 5, 0, 24.5, 0.8, pierreSombre:Lerp(pierre, 0.3), M.Ardoise, "Frise")
+	for _, yy in {22.1, 26.9} do
+		plaque(30, 0.3, 0, yy, 0.95, orVieilli, M.Metal, "Filet")
+	end
+	local function medaillon(x)
+		local cf = CFrame.new(c.X + x, y + 24.5, ZF)
+		O.bloc(m, Vector3.new(3.3, 3.3, 1.4), cf * CFrame.new(0, 0, -0.6) * CFrame.Angles(0, 0, math.pi / 4), orVieilli, M.Metal, "Medaillon")
+		O.bloc(m, Vector3.new(2.7, 2.7, 1.4), cf * CFrame.new(0, 0, -0.7) * CFrame.Angles(0, 0, math.pi / 4), pierreSombre, M.Ardoise, "Medaillon")
+		return cf * CFrame.new(0, 0, -1.5)
+	end
+	do -- Titan de cristal : trois prismes violets
+		local cf = medaillon(-12.7)
+		local violet = Color3.fromRGB(124, 88, 176)
+		for _, d in {{0, 0.15, 0.8, 2, 0}, {-0.65, -0.3, 0.6, 1.3, 0.35}, {0.65, -0.3, 0.6, 1.3, -0.35}} do
+			O.decor(O.bloc(m, Vector3.new(d[3], d[4], 0.4), cf * CFrame.new(d[1], d[2], 0) * CFrame.Angles(0, 0, d[5]), violet, M.Lisse, "Embleme"))
+		end
+	end
+	do -- Seigneur de braise : flamme
+		local cf = medaillon(0)
+		for _, d in {{-0.35, 1.4, Color3.fromRGB(170, 70, 28)}, {0.4, 0.95, Color3.fromRGB(200, 108, 40)}, {0.95, 0.5, Color3.fromRGB(214, 156, 66)}} do
+			O.decor(O.bloc(m, Vector3.new(d[2], d[2], 0.4), cf * CFrame.new(0, d[1], 0) * CFrame.Angles(0, 0, math.pi / 4), d[3], M.Lisse, "Embleme"))
+		end
+	end
+	do -- Reine araignée : corps et huit pattes
+		local cf = medaillon(12.7)
+		local noir = Color3.fromRGB(52, 38, 62)
+		O.decor(O.bloc(m, Vector3.new(0.9, 1.2, 0.4), cf * CFrame.new(0, -0.2, 0), noir, M.Lisse, "Embleme"))
+		O.decor(O.bloc(m, Vector3.new(0.6, 0.5, 0.4), cf * CFrame.new(0, 0.6, 0), noir, M.Lisse, "Embleme"))
+		O.decor(O.bloc(m, Vector3.new(0.3, 0.3, 0.45), cf * CFrame.new(0, -0.25, 0), Color3.fromRGB(140, 56, 84), M.Lisse, "Embleme"))
+		for _, s in {-1, 1} do
+			for i = 0, 3 do
+				local a = s * (math.rad(-35) + i * math.rad(22))
+				O.decor(O.bloc(m, Vector3.new(1.2, 0.14, 0.3), cf * CFrame.new(s * 0.75, 0.5 - i * 0.35, 0) * CFrame.Angles(0, 0, a), noir, M.Lisse, "Embleme"))
+			end
+		end
+	end
+	-- corniche à denticules, couronnements crénelés (corps central et ailes), couronne centrale
+	plaque(32, 1.4, 0, 28.2, 1.6, pierreClaire, M.Ardoise, "Corniche")
+	for x = -15, 15, 2 do
+		plaque(0.8, 0.6, x, 27.2, 1.2, pierreClaire:Lerp(pierre, 0.3), M.Ardoise, "Denticule")
+	end
+	O.bloc(m, Vector3.new(32.4, 0.6, 8.4), CFrame.new(c.X, y + HF + 0.3, ZF + 4), pierreClaire, M.Ardoise, "Couronnement")
+	for _, x in {-14, -10, 10, 14} do
+		O.bloc(m, Vector3.new(2.4, 2.2, 3), CFrame.new(c.X + x, y + HF + 1.7, ZF + 1), pierre, M.Ardoise, "Merlon")
+	end
+	for i, l in {16, 10, 5} do
+		O.bloc(m, Vector3.new(l, 2, 4), CFrame.new(c.X, y + HF + 1.6 + (i - 1) * 2, ZF + 1.5), if i == 2 then pierreSombre else pierreClaire, M.Ardoise, "Couronne")
+	end
+	O.decor(O.bloc(m, Vector3.new(1.8, 1.8, 0.4), CFrame.new(c.X, y + HF + 3.6, ZF - 0.6) * CFrame.Angles(0, 0, math.pi / 4), orVieilli, M.Metal, "Couronne"))
+	for _, s in {-1, 1} do
+		plaque(8, 1, s * 20, HA - 0.5, 1.2, pierreClaire, M.Ardoise, "Corniche")
+		O.bloc(m, Vector3.new(8.4, 0.6, 8.4), CFrame.new(c.X + s * 20, y + HA + 0.3, ZF + 4), pierreClaire, M.Ardoise, "Couronnement")
+		O.bloc(m, Vector3.new(2.4, 2.2, 3), CFrame.new(c.X + s * 18.2, y + HA + 1.7, ZF + 1), pierre, M.Ardoise, "Merlon")
+		-- bannière géante sur l'aile (pioches croisées, losange aux couleurs d'un boss)
+		local x = c.X + s * 18
+		local haut = HA - 1.6
+		O.decor(O.bloc(m, Vector3.new(4.2, 0.35, 0.35), CFrame.new(x, y + haut, ZF - 1.8), orVieilli, M.Metal, "Hampe"))
+		O.decor(O.bloc(m, Vector3.new(3.4, 13, 0.15), CFrame.new(x, y + haut - 6.6, ZF - 1.6), Color3.fromRGB(96, 24, 24), M.Tissu, "Banniere"))
+		O.decor(O.bloc(m, Vector3.new(3.4, 0.4, 0.2), CFrame.new(x, y + haut - 13, ZF - 1.62), orVieilli, M.Tissu, "Frange"))
+		for _, a in {math.pi / 4, -math.pi / 4} do
+			O.decor(O.bloc(m, Vector3.new(0.35, 2.8, 0.2), CFrame.new(x, y + haut - 7, ZF - 1.72) * CFrame.Angles(0, 0, a), orVieilli, M.Tissu, "Embleme"))
+		end
+		local coul = if s == -1 then COULEURS_BOSS[1] else COULEURS_BOSS[2]
+		O.decor(O.bloc(m, Vector3.new(1.2, 1.2, 0.2), CFrame.new(x, y + haut - 3.4, ZF - 1.72) * CFrame.Angles(0, 0, math.pi / 4), coul:Lerp(Color3.new(), 0.45), M.Tissu, "Embleme"))
+	end
+	-- trophée du Seigneur de braise : crâne cornu accroché au-dessus du portail, sur une console (lumière 1,0)
+	do
+		local cf = CFrame.new(c.X, y + 17.6, ZF - 1.8) -- -Z local = vers la place
+		local console = O.bloc(m, Vector3.new(6.6, 0.9, 2.6), cf * CFrame.new(0, 0.45, 0), pierreSombre, M.Ardoise, "Console")
+		O.texte(console, Enum.NormalId.Front, "SEIGNEUR DE BRAISE", {couleur = orTexte, lumiere = 0.2, ppp = 40})
+		local haut = cf * CFrame.new(0, 0.9, -0.2)
+		local os, corne = Color3.fromRGB(150, 138, 118), Color3.fromRGB(46, 34, 30)
+		O.bloc(m, Vector3.new(3.2, 2.6, 2.6), haut * CFrame.new(0, 2.1, 0), os, M.Ardoise, "Crane")
+		O.bloc(m, Vector3.new(2.6, 0.8, 2.2), haut * CFrame.new(0, 0.4, -0.1), os:Lerp(Color3.new(), 0.2), M.Ardoise, "Machoire")
+		for _, s in {-1, 1} do
+			O.bloc(m, Vector3.new(0.8, 0.7, 0.12), haut * CFrame.new(s * 0.7, 2.1, -1.3), Color3.fromRGB(24, 20, 18), M.Ardoise, "Orbite")
+			local oeil = O.decor(O.bloc(m, Vector3.new(0.36, 0.26, 0.1), haut * CFrame.new(s * 0.7, 2.05, -1.38), Color3.fromRGB(130, 44, 14), M.Neon, "Oeil"))
+			oeil.Transparency = 0.3
+			local a = (haut * CFrame.new(s * 1.5, 2.9, 0)).Position
+			local b2 = (haut * CFrame.new(s * 2.9, 4.1, -0.3)).Position
+			segment(a, b2, 0.7, corne, M.Ardoise, "Corne")
+			segment(b2, (haut * CFrame.new(s * 3.1, 5.4, 0.3)).Position, 0.45, orVieilli, M.Metal, "Corne")
+			local coupelle = cf * CFrame.new(s * 2.8, 0.9, -0.2)
+			O.cylindre(m, 0.4, 1.1, coupelle * CFrame.new(0, 0.2, 0), fer, M.Rouille, "Coupelle")
+			local braises = O.decor(O.bloc(m, Vector3.new(0.7, 0.12, 0.7), coupelle * CFrame.new(0, 0.42, 0), Color3.fromRGB(120, 40, 12), M.Neon, "Braises"))
+			O.feu(braises, 1.2)
+			if s == 1 then
+				O.lumiere(braises, feu, 1, 14)
+			end
+		end
+	end
+
+	-- 5c. Rochers sur la roche de la montagne (masses irrégulières qui cassent les talus), quelques pins et buissons
+	local function roc(p, taille)
+		local coul = Color3.fromRGB(64, 60, 58):Lerp(Color3.fromRGB(96, 90, 84), rng:NextNumber())
+		O.bloc(m, taille, CFrame.new(p) * CFrame.Angles(rng:NextNumber(-0.35, 0.35), rng:NextNumber(0, math.pi), rng:NextNumber(-0.35, 0.35)), coul, M.Roche, "Roc")
+	end
+	local function buisson(p)
+		O.decor(O.ellipsoide(m, Vector3.new(rng:NextNumber(2.5, 4), rng:NextNumber(1.6, 2.4), rng:NextNumber(2.5, 4)), CFrame.new(p),
+			Color3.fromRGB(46, 66, 40):Lerp(Color3.fromRGB(66, 84, 48), rng:NextNumber()), M.Herbe, "Buisson"))
+	end
+	for _, s in {-1, 1} do -- rocs tombés sur les ailes de la façade
+		roc(Vector3.new(c.X + s * 21.5, y + HA + 2.2, ZF + 3), Vector3.new(6, 4.5, 5))
+		roc(Vector3.new(c.X + s * 17.6, y + HA + 1.6, ZF + 4.5), Vector3.new(4, 3, 4))
+	end
+	if talusSud then
+		local H, L = talusSud.H, talusSud.L
+		local tMin = (HF + 3 - HA) / H -- au-dessus du corps central
+		for _ = 1, 18 do
+			local x = rng:NextNumber(-DL - 8, DL + 8)
+			local t = rng:NextNumber(if math.abs(x) < 17 then math.min(tMin, 0.9) else 0.05, 0.92)
+			local p = Vector3.new(c.X + x, y + HA + t * H, ZF + 3 + t * L - 0.6)
+			roc(p, Vector3.new(rng:NextNumber(4, 9), rng:NextNumber(3, 6), rng:NextNumber(4, 7)))
+			if rng:NextNumber() < 0.35 then
+				buisson(p + Vector3.new(rng:NextNumber(-3, 3), 2.2, rng:NextNumber(0, 1.5)))
+			end
+		end
+		for _, x in {-24, -9, 13, 27} do
+			B.pin(m, Vector3.new(c.X + x, y + HA + H - 1.5, ZF + 3 + L - 1), rng:NextNumber(13, 18), rng)
+		end
+	end
+	for _, tc in talusCotes do
+		if rng:NextNumber() < 0.6 then
+			local t = rng:NextNumber(0.15, 0.8)
+			local w = tc.w
+			local p = Vector3.new(c.X + w.s * (DL + 2.5 + t * tc.L), y + w.h + t * tc.H, w.z + 2 + rng:NextNumber(-1, 1))
+			roc(p, Vector3.new(rng:NextNumber(3.5, 7), rng:NextNumber(2.5, 5), rng:NextNumber(3.5, 7)))
+			if rng:NextNumber() < 0.4 then
+				buisson(p + Vector3.new(w.s * 1.5, 2, 0))
+			end
+		end
+	end
+
+	-- 9. Nains gardiens géants (≈ 23 studs avec le socle), pierre sombre et or, mains posées sur leur arme
+	local function nainGardien(base, arme, k)
+		local function b(sx, sy, sz, x, yy, z, coul, mat, nom)
+			return O.bloc(m, Vector3.new(sx, sy, sz) * k, base * CFrame.new(x * k, yy * k, z * k), coul or pierreStatue, mat or M.Ardoise, nom)
+		end
+		local function p(x, yy, z)
+			return (base * CFrame.new(x * k, yy * k, z * k)).Position
+		end
+		local sombre = pierreStatue:Lerp(Color3.new(), 0.25)
+		local corneC = Color3.fromRGB(150, 138, 118)
+		for _, s in {-1, 1} do
+			b(2.2, 1.2, 3, s * 1.35, 0.6, -0.3, sombre, nil, "Botte")
+			b(2, 2.4, 2.2, s * 1.35, 2.4, 0, nil, nil, "Jambe")
+			b(2.4, 1.5, 3, s * 3.6, 9.2, 0, nil, nil, "Epaulette")
+			b(2.5, 0.35, 3.1, s * 3.6, 8.5, 0, orVieilli, M.Metal, "Epaulette")
+			segment(p(s * 3.4, 8.8, 0), p(s * 1.1, 6.9, -2.7), 1.6 * k, pierreStatue, M.Ardoise, "Bras")
+			b(1.5, 1.5, 1.5, s * 0.95, 6.6, -3, sombre, nil, "Main")
+			b(0.6, 0.35, 0.1, s * 0.7, 11.4, -1.52, Color3.fromRGB(20, 18, 18), M.Ardoise, "Oeil")
+			segment(p(s * 1.6, 12.9, 0), p(s * 3.1, 14.4, -0.3), 0.8 * k, corneC, M.Ardoise, "Corne")
+			segment(p(s * 3.1, 14.4, -0.3), p(s * 3.3, 15.7, 0.2), 0.5 * k, orVieilli, M.Metal, "Corne")
+		end
+		b(5.8, 1.8, 3.8, 0, 3.9, 0, nil, nil, "Tunique")
+		b(6, 0.9, 4, 0, 5.1, 0, sombre, nil, "Ceinture")
+		b(1.4, 1, 0.3, 0, 5.1, -2.05, orVieilli, M.Metal, "Boucle")
+		b(5.6, 4.2, 3.6, 0, 7.6, 0, nil, nil, "Corps")
+		b(3, 2.8, 3, 0, 11.1, 0, nil, nil, "Tete")
+		b(0.7, 0.9, 0.6, 0, 10.9, -1.7, nil, nil, "Nez")
+		b(2.6, 0.4, 0.4, 0, 11.8, -1.55, sombre, nil, "Sourcils")
+		b(3.4, 3.6, 1.4, 0, 9, -1.9, sombre, nil, "Barbe")
+		b(2.2, 1.4, 1.2, 0, 6.8, -2, sombre, nil, "Barbe")
+		b(2.3, 0.35, 1.3, 0, 6.4, -2, orVieilli, M.Metal, "Anneau")
+		b(3, 0.6, 0.5, 0, 10.3, -2.7, sombre, nil, "Moustache")
+		b(3.4, 1.4, 3.4, 0, 13, 0, nil, nil, "Casque")
+		b(3.5, 0.4, 3.5, 0, 12.4, 0, orVieilli, M.Metal, "Casque")
+		b(0.8, 0.8, 3.6, 0, 13.9, 0, sombre, nil, "Cimier")
+		b(0.6, 7.4, 0.6, 0, 4.8, -3, C.BoisFonce, M.Bois, "Manche")
+		b(0.9, 0.8, 0.9, 0, 8.7, -3, orVieilli, M.Metal, "Pommeau")
+		if arme == "marteau" then
+			b(3.6, 2.2, 2.2, 0, 1.1, -3, fer, M.Metal, "Masse")
+			for _, s in {-1, 1} do
+				b(0.3, 2.3, 2.3, s * 1.2, 1.1, -3, orVieilli, M.Metal, "Cerclage")
+			end
+		else
+			b(1.2, 1.8, 1.2, 0, 1.5, -3, fer, M.Metal, "Douille")
+			for _, s in {-1, 1} do
+				b(1.6, 2.8, 0.35, s * 1.3, 1.6, -3, fer, M.Metal, "Lame")
+				b(0.3, 3.2, 0.4, s * 2.15, 1.6, -3, orVieilli, M.Metal, "Fil")
+			end
+		end
+	end
+	for _, d in {{-1, "marteau", "GARDIEN DU MARTEAU"}, {1, "hache", "GARDIEN DE LA HACHE"}} do
+		local s = d[1]
+		local cf = CFrame.new(c.X + s * 14, y, 165) -- face au nord (vers la place et la rue)
+		local socle = O.bloc(m, Vector3.new(5.6, 2.2, 5.6), cf * CFrame.new(0, 1.1, 0), pierreSombre, M.Ardoise, "Socle")
+		O.bloc(m, Vector3.new(6, 0.4, 6), cf * CFrame.new(0, 2.0, 0), pierreClaire, M.Ardoise, "Socle")
+		O.texte(socle, Enum.NormalId.Front, d[3], texte)
+		nainGardien(cf * CFrame.new(0, 2.2, 0), d[2], 1.3)
+	end
+
+	-- 10. Braseros sur piliers, à côté des trophées (2 lumières douces)
+	for _, s in {-1, 1} do
+		local p = Vector3.new(c.X + s * 17.5, y, 158)
+		O.bloc(m, Vector3.new(3, 0.8, 3), CFrame.new(p + Vector3.new(0, 0.4, 0)), pierreSombre, M.Ardoise, "Pilier")
+		O.bloc(m, Vector3.new(2.4, 4.6, 2.4), CFrame.new(p + Vector3.new(0, 3.1, 0)), pierreClaire:Lerp(pierre, 0.4), M.Ardoise, "Pilier")
+		O.bloc(m, Vector3.new(3, 0.5, 3), CFrame.new(p + Vector3.new(0, 5.65, 0)), pierreSombre, M.Ardoise, "Pilier")
+		O.cylindre(m, 1, 3.2, CFrame.new(p + Vector3.new(0, 6.4, 0)), fer, M.Rouille, "Coupe")
+		local braises = O.decor(O.bloc(m, Vector3.new(2, 0.3, 2), CFrame.new(p + Vector3.new(0, 6.85, 0)), Color3.fromRGB(130, 44, 14), M.Neon, "Braises"))
+		O.feu(braises, 3)
+		O.lumiere(braises, feu, 1.4, 24)
+	end
+
+	-- 11. Trophées du Titan et de la Reine sur hauts socles (le crâne du Seigneur de braise est au-dessus du portail)
+	local function socleTrophee(pied, texteSocle)
+		local cf = versCentre(pied)
+		local socle = O.bloc(m, Vector3.new(4.6, 4, 4.6), cf * CFrame.new(0, 2, 0), pierreSombre, M.Ardoise, "Trophee")
+		O.bloc(m, Vector3.new(5.2, 0.5, 5.2), cf * CFrame.new(0, 3.9, 0), pierreClaire, M.Ardoise, "Trophee")
+		O.bloc(m, Vector3.new(5.2, 0.6, 5.2), cf * CFrame.new(0, 0.3, 0), pierreClaire:Lerp(pierreSombre, 0.5), M.Ardoise, "Trophee")
+		O.texte(socle, Enum.NormalId.Front, texteSocle, texte)
+		return cf * CFrame.new(0, 4.15, 0)
+	end
+	do -- Titan de cristal : cristal géant (lumière 1,3)
+		local haut = socleTrophee(Vector3.new(c.X - 17.6, y, 152.5), "TITAN DE CRISTAL")
+		B.cristal(m, haut, 8, Color3.fromRGB(80, 150, 200), Random.new(71), 16)
+	end
+	do -- Reine araignée : sa dépouille (sans lumière)
+		local haut = socleTrophee(Vector3.new(c.X + 17.6, y, 152.5), "REINE ARAIGNÉE")
+		local k = 1.25
+		local function q(x, yy, z)
+			return haut * CFrame.new(x * k, yy * k, z * k)
+		end
+		local noir, violet = Color3.fromRGB(40, 30, 48), Color3.fromRGB(86, 50, 108)
+		O.ellipsoide(m, Vector3.new(3.2, 2.6, 3.8) * k, q(0, 1.4, 0.9), noir, M.Lisse, "Abdomen")
+		O.decor(O.bloc(m, Vector3.new(0.8, 0.12, 1.6) * k, q(0, 2.7, 0.9), violet, M.Lisse, "Marque"))
+		O.ellipsoide(m, Vector3.new(2.2, 1.6, 2.2) * k, q(0, 1, -1.2), noir:Lerp(violet, 0.3), M.Lisse, "Tete")
+		for _, e in {{-0.45, 1.45}, {0.45, 1.45}, {-0.25, 1.15}, {0.25, 1.15}} do
+			O.decor(O.bloc(m, Vector3.new(0.3, 0.3, 0.15) * k, q(e[1], e[2], -2.25), Color3.fromRGB(90, 40, 110), M.Neon, "Oeil"))
+		end
+		for _, s in {-1, 1} do
+			O.bloc(m, Vector3.new(0.3, 0.9, 0.3) * k, q(s * 0.35, 0.45, -2.2) * CFrame.Angles(math.rad(-15), 0, 0), Color3.fromRGB(150, 138, 118), M.Ardoise, "Croc")
+			for i = 1, 4 do
+				local base = q(s * 0.9, 1.1, -1.9 + i * 0.5).Position
+				local genou = q(s * 2.5, 2.7, -2.8 + i * 1.1).Position
+				local pied = q(s * 2.9, -0.6, -3.1 + i * 1.3).Position
+				segment(base, genou, 0.4 * k, noir, M.Lisse, "Patte")
+				segment(genou, pied, 0.3 * k, noir, M.Lisse, "Patte")
+				O.decor(O.bloc(m, Vector3.new(0.5, 0.5, 0.5) * k, CFrame.new(genou), violet, M.Lisse, "Genou"))
+			end
+		end
+	end
+
+	-- 12. Gradins latéraux (3 rangs de pierre contre les murs, au nord des trophées)
+	for _, s in {-1, 1} do
+		for k = 1, 3 do
+			local w = 1.3 * (4 - k)
+			O.bloc(m, Vector3.new(w, 1.1 * k + 0.8, 6), CFrame.new(c.X + s * (DL - w / 2), y - 0.8 + (1.1 * k + 0.8) / 2, 144), pierre:Lerp(pierreSombre, 0.3), M.Ardoise, "Gradin")
+			O.bloc(m, Vector3.new(w + 0.1, 0.25, 6.2), CFrame.new(c.X + s * (DL - w / 2), y + 1.1 * k + 0.1, 144), pierreClaire, M.Ardoise, "Gradin")
+		end
+	end
+
+	-- 13. Côté rue : deux piliers bas à lanternes (la vue depuis le pont reste dégagée)
+	for i, s in {-1, 1} do
+		local p = Vector3.new(c.X + s * 7.4, niveau, c.Z - RE + 1.5)
+		O.bloc(m, Vector3.new(2.8, 1.2, 2.8), CFrame.new(p + Vector3.new(0, 0.3, 0)), pierreSombre, M.Ardoise, "Pilier")
+		local fut = O.bloc(m, Vector3.new(2.2, 4.6, 2.2), CFrame.new(p + Vector3.new(0, 3.2, 0)), pierreClaire:Lerp(pierre, 0.4), M.Ardoise, "Pilier")
+		O.texte(fut, Enum.NormalId.Front, if i == 1 then "ARÈNE" else "DES BOSS", {couleur = orTexte, lumiere = 0.2, ppp = 40})
+		O.bloc(m, Vector3.new(2.8, 0.6, 2.8), CFrame.new(p + Vector3.new(0, 5.8, 0)), pierreSombre, M.Ardoise, "Chapiteau")
+		O.bloc(m, Vector3.new(1.4, 0.3, 1.4), CFrame.new(p + Vector3.new(0, 6.25, 0)), fer, M.Metal, "Lanterne")
+		local verre = O.decor(O.bloc(m, Vector3.new(1.1, 1.3, 1.1), CFrame.new(p + Vector3.new(0, 7.05, 0)), Color3.fromRGB(120, 84, 50), M.Verre, "Lanterne"))
+		verre.Transparency = 0.45
+		local flamme = O.decor(O.bloc(m, Vector3.new(0.35, 0.55, 0.35), CFrame.new(p + Vector3.new(0, 6.95, 0)), Color3.fromRGB(190, 110, 46), M.Neon, "Flamme"))
+		O.bloc(m, Vector3.new(1.5, 0.35, 1.5), CFrame.new(p + Vector3.new(0, 7.85, 0)), fer, M.Metal, "Lanterne")
+		O.lumiere(flamme, feu, 1, 14)
+	end
+
+	m:SetAttribute("Centre", Vector3.new(c.X, y, c.Z))
+	m:SetAttribute("Version", PLACE_BOSS_VERSION)
+	m:SetAttribute("HauteurFacade", HF)
+	return m
 end
 
 function Village.preparerToits(village)

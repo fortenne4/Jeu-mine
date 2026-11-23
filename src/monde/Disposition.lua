@@ -59,6 +59,22 @@ D.GROTTES_ORIGINE = Vector3.new(-2600, -300, 2600)
 D.GROTTES_ECART = 700
 D.GROTTES_COLONNES = 4 -- x de -2600 à -4700, rangs vers +z
 
+-- Boss du village : place au bout de la rue du sud (à la place de l'ancienne Maison13, terrain aplani),
+-- grand cercle d'événement (10 à 20 joueurs). Y = 0 : la hauteur réelle est lue sur le terrain.
+D.CERCLE_BOSS = Vector3.new(0, 0, 151)
+D.CERCLE_BOSS_RAYON = 14
+D.PLACE_BOSS_RAYON = 16.5   -- dalle de la place (le cercle + un tour de bordure)
+-- Arènes des boss : une par boss, loin de tout (carte ±600, mines privées x ≥ 1400 / z ≤ -1200,
+-- grottes x ≤ -2600 / z ≥ 2600, plaine des mobs x 4700..5300). Sol de combat à Y = centre.Y, rayon ARENE_RAYON.
+-- Écart de 1600 studs : la caverne de la Fosse s'étend sur ±700 autour de son centre, les deux autres sur ±300.
+D.ARENES_BOSS = {
+	SeigneurBraise = Vector3.new(-2600, 150, -2600), -- La Fosse des Rois Nains (volcan)
+	TitanCristal = Vector3.new(-4200, 150, -2600),   -- La Géode du Titan
+	ReineAraignee = Vector3.new(-5800, 150, -2600),  -- Le Nid de la Reine
+}
+D.ARENE_BOSS = D.ARENES_BOSS.SeigneurBraise -- ancien nom (une seule arène), gardé pour compatibilité
+D.ARENE_RAYON = 70
+
 -- Minerais de démonstration au sol de la caverne (en attendant les tunnels privés)
 D.MINERAIS = {
 	Vector3.new(18, -60, -418),

@@ -34,6 +34,9 @@ if carte then
 			local okAteliers, erreurAteliers = pcall(Village.preparerAteliers, village)
 			if not okAteliers then warn("[Monde] Fourneau / puits / enseignes non mis à jour : " .. tostring(erreurAteliers)) end
 			require(monde:WaitForChild("DecorFontaine")).preparer(village)
+			-- place du boss du village : retire la Maison13 figée, aplanit et pose la place
+			local okBoss, erreurBoss = pcall(Village.preparerCercleBoss, village)
+			if not okBoss then warn("[Monde] Place du boss non construite : " .. tostring(erreurBoss)) end
 		end
 		local mine = carte:FindFirstChild("Mine")
 		if mine then

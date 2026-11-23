@@ -55,10 +55,11 @@ function Cercle.construire(parent, cf, nom, opts)
 	local R = opts.rayon or Cercle.RAYON
 	local m = O.modele(parent, nom or "Cercle")
 	cf = auSol(cf, m) + Vector3.new(0, 0.1, 0)
-	-- Anneau blanc, creux au centre
-	local longueur = 2 * math.pi * R / SEGMENTS * 1.1
-	for k = 1, SEGMENTS do
-		local a = k * 2 * math.pi / SEGMENTS
+	-- Anneau blanc, creux au centre (opts.segments : plus de segments pour un grand cercle)
+	local n = opts.segments or SEGMENTS
+	local longueur = 2 * math.pi * R / n * 1.1
+	for k = 1, n do
+		local a = k * 2 * math.pi / n
 		O.decor(O.bloc(m, Vector3.new(0.45, 0.18, longueur), cf * CFrame.Angles(0, a, 0) * CFrame.new(R, 0.05, 0), LIBRE, M.Neon, "Anneau"))
 	end
 	local lueur = O.decor(O.bloc(m, Vector3.new(0.2, 0.2, 0.2), cf * CFrame.new(0, 0.6, 0), LIBRE, M.Lisse, "Lueur"))

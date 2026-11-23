@@ -1,9 +1,12 @@
 -- Mobs des grottes profondes · CLIENT : anime les mobs tagués « MobGrotte » (MobsVoxels.animateur selon
 -- l'attribut Etat posé par MobsGrotte côté serveur), barre de vie, chiffres de dégâts et flash rouge.
+-- Boss : chiffres regroupés par auteur (attribut Auteur) — les miens en blanc vif, plus gros et dorés sur les gros
+-- coups ; ceux des autres plus petits et translucides — et mort au ralenti.
 -- Compatible StreamingEnabled : les modèles sont atomiques, suivis à l'apparition, oubliés à la disparition.
 local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
 local Partage = game:GetService("ReplicatedStorage"):WaitForChild("Partage")
 local MobsVoxels = require(Partage:WaitForChild("MobsVoxels"))
 
@@ -20,9 +23,15 @@ local NOMS = {
 	GolemChampignon = "Golem champignon",
 	CrabeLueur = "Crabe des lueurs",
 	SpectreNain = "Spectre nain",
+	TitanCristal = "Titan de cristal",
+	ReineAraignee = "Reine araignée",
+	SeigneurBraise = "Seigneur de braise",
 }
 
 local rng = Random.new()
+local moi = Players.LocalPlayer
+local REGROUPE = 0.12 -- s : les coups du même auteur sur le boss pendant ce délai font un seul chiffre
+local AUTRES_MAX = 6 -- chiffres des autres joueurs affichés en même temps sur le boss
 local suivis = {} -- [modele] = e
 
 local function couleurVie(r: number): Color3
@@ -88,7 +97,7 @@ local function creerBarre(e)
 		nom.Font = Enum.Font.GothamBlack
 		nom.TextScaled = true
 		nom.TextColor3 = Color3.fromRGB(255, 225, 235)
-		nom.Text = NOMS[e.id] or e.id
+		nom.Text = e.modele:GetAttribute("Nom") or NOMS[e.id] or e.id -- « Nom » : boss du village (modèle de secours)
 		local contour = Instance.new("UIStroke")
 		contour.Thickness = 2
 		contour.Color = Color3.fromRGB(40, 0, 50)
@@ -146,6 +155,71 @@ local function chiffreDegats(e, montant: number, pvMax: number)
 	task.delay(0.85, function() b:Destroy() end)
 end
 
+-- Boss : un chiffre stylé selon l'auteur (moi / les autres)
+local function chiffreBoss(e, montant: number, pvMax: number, mien: boolean)
+	local b = Instance.new("BillboardGui")
+	b.Adornee = e.root
+	b.AlwaysOnTop = true
+	b.LightInfluence = 0
+	b.MaxDistance = 140
+	local epee = moi:GetAttribute("StatEpee")
+	local fort = if mien then (type(epee) == "number" and epee > 0 and montant >= epee * 1.35) else montant >= pvMax * 0.03
+	b.Size = UDim2.fromOffset(40, 18)
+	local depart = Vector3.new(rng:NextNumber(-2.5, 2.5), e.hauteur * (if mien then 0.75 else 0.6) + rng:NextNumber(0, 1.5), rng:NextNumber(-2.5, 2.5))
+	b.StudsOffsetWorldSpace = depart
+	local t = Instance.new("TextLabel")
+	t.BackgroundTransparency = 1
+	t.Size = UDim2.fromScale(1, 1)
+	t.Font = Enum.Font.GothamBlack
+	t.TextScaled = true
+	t.Text = tostring(math.max(1, math.floor(montant + 0.5)))
+	t.TextColor3 = if mien then (if fort then Color3.fromRGB(255, 214, 70) else Color3.new(1, 1, 1))
+		else (if fort then Color3.fromRGB(240, 220, 160) else Color3.fromRGB(215, 210, 205))
+	t.TextTransparency = if mien then 0 else 0.35
+	local contour = Instance.new("UIStroke")
+	contour.Thickness = if mien then 2.5 else 1.5
+	contour.Color = if mien and fort then Color3.fromRGB(90, 30, 0) else Color3.fromRGB(30, 10, 10)
+	contour.Transparency = if mien then 0 else 0.4
+	contour.Parent = t
+	t.Parent = b
+	b.Parent = e.root
+	local grand = if mien then (if fort then UDim2.fromOffset(150, 64) else UDim2.fromOffset(104, 44))
+		else (if fort then UDim2.fromOffset(78, 34) else UDim2.fromOffset(60, 26))
+	TweenService:Create(b, TweenInfo.new(if fort then 0.2 else 0.14, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = grand}):Play()
+	TweenService:Create(b, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {StudsOffsetWorldSpace = depart + Vector3.new(0, if mien then 3 else 2, 0)}):Play()
+	local fondu = TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0, false, 0.4)
+	TweenService:Create(t, fondu, {TextTransparency = 1}):Play()
+	TweenService:Create(contour, fondu, {Transparency = 1}):Play()
+	if not mien then
+		e.autres = (e.autres or 0) + 1
+	end
+	task.delay(0.85, function()
+		if not mien then e.autres -= 1 end
+		b:Destroy()
+	end)
+end
+
+-- Regroupe les coups sur le boss (par auteur) pendant REGROUPE s : moins de chiffres, plus lisibles
+local function cumulerBoss(e, montant: number, pvMax: number)
+	local auteur = e.modele:GetAttribute("Auteur")
+	local mien = auteur == moi.UserId
+	local cle = if mien then "moi" else "autres"
+	e.cumul = e.cumul or {}
+	local c = e.cumul[cle]
+	if c then
+		c.montant += montant
+		return
+	end
+	e.cumul[cle] = {montant = montant}
+	task.delay(REGROUPE, function()
+		local fin = e.cumul[cle]
+		e.cumul[cle] = nil
+		if not fin or suivis[e.modele] ~= e or not e.root.Parent then return end
+		if not mien and (e.autres or 0) >= AUTRES_MAX then return end -- trop de chiffres des autres : on saute
+		chiffreBoss(e, fin.montant, pvMax, mien)
+	end)
+end
+
 local function flash(e)
 	if e.flash then e.flash:Destroy() end
 	local hl = Instance.new("Highlight")
@@ -175,9 +249,9 @@ local function boucleDe(etat: string?): string
 end
 
 local function fondre(e)
-	task.delay(0.8, function()
+	task.delay(if e.boss then 2.6 else 0.8, function()
 		if suivis[e.modele] ~= e then return end
-		local info = TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		local info = TweenInfo.new(if e.boss then 1.4 else 0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
 		for _, p in e.modele:GetDescendants() do
 			if p:IsA("BasePart") and p.Transparency < 1 then
 				TweenService:Create(p, info, {Transparency = 1}):Play()
@@ -192,6 +266,7 @@ local function surEtat(e)
 	e.etat = etat
 	if etat == "Death" then
 		jouer(e, "Death", false, 0.1)
+		if e.boss then e.anim.Vitesse = 0.45 end -- mort du boss au ralenti
 		e.barre.Enabled = false
 		fondre(e)
 	elseif etat == "Roar" then
@@ -253,7 +328,11 @@ local function suivre(modele: Instance)
 			e.pv = pv
 			majBarre(e)
 			if perte > 0 then
-				chiffreDegats(e, perte, modele:GetAttribute("PVMax") or 1)
+				if e.boss then
+					cumulerBoss(e, perte, modele:GetAttribute("PVMax") or 1)
+				else
+					chiffreDegats(e, perte, modele:GetAttribute("PVMax") or 1)
+				end
 				if modele:GetAttribute("DernierCoup") == nil then flash(e) end
 				local enAttaque = e.anim:EnCours() == "Attack" and not e.anim:Fini()
 				if pv > 0 and not e.boss and not enAttaque and e.etat ~= "Death" then

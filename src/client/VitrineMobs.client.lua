@@ -27,7 +27,9 @@ local dossier = Instance.new("Folder")
 dossier.Name = "VitrineMobs"
 
 local mobs, total = {}, -ECART
+local BOSS_VILLAGE = {TitanCristal = true, ReineAraignee = true, SeigneurBraise = true} -- boss de l'arène : pas en vitrine
 for _, id in MobsVoxels.liste() do
+	if BOSS_VILLAGE[id] then continue end
 	local m = MobsVoxels.construire(id)
 	local taille = m:GetExtentsSize()
 	table.insert(mobs, {m = m, l = taille.X, h = m:GetAttribute("Hauteur") or taille.Y})

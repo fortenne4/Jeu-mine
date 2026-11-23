@@ -4,13 +4,17 @@
 -- Mobs = modèles MobsVoxels ancrés (Root), déplacés par CFrame, sans Humanoid.
 -- Pour le client (MobsGrotte.client) : tag « MobGrotte », attributs MobId, PV, PVMax, Etat
 -- ("Idle"/"Walk"/"Attack"/"Hurt"/"Death"/"Roar"), Boss, Coup (compteur d'attaques), Allure, Hauteur,
--- et à chaque coup d'épée reçu : CoupDirection (Vector3 unitaire horizontal joueur → mob) puis DernierCoup
--- (os.clock()), posés avant PV ; le serveur applique aussi un léger recul (knockback, arrêté par les murs).
+-- et à chaque coup d'épée reçu : CoupDirection (Vector3 unitaire horizontal joueur → mob), DernierCoup
+-- (os.clock()) et Auteur (UserId du joueur), posés avant PV ; le serveur applique aussi un léger recul (knockback, arrêté par les murs).
 -- Mobs par groupes de 2-3 ; un groupe garde chaque gisement (grotte.gisements) : alerte à GARDE_ALERTE,
 -- jamais plus loin que GARDE_LAISSE, retour au gisement après la poursuite.
 --
 --	local h = MobsGrotte.peupler(grotte, niveau, joueurs) -- grotte = {modele, pointsMobs, gisements?, salleBoss?, apparitions}
 --	h.surMort = function(mobId, estBoss, tueur) end      -- optionnel (récompense, fin de grotte...)
+--	h.surBlessure = function(m, degats, joueur) end      -- optionnel (dégâts réellement retirés, ex. boss du village)
+--	h.boss = mob du boss (table interne) ; def.vue / def.abandon / def.rayon / def.preparation : détection, poursuite,
+--	rayon de contact et délai avant l'impact propres au mob (défauts : VUE, ABANDON, taille du modèle, PREPARATION)
+--	m.invulnerable = true : les coups d'épée l'ignorent (intro / changement de phase du boss du village)
 --	MobsGrotte.retirerJoueur(h, joueur) / MobsGrotte.ajouterJoueur(h, joueur)
 --	MobsGrotte.nettoyer(h)
 
@@ -34,6 +38,7 @@ local RECUP_ATTAQUE = 0.4
 local DUREE_HURT = 0.35
 local DUREE_ROAR = 1.2
 local DUREE_MORT = 1.8 -- animation Death + fondu côté client, puis destruction
+local DUREE_MORT_BOSS = 4.5 -- le boss meurt au ralenti (MobsGrotte.client)
 local RECUL = 3.4 -- knockback d'un coup d'épée (studs), réduit pour les grands mobs, presque nul pour le boss
 local RECUL_DUREE = 0.18
 local RECUL_RECHARGE = 0.5
@@ -171,7 +176,7 @@ local function creerMob(h, def, point: Vector3, boss: boolean?, garde: Vector3?)
 	local m = {
 		modele = modele, root = modele.PrimaryPart, def = def, boss = boss == true,
 		vole = def.vole == true or def.id == "ChauveSourisCave", echelle = echelle, hauteur = hauteur,
-		rayon = math.clamp(math.max(taille.X, taille.Z) * 0.3, 1, 4),
+		rayon = def.rayon or math.clamp(math.max(taille.X, taille.Z) * 0.3, 1, 4),
 		pv = def.pv, pvMax = def.pv, etat = "Idle", allure = 1,
 		origine = pos, pos = pos, yaw = yaw, yawCible = yaw, phase = rng:NextNumber(0, 2 * math.pi), cote = 1,
 		cible = nil, vuA = 0, prochaineAttaque = 0, prep = nil, finAction = 0,
@@ -205,7 +210,7 @@ local function frapper(h, m, maintenant: number)
 end
 
 local function chercherCible(h, m)
-	local meilleur, dMin, hrpMin, humMin = nil, VUE, nil, nil
+	local meilleur, dMin, hrpMin, humMin = nil, m.def.vue or VUE, nil, nil
 	for joueur in h.joueurs do
 		local hrp, hum = racineJoueur(joueur)
 		if hrp then
@@ -237,7 +242,7 @@ local function majMob(h, m, dt: number, maintenant: number)
 			m.cible = nil
 		else
 			hrp = racineJoueur(m.cible)
-			if not hrp or (hrp.Position - m.pos).Magnitude > ABANDON
+			if not hrp or (hrp.Position - m.pos).Magnitude > (m.def.abandon or ABANDON)
 				or (m.garde and aplatir(hrp.Position - m.garde).Magnitude > GARDE_LAISSE) then
 				m.cible, hrp = nil, nil
 			elseif voit(h, m, hrp.Position) then
@@ -275,8 +280,9 @@ local function majMob(h, m, dt: number, maintenant: number)
 		if d <= m.def.portee and dy < 6 + m.hauteur * 0.5 then
 			if maintenant >= m.prochaineAttaque then
 				m.yaw, m.yawCible = m.yawCible, m.yawCible -- face à la cible, puis figé pendant la préparation
-				m.prep = {joueur = m.cible, frappe = maintenant + PREPARATION, fin = maintenant + PREPARATION + RECUP_ATTAQUE, faite = false}
-				m.prochaineAttaque = maintenant + math.max(m.def.recharge, PREPARATION + RECUP_ATTAQUE)
+				local prepa = m.def.preparation or PREPARATION -- grands boss : impact calé sur l'animation Attack
+				m.prep = {joueur = m.cible, frappe = maintenant + prepa, fin = maintenant + prepa + RECUP_ATTAQUE, faite = false}
+				m.prochaineAttaque = maintenant + math.max(m.def.recharge, prepa + RECUP_ATTAQUE)
 				m.coup += 1
 				m.modele:SetAttribute("Coup", m.coup)
 				etat(m, "Attack")
@@ -425,7 +431,7 @@ local function mourir(h, m, tueur: Player?)
 	m.mort = true
 	m.prep = nil
 	m.cible = nil
-	m.finMort = os.clock() + DUREE_MORT
+	m.finMort = os.clock() + (if m.boss then DUREE_MORT_BOSS else DUREE_MORT)
 	etat(m, "Death")
 	if h.surMort then
 		task.spawn(h.surMort, m.def.id, m.boss, tueur)
@@ -438,8 +444,13 @@ local function blesser(h, m, degats: number, joueur: Player, dir: Vector3)
 	local maintenant = os.clock()
 	m.modele:SetAttribute("CoupDirection", dir)
 	m.modele:SetAttribute("DernierCoup", maintenant)
+	m.modele:SetAttribute("Auteur", joueur.UserId) -- chiffres de dégâts : les miens / ceux des autres
+	local avant = m.pv
 	m.pv = math.max(0, m.pv - degats)
 	m.modele:SetAttribute("PV", m.pv)
+	if h.surBlessure then
+		task.spawn(h.surBlessure, m, avant - m.pv, joueur)
+	end
 	if m.pv <= 0 then
 		mourir(h, m, joueur)
 		return
@@ -475,7 +486,7 @@ local function surCoupEpee(joueur: Player, coup: number, outil: Instance)
 	for h in grottes do
 		if h.actif and h.joueurs[joueur] then
 			for _, m in h.mobs do
-				if not m.mort then
+				if not m.mort and not m.invulnerable then
 					local centre = m.pos + Vector3.new(0, hauteurVol(m) + math.min(m.hauteur * 0.5, 3), 0)
 					local vers = centre - hrp.Position
 					local plat = aplatir(vers)
@@ -574,6 +585,7 @@ function MobsGrotte.peupler(grotte, niveau, joueurs)
 	end
 
 	-- 1. Un groupe de 2-3 gardes par gisement ; 2. le reste par groupes de 2-3, loin des gisements
+	-- grotte.sansGroupes : aucun groupe de départ (arène du boss du village : le boss seul, renforts à la main)
 	local n = rng:NextInteger(niveau.nombreMobs[1], niveau.nombreMobs[2])
 	local poses = 0
 	local gisements = {}
@@ -583,7 +595,7 @@ function MobsGrotte.peupler(grotte, niveau, joueurs)
 			table.insert(gisements, g.centre)
 		end
 	end
-	local reste = math.max(n - poses, 2) -- toujours au moins un groupe errant en plus des gardes
+	local reste = if grotte.sansGroupes then 0 else math.max(n - poses, 2) -- toujours au moins un groupe errant en plus des gardes
 	local centres = {}
 	for _, p in loin do
 		local ok = true
@@ -613,9 +625,9 @@ function MobsGrotte.peupler(grotte, niveau, joueurs)
 		reste -= taille
 	end
 	h.nombreDepart = poses
-	if poses == 0 then warn("MobsGrotte : aucun point d'apparition de mob dans la grotte") end
+	if poses == 0 and not grotte.sansGroupes then warn("MobsGrotte : aucun point d'apparition de mob dans la grotte") end
 	if niveau.boss and grotte.salleBoss then
-		creerMob(h, niveau.boss, grotte.salleBoss, true)
+		h.boss = creerMob(h, niveau.boss, grotte.salleBoss, true)
 	end
 
 	grottes[h] = true

@@ -546,6 +546,115 @@ gisements ni à l'arrivée) :
 | `src/server/MobsGrotte.lua` + `src/client/MobsGrotte.client.lua` | IA des mobs, coups d'épée, renforts, boss ; animations et barres de vie. |
 | `src/client/InterfaceGrottes.client.lua` | Choix de profondeur (barre, minerais du palier en silhouettes / couleurs), groupe, invitations. |
 
+## Boss du village (événement de groupe)
+
+Au bout de la rue du sud (après le pont), l'ancienne Maison13 a laissé la place à **l'Arène des boss** :
+une esplanade en pierre taillée (dalle ronde centre (0, 151), rayon 18 : rosace, étoile de laiton, anneaux de dalles ;
+parvis rectangulaire x ∈ [−20, 20], z ∈ [140, 168]) avec un **grand cercle lumineux** (rayon 14, 10 à 20 joueurs,
+anneau fin et translucide) au milieu. Au sud, la **Porte des boss**, porte naine taillée dans la montagne : façade
+en gradins de moellons sombres (corps central de 28 à 33 studs, ailes plus basses), portail à deux battants de fer et
+de bois foncé gravés de runes, scellé par des chaînes et un cadenas, fronton en pointe, linteau gravé « ARÈNE DES
+BOSS », **crâne du Seigneur de braise** accroché au-dessus du portail, frise aux emblèmes des 3 boss (cristal,
+flamme, araignée), corniche à denticules, couronnements crénelés, bannières géantes sur les ailes. Au-dessus et sur
+les côtés, la roche de la montagne (talus de terrain, gros rochers, pins, buissons) cache toute la coupe. Devant :
+deux **nains gardiens** en pierre sombre et or (≈ 23 studs avec le socle, marteau et hache), les trophées du Titan
+(cristal géant) et de la Reine araignée (sa dépouille) sur hauts socles avec un brasero à côté, gradins de pierre le
+long des murs de soutènement est / ouest.
+Côté rue, deux piliers bas à lanternes (« ARÈNE » / « DES BOSS ») laissent la vue dégagée depuis le pont. Éclairage
+chaud et doux : 6 lumières (luminosité ≤ 1,4), néon seulement sur de petits détails. Sur carte figée, le relief
+d'origine est d'abord rétabli autour de la place (anciens creusements), puis seul le parvis est creusé (voxels
+alignés). L'esplanade reste à l'écart des Maison11/12 (rien ne creuse sous une maison) ; `PLACE_BOSS_VERSION` dans
+`Village.lua` la reconstruit. Le panneau, 26 studs au-dessus du cercle (lisible depuis le pont), affiche le prochain
+boss, « Prochain boss dans 6:42 » et « 7/20 joueurs » ; pendant les 30 dernières secondes, une colonne de lumière
+fine et des étincelles aux couleurs du boss s'élèvent du cercle.
+
+- **Cycle** : toutes les 7 minutes (45 s dans Studio tant que `DEBUT_RAPIDE_STUDIO = true` ; `CYCLE` / `CYCLE_STUDIO`
+  dans `src/partage/BossVillage.lua`), les joueurs vivants dans le cercle (20 max, par ordre d'arrivée) partent ensemble
+  dans l'arène. Personne : le compte à rebours repart. Un seul combat à la fois (le panneau affiche « Combat en cours »).
+- **Annonce (1 min avant)** : bandeau pour tout le serveur + **puce** en haut d'écran « <Boss> dans 0:42 · Arène des
+  boss » (compte à rebours calculé par le client depuis l'heure serveur `DebutBoss`) ; dernière minute : **chevrons
+  lumineux au sol** devant le joueur, vers le cercle (seulement en surface près du village, pas dans la mine/grottes).
+  Pendant un combat, la puce dit « combat en cours · entre dans le cercle » ; après le retour, « Prochain boss dans 6:12 ».
+- **File d'attente** : dans le cercle, panneau latéral **PRÊT AU COMBAT** (nom et rang du boss, départ, « 7/20 »,
+  avatars ronds des participants, son + éclat à chaque arrivée, conseil du boss). Au-delà de 20 : « en réserve ».
+- **Départ** : fondu au noir, **écran de chargement** (nom et titre du boss, anneaux de runes qui tournent, barre de
+  progression, astuce au hasard), contrôles bloqués et joueurs gelés côté serveur ; téléportation 0,8 s après, puis
+  **intro** quand tous sont posés (3 s max).
+- **Intro du boss (6,5 s)** : bandes noires, plan large qui tourne autour de l'arène, plan bas sur le boss qui rugit
+  (FOV 70 → 55, forte secousse), carte de nom dorée façon Souls, puis retour au joueur et la barre de PV apparaît.
+  Boss invulnérable et immobile, joueurs gelés pendant ce temps. Bouton « Passer » (affichage local seulement).
+  Pendant le combat, entrer dans le cercle fait rejoindre l'arène tout de suite, tant qu'il y a moins de 20 joueurs dedans
+  (un joueur mort peut revenir ainsi).
+- **Rotation** : Titan de cristal → Reine araignée → Seigneur de braise (modèles `src/partage/MobsVoxels/`,
+  modèle de secours agrandi si l'un manque).
+- **Une arène par boss** (centres dans `D.ARENES_BOSS` de `Disposition.lua`, tous à z = −2600 et sol à Y = 150,
+  1600 studs d'écart). Même règles pour les trois : sol de combat plat et dégagé sur le rayon 70 (seule pièce
+  solide), murs invisibles, décor bas sans collision dans le cercle, arrivée des joueurs à 40 studs du centre,
+  pas de rouge au sol (les zones rouges des attaques restent lisibles), peu de lumières (8 à 17).
+  L'arène du premier boss est construite au démarrage ; celle du boss suivant pendant l'attente (fin du combat
+  précédent), puis gardée. Modèles `workspace › AreneBoss_<id>` (attributs `Centre`, `Rayon`, `Arene`).
+  - **Seigneur de braise → « La Fosse des Rois Nains »** (x = −2600) : volcan. Disque de dalles sombres (rosace
+    dorée, cercle de runes naines qui pulsent, fissures, éclats d'obsidienne) suspendu par huit chaînes géantes
+    au-dessus d'un ravin de lave (braises, fumée), au cœur d'une immense caverne volcanique (voûte, stalactites à
+    gouttes de magma, colonnes, cascades et mer de lave, rocs flottants, aiguilles d'obsidienne). Autour : colisée
+    nain en ruine (gradins, colonnade, quatre portes fortifiées et leurs ponts, quatre statues de rois nains,
+    bannières rouges et noires qui flottent, braseros, lustre de fer). Braises qui montent, cendres qui tombent.
+  - **Titan de cristal → « La Géode du Titan »** (x = −4200) : sol en tranche d'agate polie (anneaux gris-lavande,
+    veines et sceau hexagonal de cristal parcourus d'une onde de lumière froide depuis le centre), posé sur un piton
+    au-dessus d'une faille aux cristaux luminescents. Autour : géode géante hérissée de cristaux violets et bleus,
+    colonnes de cristal du sol à la voûte, grand lustre de cristal, ruines naines englouties (colonnade, grande
+    porte traversée de cristaux, tête colossale d'un roi nain à demi enfouie, marteau de guerre géant, deux
+    gardiens pris dans des blocs de cristal), ponts et pylônes de cristal.
+  - **Reine araignée → « Le Nid de la Reine »** (x = −5800) : vieille salle de mine envahie. Sol de terre battue
+    (rails rouillés croisés sur une plaque tournante, toiles plaquées au sol, ossements et casques de mineurs,
+    couvées d'œufs qui luisent), anneau d'étais de bois reliés par des toiles géantes, lanternes de mineur, quatre
+    galeries (deux murées de toile, deux wagonnets pris dans les fils), prisonniers emmaillotés, voûte basse tendue
+    d'une immense toile en entonnoir vers l'antre, cocons suspendus qui se balancent, sac d'œufs luminescent
+    au-dessus du centre, brume verdâtre et violacée, spores.
+  Dans l'arène, l'éclairage prend l'ambiance de son boss (`src/client/AmbianceArene.client.lua` : lave chaude,
+  géode froide bleutée, nid verdâtre ; attribut joueur `DansArene` + index du boss en cours), restauré en sortant.
+- **Boss** : IA et coups d'épée de `MobsGrotte` ; PV = Σ épée de chaque joueur (bornée 15…310) × 190 × bonus du boss
+  (~3 min de combat quel que soit le groupe). Coups au corps à corps très forts (200 à 240) et attaques de zone
+  **télégraphiées** (zone rouge qui se remplit ~1 s) :
+  Titan = onde de choc en anneau (sauter ou se coller à lui), frappe des poings, éclats de cristal sous les joueurs ;
+  Reine = crachat de toile en cône, invocation d'araignées (6 max), bond sur un joueur ;
+  Seigneur = pluie de météores, cercle de lave (brûle 4 s), souffle de feu en cône.
+- **Phases** : à 66 % puis 33 % de PV, le boss s'enrage (2 s invulnérable, rugissement, onde au sol, bandeau
+  « PHASE 2 — <Boss> s'enrage ! », secousse, teinte d'ambiance plus intense) ; ses attaques s'accélèrent
+  (`CADENCE` : télégraphes plus courts, pauses et recharge du corps à corps réduites).
+- **Barre de PV** : grand trait rouge centré en haut de l'écran, nom du boss en plus petit dessous (PV chiffrés, temps
+  restant, traînée animée, petits crans à 66 % et 33 %), seulement dans l'arène. Dessous : « 6 mineurs debout ».
+- **Ressenti** : chiffres de dégâts sur le boss (les tiens en blanc vif, dorés et gros sur les gros coups ; ceux des
+  autres plus petits et translucides ; regroupés par 0,12 s), secousse si une attaque de zone tombe près de toi,
+  éclat rouge sur les bords de l'écran quand tu es touché.
+- **Dégâts** : chaque coup du boss (corps à corps ou zone) fait `COUP_BOSS` = 80 avant armure : un débutant (150 PV) survit au 1er coup et meurt au 2e.
+- **Régénération des joueurs** (`src/server/Vie.server.lua`, remplace celle de Roblox) : 1 % des PV max/s en combat, 5 %/s après 5 s sans dégât (~20 s pour tout remonter).
+- **Mort** : écran « K.O. — Retourne au cercle pour rejoindre le combat », réapparition au village ; le cercle
+  renvoie dans l'arène (chargement court, sans intro) tant qu'il y a moins de 20 joueurs dedans.
+- **Fin** : victoire → 150 pièces à chaque joueur qui a touché le boss + sa part d'un pot de 450 × participants
+  (au prorata des dégâts) ; le boss meurt au ralenti, grosse secousse, bannière **VICTOIRE** (confettis) 2 s, puis
+  **écran de résultats** 10 s : temps du combat, **MVP** (couronne), classement des dégâts de tous les participants
+  (avatar, nom, barre, pièces), ta ligne surlignée, bouton « Retour au village » (retour anticipé) + retour auto.
+  Tous morts ou 5 minutes écoulées → bannière **ÉCHEC**, même écran, le boss disparaît.
+  Retour : fondu au noir, téléportation au village, fondu retour.
+- **Sons** : uniquement des sons intégrés de Roblox déjà utilisés dans le jeu (`rbxasset://sounds/…`).
+
+| Fichier | Rôle |
+|---|---|
+| `src/partage/BossVillage.lua` | Réglages : cycle, boss (stats, attaques), PV, récompenses. |
+| `src/server/BossVillage.server.lua` | Cercle + panneau, cycle, téléportations, attaques de zone, récompenses. |
+| `src/monde/AreneBoss.lua` | Arènes : `obtenir(id)` (construit au besoin), murs invisibles ; construit la Fosse (Seigneur de braise). |
+| `src/monde/AreneCristal.lua` / `src/monde/AreneNid.lua` | La Géode du Titan / le Nid de la Reine. |
+| `src/monde/AreneKit.lua` | Outils communs des arènes (repères polaires, incrustations, toiles, cristaux, veines). |
+| `src/client/AmbianceArene.client.lua` | Éclairage propre à chaque arène, bannières et cocons qui se balancent, runes qui pulsent, onde des cristaux. |
+| `src/monde/Village.lua` (`preparerCercleBoss`) | Arène des boss du village : esplanade, Porte des boss (façade naine), gardiens, trophées, murs latéraux (aussi sur carte figée : retire la Maison13, rétablit le relief). |
+| `src/client/BossVillage.client.lua` | Barre de PV du boss, annonces, aiguillage des événements vers les modules ci-dessous. |
+| `src/client/BossAttente.lua` | Puce en haut d'écran, chevrons de guidage au sol, panneau « PRÊT AU COMBAT ». |
+| `src/client/BossCinematique.lua` | Fondus, écran de chargement, intro du boss (caméra, carte de nom), retour au village. |
+| `src/client/BossCombat.lua` | Bandeau de phase, secousses, éclat rouge (touché), « mineurs debout », écran K.O. |
+| `src/client/BossResultats.lua` | Bannière VICTOIRE / ÉCHEC, écran de résultats (MVP, classement, retour). |
+| `src/client/BossOutils.lua` | Sons, secousse de caméra, blocage des contrôles, avatars, icônes dessinées. |
+
 ## Bordures de la carte (château fort, sommets, cascades)
 
 `src/monde/Bordures.lua` habille le tour de la vallée (pur décor, aucune collision) :

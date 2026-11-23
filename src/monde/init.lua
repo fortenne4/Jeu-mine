@@ -100,6 +100,11 @@ function Monde.construire()
 	if not okDegager then
 		warn("[Monde] Dégagement du village impossible : " .. tostring(errDegager))
 	end
+	-- place du boss du village (bout de la rue du sud) : après le dégagement, elle retire elle-même son emprise
+	local okBoss, errBoss = pcall(Village.preparerCercleBoss, carte:FindFirstChild("Village"))
+	if not okBoss then
+		warn("[Monde] Place du boss non construite : " .. tostring(errBoss))
+	end
 	-- tout dernier : la mine souterraine reste propre (aucun décor extérieur, matériaux d'origine)
 	local okMine, errMine = pcall(Terrain.delimiterMine, carte)
 	if not okMine then

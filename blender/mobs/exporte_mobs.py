@@ -15,7 +15,11 @@ APERCUS = os.path.join(JEU, 'previews', 'mobs')
 MOBS = {'MineurZombie': ('mineur_zombie.py', 7.0, 2.75), 'BruteProfondeurs': ('brute_profondeurs.py', 12.5, 5.0),
         'RampantGaleries': ('rampant_galeries.py', 9.5, 1.4), 'ChauveSourisCave': ('chauve_souris_cave.py', 8.5, 3.4),
         'ZombieLame': ('zombie_lame.py', 8.5, 3.0), 'ZombieMutant': ('zombie_mutant.py', 9.0, 3.2),
-        'ExecuteurMaudit': ('executeur_maudit.py', 8.5, 3.1)}
+        'ExecuteurMaudit': ('executeur_maudit.py', 8.5, 3.1),
+        # boss d'événement (énormes, ~20-26 studs)
+        'TitanCristal': ('titan_cristal.py', 31.0, 12.5), 'ReineAraignee': ('reine_araignee.py', 36.0, 9.5),
+        'SeigneurBraise': ('seigneur_braise.py', 32.0, 13.2)}
+BOSS = ['TitanCristal', 'ReineAraignee', 'SeigneurBraise']
 
 
 def module(nom):
@@ -75,14 +79,24 @@ def gamme(noms, fichier):
 
 
 if __name__ == '__main__':
+    import sys
     os.makedirs(DEST, exist_ok=True); os.makedirs(APERCUS, exist_ok=True)
-    for nom in MOBS:
+    # py exporte_mobs.py              -> tous les mobs + Gamme.png / Gamme2.png / Boss.png
+    # py exporte_mobs.py boss         -> seulement les boss + Boss.png
+    # py exporte_mobs.py Nom1 Nom2    -> seulement ces mobs
+    args = sys.argv[1:]
+    choix = BOSS if args == ['boss'] else (args or list(MOBS))
+    for nom in choix:
         n, nb, clips, h, taille = module(nom)
         o = os.path.join(ICI, 'out', nom)
         shutil.copy(os.path.join(o, 'sheet.png'), os.path.join(APERCUS, nom + '.png'))
         if os.path.exists(os.path.join(o, 'loop.gif')):
             shutil.copy(os.path.join(o, 'loop.gif'), os.path.join(APERCUS, nom + '_anim.gif'))
         print('MOB', nom, n, 'pieces', nb, 'os', 'h=%.2f' % h, clips, taille, 'car.')
-    gamme(list(MOBS)[:4], 'Gamme.png')
-    gamme(list(MOBS), 'Gamme2.png')
+    if not args:
+        petits = [n for n in MOBS if n not in BOSS]
+        gamme(petits[:4], 'Gamme.png')
+        gamme(petits, 'Gamme2.png')
+    if not args or args == ['boss']:
+        gamme(['BruteProfondeurs'] + BOSS, 'Boss.png')
     print('EXPORT_OK')
