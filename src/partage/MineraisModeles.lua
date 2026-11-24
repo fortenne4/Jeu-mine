@@ -53,8 +53,9 @@ MineraisModeles.piece = piece
 
 -- Rocher taillé : un cœur + des blocs inclinés (facettes) + des cristaux qui dépassent.
 -- rng fixe = même rocher à chaque fois (icônes) ; sansCailloux = pas de cailloux au sol autour.
-function MineraisModeles.construire(nom: string, sol: CFrame, rng: Random?, sansCailloux: boolean?): (Model, Part)
-	local def = MineraisModeles.VISUEL[nom]
+-- defForce : visuel hors catalogue (minerais en projet de MineraisPropositions, vitrine de la plaine).
+function MineraisModeles.construire(nom: string, sol: CFrame, rng: Random?, sansCailloux: boolean?, defForce: Visuel?): (Model, Part)
+	local def = defForce or MineraisModeles.VISUEL[nom]
 	local r = rng or Random.new()
 	local s = def.taille
 	local modele = Instance.new("Model")
