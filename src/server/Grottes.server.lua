@@ -1,5 +1,5 @@
 -- Grottes profondes · SCRIPT SERVEUR
--- Entrée dans la caverne (panneau + cercle lumineux « 0/2 », 1,25 × le cercle des tunnels privés).
+-- Trois cercles indépendants devant l'entrée de la caverne.
 -- Le premier joueur qui entre dans le cercle devient le chef : il choisit la profondeur (InterfaceGrottes.client)
 -- et peut inviter un joueur (amis en premier côté client). Un 2e joueur peut aussi simplement entrer dans le cercle.
 -- Au départ, une grotte aléatoire est générée (Monde › GrotteGenerateur), peuplée de mobs (MobsGrotte), et le
@@ -34,9 +34,11 @@ local RECHARGE = 3          -- délai avant de pouvoir réactiver le cercle apr�
 local FLUX_LIMITE = 3
 local ANCRAGE_ARRIVEE = 1.2 -- s : joueur figé à l'arrivée dans la grotte, le temps que le sol se charge
 local INVITATION_DUREE = 25
-local RAYON = Grottes.RAYON_CERCLE
--- Entrée : lobe est de la caverne, à droite du Tunnel VI, face au centre
-local ENTREE = Vector3.new(50, D.CAVERNE_SOL, -425)
+local RAYON = Grottes.RAYON_CERCLE * 0.8
+-- Dans la grande salle, entre le Tunnel VI et le pilier est de la passerelle.
+local ENTREE = Vector3.new(50, D.CAVERNE_SOL + 2, -416)
+local ECART_CERCLES = 15
+local AVANCE_CERCLES_LATERAUX = 2.5
 
 -- ================= Remotes =================
 local dossierRemotes = Instance.new("Folder")
@@ -89,44 +91,51 @@ local PIERRE_CLAIRE = Color3.fromRGB(88, 82, 96)
 local VIOLET = Color3.fromRGB(186, 96, 255)
 local BRAISE = Color3.fromRGB(255, 150, 70)
 
-local entree, cercle, centreCercle
+local entree
+local teleporteurs = { {}, {}, {} }
+
 local function construireEntree()
 	local f = workspace:FindFirstChild("EntreeGrottes")
 	if f then f:Destroy() end
 	f = O.modele(workspace, "EntreeGrottes")
 	local rng = Random.new(4242)
-	-- Sol réel (terrain) sous l'entrée
-	local params = RaycastParams.new()
-	params.FilterType = Enum.RaycastFilterType.Include
-	params.FilterDescendantsInstances = {workspace.Terrain}
-	local hit = workspace:Raycast(ENTREE + Vector3.new(0, 20, 0), Vector3.new(0, -50, 0), params)
-	local sol = Vector3.new(ENTREE.X, if hit then hit.Position.Y else ENTREE.Y, ENTREE.Z)
-	local centre = Vector3.new(D.CAVERNE_CENTRE.X, sol.Y, D.CAVERNE_CENTRE.Z)
-	local base = CFrame.lookAt(sol, centre) -- -Z vers le centre de la caverne, le portail est derrière (+Z)
+	local base = CFrame.lookAt(ENTREE, ENTREE - Vector3.xAxis)
 	local function L(x, y, z) return base * CFrame.new(x, y, z) end
 	local function pierre(k) return PIERRE:Lerp(PIERRE_CLAIRE, k) end
+	local ecartLateral = math.sqrt(ECART_CERCLES ^ 2 - AVANCE_CERCLES_LATERAUX ^ 2)
+	local function cadreCercle(i)
+		local cote = i - 2
+		return L(cote * ecartLateral, 0, -0.5 + math.abs(cote) * AVANCE_CERCLES_LATERAUX)
+	end
+
+	-- Raccord rocheux derrière le portail, prolongé côté passerelle jusqu'à la paroi naturelle.
+	local terrain = workspace.Terrain
+	terrain:FillBlock(L(0, 16, 34), Vector3.new(32, 40, 32), Enum.Material.Rock)
+	terrain:FillBlock(L(-16, 14, 39), Vector3.new(12, 36, 26), Enum.Material.Rock)
 
 	-- Une seule dalle porte jusqu'au bord visible. Le dessous pénètre le terrain irrégulier.
+	local A = 12.875 -- plan de l'arche, indépendant de la taille des anneaux
 	local dessusDalle = 0.4
 	local epaisseurDalle = 0.85
-	local debutMarches = RAYON + 1.1
-	O.cylindre(f, epaisseurDalle, (RAYON + 2.6) * 2, L(0, dessusDalle - epaisseurDalle / 2, 0), pierre(0.2), M.Ardoise, "Dalle")
-	for k = 0, 11 do
-		local a = k * math.pi / 6
-		local x, z = math.cos(a) * (RAYON + 1.5), math.sin(a) * (RAYON + 1.5)
-		if z < debutMarches - 0.4 then
-			O.decor(O.bloc(f, Vector3.new(0.5, 0.06, 1.6), L(x, dessusDalle + 0.045, z) * CFrame.Angles(0, -a, 0),
-				VIOLET, M.Neon, "RuneDalle"))
+	local debutMarches = A - 4.9
+	local largeurDalle = 2 * (ecartLateral + RAYON + 1)
+	O.bloc(f, Vector3.new(largeurDalle, epaisseurDalle, 18), L(0, dessusDalle - epaisseurDalle / 2, debutMarches - 9),
+		pierre(0.2), M.Ardoise, "Dalle")
+	for i = 1, #teleporteurs do
+		local cadre = cadreCercle(i)
+		for k = 0, 3 do
+			local a = (k + 0.5) * math.pi / 2
+			local x, z = math.cos(a) * (RAYON + 1.1), math.sin(a) * (RAYON + 1.1)
+			O.decor(O.bloc(f, Vector3.new(0.5, 0.06, 1.6), cadre * CFrame.new(x, dessusDalle + 0.045, z)
+				* CFrame.Angles(0, -a, 0), VIOLET, M.Neon, "RuneDalle"))
 		end
 	end
-	local A = RAYON + 6 -- plan de l'arche
 	local debutSeuil = A - 1.7
 	local profondeurMarche = (debutSeuil - debutMarches) / 3
 	local dessusSeuil = 1.5
 	local dessousMarches = -0.5
 
-	-- Les marches se joignent par leur tranche. La première mord légèrement sur la dalle
-	-- ronde, à une hauteur différente, pour une montée continue sur l'axe du portail.
+	-- Les marches rejoignent la dalle sur l'axe du portail.
 	local function palier(nom, debut, fin, dessus, nuance)
 		local z = (debut + fin) / 2
 		O.bloc(f, Vector3.new(14, dessus - dessousMarches, fin - debut), L(0, (dessus + dessousMarches) / 2, z), pierre(nuance), M.Ardoise, nom)
@@ -233,9 +242,9 @@ local function construireEntree()
 		B.cristal(f, L(p.X, p.Y, p.Z) * CFrame.Angles(0, 0, a - math.pi / 2), 3.2, VIOLET, rng, 14)
 	end
 
-	-- Braseros de part et d'autre du cercle
+	-- Braseros de part et d'autre du seuil
 	for _, s in {-1, 1} do
-		local cf = L(s * (RAYON + 3.2), 0, 2)
+		local cf = L(s * (A - 2.8), 0, 9)
 		O.cylindre(f, 2.6, 1.5, cf * CFrame.new(0, 1.3, 0), pierre(0.3), M.Ardoise, "PiedBrasero")
 		O.cylindre(f, 0.9, 2.8, cf * CFrame.new(0, 2.95, 0), C.Fer, M.Metal, "Brasero")
 		local braises = O.decor(O.cylindre(f, 0.3, 2.2, cf * CFrame.new(0, 3.45, 0), BRAISE, M.Neon, "Braises"))
@@ -245,7 +254,7 @@ local function construireEntree()
 	end
 
 	-- Wagonnet abandonné, renversé à moitié, et quelques pierres éboulées
-	local wagon = B.wagonnet(f, L(-15, 0, -1) * CFrame.Angles(0, math.rad(70), 0) * CFrame.Angles(0, 0, math.rad(12)), Color3.fromRGB(150, 80, 220), rng)
+	local wagon = B.wagonnet(f, L(-19, 0, 10) * CFrame.Angles(0, math.rad(70), 0) * CFrame.Angles(0, 0, math.rad(12)), Color3.fromRGB(150, 80, 220), rng)
 	wagon:ScaleTo(0.7)
 	wagon:PivotTo(wagon:GetPivot() - Vector3.new(0, 3.1 * 0.3, 0))
 	O.decorModele(wagon)
@@ -256,20 +265,18 @@ local function construireEntree()
 			pierre(rng:NextNumber(0, 0.4)), M.Ardoise, "Eboulis")
 	end
 
-	cercle = Cercle.construire(f, base, "CercleGrotte", {rayon = RAYON, texte = "0/2"})
-	centreCercle = cercle:GetAttribute("Centre")
+	for i, teleporteur in teleporteurs do
+		local cf = cadreCercle(i)
+		teleporteur.cercle = Cercle.construire(f, cf, "Teleporteur_Grottes_" .. i, {rayon = RAYON, texte = "0/2"})
+		local centre = teleporteur.cercle:GetAttribute("Centre")
+		teleporteur.centre = centre
+		teleporteur.retour = (cf.Rotation + centre) * CFrame.new(0, 0, -(RAYON + 3))
+	end
 	entree = f
 end
 
--- Point de retour : devant le cercle, côté centre de la caverne, hors du cercle
-local function arrivee(): CFrame
-	local centre = Vector3.new(D.CAVERNE_CENTRE.X, centreCercle.Y, D.CAVERNE_CENTRE.Z)
-	return CFrame.lookAt(centreCercle, centre) * CFrame.new(0, 0, -(RAYON + 5))
-end
-
 -- ================= Groupes (avant le départ) =================
--- groupe = {chef = Player, membres = {Player}, invites = {[userId] = expiration}, depart = bool}
-local groupe = nil      -- un seul groupe au cercle à la fois (compteur 0/2)
+local groupesJoueurs = {} -- [joueur] = téléporteur, y compris pour un membre invité hors du cercle
 local derniers = {}     -- [joueur] = os.clock() de la dernière activation
 local expeditions = {}  -- [joueur] = expédition en cours
 local occupes = {}      -- [index d'emplacement] = true
@@ -288,14 +295,15 @@ local function dedans(centre: Vector3, p: Vector3, rayon: number)
 	return d.Y > -1 and d.Y < 8 and d.X * d.X + d.Z * d.Z < rayon * rayon
 end
 
-local function compteur()
+local function compteur(teleporteur)
+	local cercle, groupe = teleporteur.cercle, teleporteur.groupe
 	if not cercle or not cercle.Parent then return end
 	local n = if groupe then #groupe.membres else 0
 	cercle:SetAttribute("Texte", n .. "/" .. Grottes.MAX_JOUEURS)
 	Cercle.etat(cercle, n > 0)
 end
 
-local function etatGroupe(pour: Player)
+local function etatGroupe(groupe, pour: Player)
 	local membres = {}
 	for _, j in groupe.membres do table.insert(membres, {userId = j.UserId, nom = j.DisplayName}) end
 	local invites = {}
@@ -303,20 +311,22 @@ local function etatGroupe(pour: Player)
 	return {chef = groupe.chef.UserId, membres = membres, invites = invites, estChef = pour == groupe.chef}
 end
 
-local function diffuser()
-	if not groupe then return end
-	for _, j in groupe.membres do R.Ouvrir:FireClient(j, etatGroupe(j)) end
-	compteur()
+local function diffuser(teleporteur)
+	local groupe = teleporteur.groupe
+	for _, j in groupe.membres do R.Ouvrir:FireClient(j, etatGroupe(groupe, j)) end
+	compteur(teleporteur)
 end
 
-local function membre(j: Player): boolean
-	return groupe ~= nil and table.find(groupe.membres, j) ~= nil
+local function libererGroupe(teleporteur)
+	local groupe = teleporteur.groupe
+	teleporteur.groupe = nil
+	for _, j in groupe.membres do groupesJoueurs[j] = nil end
+	compteur(teleporteur)
+	return groupe
 end
 
-local function dissoudre(raison: string?)
-	if not groupe then return end
-	local g = groupe
-	groupe = nil
+local function dissoudre(teleporteur, raison: string?)
+	local g = libererGroupe(teleporteur)
 	for _, j in g.membres do
 		if j.Parent then
 			R.Fermer:FireClient(j)
@@ -324,23 +334,34 @@ local function dissoudre(raison: string?)
 			derniers[j] = os.clock()
 		end
 	end
-	compteur()
 end
 
 local function retirerDuGroupe(j: Player)
-	if not groupe or groupe.depart then return end
-	if j == groupe.chef then
-		dissoudre(nil)
+	local teleporteur = groupesJoueurs[j]
+	if not teleporteur then return end
+	local groupe = teleporteur.groupe
+	if j == groupe.chef and not groupe.depart then
+		dissoudre(teleporteur, nil)
 		return
 	end
-	local i = table.find(groupe.membres, j)
-	if i then
-		table.remove(groupe.membres, i)
+	groupesJoueurs[j] = nil
+	table.remove(groupe.membres, table.find(groupe.membres, j))
+	if j.Parent == Players then
 		R.Fermer:FireClient(j)
 		derniers[j] = os.clock()
-		R.Message:FireClient(groupe.chef, j.DisplayName .. " a quitté le groupe")
-		diffuser()
 	end
+	if not groupe.depart and groupe.chef.Parent == Players then
+		R.Message:FireClient(groupe.chef, j.DisplayName .. " a quitté le groupe")
+	end
+	if groupe.depart then compteur(teleporteur) else diffuser(teleporteur) end
+end
+
+local function rejoindre(teleporteur, joueur: Player)
+	local groupe = teleporteur.groupe
+	groupesJoueurs[joueur] = teleporteur
+	table.insert(groupe.membres, joueur)
+	groupe.invites[joueur.UserId] = nil
+	diffuser(teleporteur)
 end
 
 -- ================= Expéditions =================
@@ -387,7 +408,8 @@ local function sortir(joueur: Player, exp)
 	Cercle.activer(exp.grotte.sortie)
 	task.wait(0.35)
 	local perso, racine = vivant(joueur)
-	if perso and dedans(exp.grotte.centreSortie, racine.Position, Cercle.RAYON) and streamerPuisPoser(joueur, arrivee()) then
+	if perso and dedans(exp.grotte.centreSortie, racine.Position, Cercle.RAYON)
+		and streamerPuisPoser(joueur, exp.teleporteur.retour) then
 		acces.autoriser(joueur, perso) -- revenu dans la caverne sans le wagon : accès conservé
 		local quete = ServerStorage:FindFirstChild("QueteEvenement")
 		if quete and quete:IsA("BindableEvent") then
@@ -399,28 +421,35 @@ local function sortir(joueur: Player, exp)
 	derniers[joueur] = os.clock()
 end
 
-local function lancer(niveau)
-	local g = groupe
-	if not g or g.depart then return end
+local function lancer(teleporteur, niveau)
+	local g = teleporteur.groupe
 	g.depart = true
+	-- Une seule génération à la fois (creusement lourd, étalé sur plusieurs frames)
+	while construction do task.wait(0.2) end
+	if groupesJoueurs[g.chef] ~= teleporteur or not vivant(g.chef) then
+		dissoudre(teleporteur, "Le chef a quitté l'expédition")
+		return
+	end
+	construction = true
 	local index = 1
 	while occupes[index] do index += 1 end
 	occupes[index] = true
 	local invite = g.membres[2]
-	-- Une seule génération à la fois (creusement lourd, étalé sur plusieurs frames)
-	while construction do task.wait(0.2) end
-	construction = true
 	local ok, grotte = pcall(Generateur.construire, niveau, index, os.time() * 7919 + math.random(1, 1e6), g.chef.UserId, invite and invite.UserId)
 	construction = false
 	if not ok then
 		pcall(Generateur.detruire, {base = Generateur.emplacement(index)}) -- remet à l'air la roche déjà posée
 		occupes[index] = nil
 		warn("[Grottes] Génération ratée : " .. tostring(grotte))
-		g.depart = false
-		dissoudre("La grotte s'est effondrée… réessaie !")
+		dissoudre(teleporteur, "La grotte s'est effondrée… réessaie !")
 		return
 	end
-	local exp = {grotte = grotte, niveau = niveau, index = index, joueurs = {}, enSortie = {}, fini = false}
+	local exp = {grotte = grotte, niveau = niveau, index = index, teleporteur = teleporteur, joueurs = {}, enSortie = {}, fini = false}
+	if groupesJoueurs[g.chef] ~= teleporteur or not vivant(g.chef) then
+		fermerExpedition(exp)
+		dissoudre(teleporteur, "Le chef a quitté l'expédition")
+		return
+	end
 	local partants = {}
 	for _, j in g.membres do
 		if j.Parent and vivant(j) and not expeditions[j] then table.insert(partants, j) end
@@ -434,10 +463,10 @@ local function lancer(niveau)
 	local okArene, errArene = pcall(ArenaTemple.preparer, exp)
 	if not okArene then warn("[Grottes] Arène : " .. tostring(errArene)) end
 	-- Le cercle se libère tout de suite pour le groupe suivant
-	groupe = nil
-	compteur()
-	Cercle.activer(cercle)
+	libererGroupe(teleporteur)
+	Cercle.activer(teleporteur.cercle)
 	for i, j in partants do
+		if not table.find(g.membres, j) or not vivant(j) or j.Parent ~= Players then continue end
 		R.Fermer:FireClient(j)
 		expeditions[j] = exp
 		table.insert(exp.joueurs, j)
@@ -462,53 +491,67 @@ end
 
 R.Choisir.OnServerEvent:Connect(function(joueur, niveauId)
 	if not limite(joueur, "Choisir", 1) then return end
+	local teleporteur = groupesJoueurs[joueur]
+	local groupe = teleporteur and teleporteur.groupe
 	if not groupe or groupe.chef ~= joueur or groupe.depart then return end
 	local niveau = Grottes.niveau(niveauId)
 	if not niveau then return end
 	local _, racine = vivant(joueur)
-	if not racine or not dedans(centreCercle, racine.Position, RAYON + 1) then return end
-	lancer(niveau)
+	if not racine or not dedans(teleporteur.centre, racine.Position, RAYON + 1) then return end
+	lancer(teleporteur, niveau)
 end)
 
 R.Quitter.OnServerEvent:Connect(function(joueur)
-	if membre(joueur) then retirerDuGroupe(joueur) end
+	local teleporteur = groupesJoueurs[joueur]
+	if teleporteur and not teleporteur.groupe.depart then retirerDuGroupe(joueur) end
 end)
 
 R.Inviter.OnServerEvent:Connect(function(joueur, userId)
 	if not limite(joueur, "Inviter", 0.5) then return end
+	local teleporteur = groupesJoueurs[joueur]
+	local groupe = teleporteur and teleporteur.groupe
 	if not groupe or groupe.chef ~= joueur or groupe.depart or type(userId) ~= "number" then return end
 	if #groupe.membres >= Grottes.MAX_JOUEURS then return end
 	local cible = Players:GetPlayerByUserId(userId)
-	if not cible or cible == joueur or membre(cible) then return end
+	if not cible or cible == joueur then return end
+	if groupesJoueurs[cible] then
+		if groupesJoueurs[cible] ~= teleporteur then
+			R.Message:FireClient(joueur, cible.DisplayName .. " a déjà une équipe")
+		end
+		return
+	end
 	if expeditions[cible] then
 		R.Message:FireClient(joueur, cible.DisplayName .. " est déjà dans une grotte")
 		return
 	end
 	groupe.invites[userId] = os.clock() + INVITATION_DUREE
 	R.Invitation:FireClient(cible, joueur.UserId, joueur.DisplayName)
-	diffuser()
+	diffuser(teleporteur)
 end)
 
 R.Repondre.OnServerEvent:Connect(function(joueur, chefId, accepte)
 	if not limite(joueur, "Repondre", 0.5) then return end
-	if not groupe or groupe.depart or groupe.chef.UserId ~= chefId or not groupe.invites[joueur.UserId] then
+	local chef = if type(chefId) == "number" then Players:GetPlayerByUserId(chefId) else nil
+	local teleporteur = chef and groupesJoueurs[chef]
+	local groupe = teleporteur and teleporteur.groupe
+	local expiration = groupe and groupe.invites[joueur.UserId]
+	if not groupe or groupe.depart or groupe.chef ~= chef or not expiration or expiration <= os.clock() then
 		if accepte == true then R.Message:FireClient(joueur, "L'invitation n'est plus valable") end
 		return
 	end
 	groupe.invites[joueur.UserId] = nil
 	if accepte ~= true then
 		R.Message:FireClient(groupe.chef, joueur.DisplayName .. " a refusé")
-		diffuser()
+		diffuser(teleporteur)
 		return
 	end
-	if #groupe.membres >= Grottes.MAX_JOUEURS or expeditions[joueur] or not vivant(joueur) then
-		R.Message:FireClient(joueur, "Le groupe est complet")
-		diffuser()
+	if #groupe.membres >= Grottes.MAX_JOUEURS or groupesJoueurs[joueur] or expeditions[joueur] or not vivant(joueur) then
+		R.Message:FireClient(joueur, "Ce groupe n'est plus disponible")
+		diffuser(teleporteur)
 		return
 	end
-	table.insert(groupe.membres, joueur)
+	rejoindre(teleporteur, joueur)
 	R.Message:FireClient(groupe.chef, joueur.DisplayName .. " rejoint l'expédition !")
-	diffuser()
 end)
 
 -- ================= Joueurs =================
@@ -520,21 +563,21 @@ local function surJoueur(joueur: Player)
 	joueur.CharacterAdded:Connect(function()
 		-- réapparition (mort) : il n'est plus dans la grotte ni dans le groupe
 		quitterExpedition(joueur)
-		if membre(joueur) then retirerDuGroupe(joueur) end
+		retirerDuGroupe(joueur)
 	end)
 end
 Players.PlayerAdded:Connect(surJoueur)
 for _, j in Players:GetPlayers() do surJoueur(j) end
 
 Players.PlayerRemoving:Connect(function(joueur)
-	if membre(joueur) then
-		if groupe.depart then
-			table.remove(groupe.membres, table.find(groupe.membres, joueur))
-		else
-			retirerDuGroupe(joueur)
+	retirerDuGroupe(joueur)
+	for _, teleporteur in teleporteurs do
+		local groupe = teleporteur.groupe
+		if groupe and groupe.invites[joueur.UserId] then
+			groupe.invites[joueur.UserId] = nil
+			if not groupe.depart then diffuser(teleporteur) end
 		end
 	end
-	if groupe then groupe.invites[joueur.UserId] = nil end
 	quitterExpedition(joueur)
 	derniers[joueur] = nil
 	for cle in recharges do
@@ -576,34 +619,46 @@ local function examiner(joueur: Player, maintenant: number)
 		end
 		return
 	end
-	local dansCercle = dedans(centreCercle, p, RAYON)
-	if groupe and not groupe.depart then
-		if joueur == groupe.chef and not dansCercle then
-			dissoudre(nil) -- le chef sort du cercle : on annule
-		elseif not membre(joueur) and dansCercle and #groupe.membres < Grottes.MAX_JOUEURS
-			and maintenant - (derniers[joueur] or -math.huge) > RECHARGE then
-			table.insert(groupe.membres, joueur)
-			groupe.invites[joueur.UserId] = nil
-			diffuser()
+	local actuel = groupesJoueurs[joueur]
+	if actuel then
+		local groupe = actuel.groupe
+		if not groupe.depart and joueur == groupe.chef and not dedans(actuel.centre, p, RAYON) then
+			dissoudre(actuel, nil)
 		end
-	elseif not groupe and dansCercle and maintenant - (derniers[joueur] or -math.huge) > RECHARGE then
-		groupe = {chef = joueur, membres = {joueur}, invites = {}, depart = false}
-		Cercle.activer(cercle)
-		diffuser()
+		return
+	end
+	if maintenant - (derniers[joueur] or -math.huge) <= RECHARGE then return end
+	for _, teleporteur in teleporteurs do
+		if not dedans(teleporteur.centre, p, RAYON) then continue end
+		local groupe = teleporteur.groupe
+		if not groupe then
+			teleporteur.groupe = {chef = joueur, membres = {}, invites = {}, depart = false}
+			Cercle.activer(teleporteur.cercle)
+			rejoindre(teleporteur, joueur)
+		elseif not groupe.depart and #groupe.membres < Grottes.MAX_JOUEURS then
+			rejoindre(teleporteur, joueur)
+		end
+		return
 	end
 end
 
 while true do
 	local maintenant = os.clock()
-	if groupe and not groupe.depart then
+	for _, teleporteur in teleporteurs do
+		local groupe = teleporteur.groupe
+		if not groupe or groupe.depart then continue end
 		-- invitations expirées
 		local change = false
 		for userId, fin in groupe.invites do
 			if maintenant > fin then groupe.invites[userId] = nil; change = true end
 		end
-		if change then diffuser() end
+		if change then diffuser(teleporteur) end
 	end
-	if not entree.Parent then pcall(construireEntree) end
+	if not entree.Parent then
+		if pcall(construireEntree) then
+			for _, teleporteur in teleporteurs do compteur(teleporteur) end
+		end
+	end
 	for _, joueur in Players:GetPlayers() do
 		local okJ, err = pcall(examiner, joueur, maintenant)
 		if not okJ then warn("[Grottes] Détection interrompue pour " .. joueur.Name .. " : " .. tostring(err)) end

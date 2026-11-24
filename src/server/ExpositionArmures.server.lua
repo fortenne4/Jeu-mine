@@ -52,9 +52,11 @@ end
 table.sort(anciens, function(a, b) return a.Socle.Position.Z > b.Socle.Position.Z end)
 local emplacements = {}
 if #anciens == 2 then
+	local sol = forge:FindFirstChild("Sol")
 	for i, ancien in anciens do
 		local socle = ancien.Socle
-		emplacements[i] = CFrame.new(socle.Position.X, 2, socle.Position.Z) * socle.CFrame.Rotation
+		local hauteur = if sol and sol:IsA("BasePart") then sol.Position.Y + sol.Size.Y / 2 else socle.Position.Y - socle.Size.Y / 2
+		emplacements[i] = CFrame.new(socle.Position.X, hauteur, socle.Position.Z) * socle.CFrame.Rotation
 	end
 else
 	warn("[ExpositionArmures] Nombre d'emplacements de forge inattendu : " .. #anciens)

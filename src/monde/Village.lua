@@ -229,6 +229,7 @@ function Village.preparerAteliers(village)
 				f:SetAttribute("Base", base)
 			end
 		end
+		B.preparerAmenagementForge(forge)
 	end
 	-- Puits
 	for _, puits in village:GetDescendants() do
@@ -306,10 +307,86 @@ function Village.preparerAteliers(village)
 	end
 end
 
+-- Conserve le bord côté village des pièces qui dépassent sur le pont.
+local function raccourcirAuPont(piece, bord, signe, demiLargeur)
+	local cf, taille = piece.CFrame, piece.Size
+	local demiX = (math.abs(cf.XVector.X) * taille.X + math.abs(cf.YVector.X) * taille.Y + math.abs(cf.ZVector.X) * taille.Z) / 2
+	local demiZ = (math.abs(cf.XVector.Z) * taille.X + math.abs(cf.YVector.Z) * taille.Y + math.abs(cf.ZVector.Z) * taille.Z) / 2
+	local distance = (piece.Position.Z - bord) * signe
+	if math.abs(piece.Position.X) - demiX >= demiLargeur or distance >= demiZ + 0.019 or distance < -2 then
+		return
+	end
+
+	local longueur = distance + demiZ - 0.02
+	if longueur < 0.15 then
+		-- Un pavé presque entièrement sur le tablier garde sa taille et recule sur la rive.
+		piece.CFrame += Vector3.new(0, 0, signe * (demiZ + 0.02 - distance))
+		return
+	end
+	if math.abs(cf.ZVector.Z) > 0.9999 then
+		piece.Size = Vector3.new(taille.X, taille.Y, longueur)
+	else
+		-- Les pavés obliques rétrécissent dans les deux axes pour garder leur orientation.
+		local facteur = longueur / (2 * demiZ)
+		piece.Size = Vector3.new(taille.X * facteur, taille.Y, taille.Z * facteur)
+	end
+	piece.CFrame = cf + Vector3.new(0, 0, signe * (demiZ + 0.02 - distance) / 2)
+end
+
+local function preparerEscaliersPont(village, sentiers)
+	local riviere = village:FindFirstChild("Riviere")
+	local tablier = riviere and riviere:FindFirstChild("Tablier")
+	if not tablier then return end
+
+	local filtre = RaycastParams.new()
+	filtre.FilterType = Enum.RaycastFilterType.Include
+	filtre.FilterDescendantsInstances = {workspace.Terrain}
+	filtre.IgnoreWater = true
+	local dessusPont = tablier.Position.Y + tablier.Size.Y / 2
+	local profondeur = 1.8
+	local longueurPalier = 4 -- recouvre la berge jusqu'à ce que le terrain passe sous les marches
+	local routes = village:FindFirstChild("Routes")
+	for index, nom in {"Escalier_Pont_Gauche", "Escalier_Pont_Droite"} do
+		local signe = 2 * index - 3
+		local bord = tablier.Position.Z + signe * tablier.Size.Z / 2
+		local sol = workspace:Raycast(Vector3.new(tablier.Position.X, dessusPont + 10, bord), Vector3.new(0, -20, 0), filtre)
+		if not sol then continue end
+		local dessusPalier = sol.Position.Y + 0.255 -- niveau du dessus des dalles du sentier
+		local hauteurMarche = (dessusPalier - dessusPont) / 3
+		if hauteurMarche <= 0 then continue end
+
+		for _, piece in sentiers:GetChildren() do
+			if piece:IsA("BasePart") and (piece.Name == "Terre" or piece.Name == "DalleReguliere"
+				or piece.Name == "Pave" or piece.Name == "Bordure") then
+				raccourcirAuPont(piece, bord, signe, tablier.Size.X / 2)
+			end
+		end
+		if routes then
+			for _, piece in routes:GetChildren() do
+				if piece:IsA("BasePart") and piece.Name == "Chemin" then
+					raccourcirAuPont(piece, bord, signe, tablier.Size.X / 2)
+				end
+			end
+		end
+
+		if riviere:FindFirstChild(nom) then continue end
+		local escalier = O.modele(riviere, nom)
+		local function assise(nomAssise, recul, longueur, hauteur)
+			local taille = Vector3.new(tablier.Size.X, hauteur, longueur)
+			local centre = Vector3.new(tablier.Position.X, dessusPont + hauteur / 2, bord - signe * recul)
+			O.bloc(escalier, taille, CFrame.new(centre), tablier.Color, tablier.Material, nomAssise)
+		end
+		assise("Palier", longueurPalier / 2, longueurPalier, 3 * hauteurMarche)
+		assise("MarcheHaute", longueurPalier + profondeur / 2, profondeur, 2 * hauteurMarche)
+		assise("MarcheBasse", longueurPalier + 1.5 * profondeur, profondeur, hauteurMarche)
+	end
+end
+
 -- Chemins décoratifs posés sur le terrain réel, y compris sur les cartes figées.
 function Village.preparerSentiers(village)
 	local anciens = village:FindFirstChild("SentiersFontaine")
 	if anciens and anciens:GetAttribute("VersionSentiers") == 15 then
+		preparerEscaliersPont(village, anciens)
 		return
 	end
 	-- rue du sud élargie : maisons écartées avant de tracer leurs allées (cartes figées)
@@ -639,6 +716,7 @@ function Village.preparerSentiers(village)
 	sentiers:SetAttribute("VersionSentiers", 15)
 	if anciens then anciens:Destroy() end
 	sentiers.Name = "SentiersFontaine"
+	preparerEscaliersPont(village, sentiers)
 end
 
 local function apparitions(v)
@@ -914,7 +992,7 @@ local function boutiques(v, rng, obstacles)
 				accessoires = {{461491285, "Face"}, {108828585, "Face"}}}))
 	pnj:SetAttribute("Service", "Forge")
 	B.tonneau(m, cf * CFrame.new(-13.5, 0, -6))
-	B.caisse(m, cf * CFrame.new(13.6, 0, -4), 2.4)
+	B.caisse(m, cf * CFrame.new(13.6, 2, -4), 2.4)
 
 	-- ===== La taverne (Margot) : la plus grande, terrasse couverte et guirlandes =====
 	local dore = Color3.fromRGB(196, 150, 44)
@@ -2018,6 +2096,13 @@ function Village.preparerCercleBoss(village)
 	local ancienne = village:FindFirstChild("PlaceBoss")
 	if ancienne then
 		if ancienne:GetAttribute("Version") == PLACE_BOSS_VERSION then
+			-- Retire les inscriptions des arènes déjà figées sans reconstruire le décor.
+			for _, piece in ancienne:GetChildren() do
+				if piece:IsA("BasePart") and (piece.Name == "Pilier" or piece.Name == "Socle" or piece.Name == "Trophee") then
+					local inscription = piece:FindFirstChild("TexteFront")
+					if inscription and inscription:IsA("SurfaceGui") then inscription:Destroy() end
+				end
+			end
 			return ancienne
 		end
 		ancienne:Destroy()
@@ -2291,7 +2376,6 @@ function Village.preparerCercleBoss(village)
 	local function plaque(l, h, x, yy, saillie, couleur, mat, nom) -- bloc plaqué : face avant à ZF - saillie
 		return O.bloc(m, Vector3.new(l, h, saillie + 0.5), CFrame.new(c.X + x, y + yy, ZF + (0.5 - saillie) / 2), couleur, mat, nom)
 	end
-	local texte = {couleur = orTexte, lumiere = 0.2, ppp = 40}
 	O.bloc(m, Vector3.new(32, HF + 3, 8), CFrame.new(c.X, y - 3 + (HF + 3) / 2, ZF + 4), pierreSombre, M.Ardoise, "Facade")
 	for _, s in {-1, 1} do
 		O.bloc(m, Vector3.new(8, HA + 3, 8), CFrame.new(c.X + s * 20, y - 3 + (HA + 3) / 2, ZF + 4), pierreSombre, M.Ardoise, "Facade")
@@ -2546,12 +2630,11 @@ function Village.preparerCercleBoss(village)
 			end
 		end
 	end
-	for _, d in {{-1, "marteau", "GARDIEN DU MARTEAU"}, {1, "hache", "GARDIEN DE LA HACHE"}} do
+	for _, d in {{-1, "marteau"}, {1, "hache"}} do
 		local s = d[1]
 		local cf = CFrame.new(c.X + s * 14, y, 165) -- face au nord (vers la place et la rue)
-		local socle = O.bloc(m, Vector3.new(5.6, 2.2, 5.6), cf * CFrame.new(0, 1.1, 0), pierreSombre, M.Ardoise, "Socle")
+		O.bloc(m, Vector3.new(5.6, 2.2, 5.6), cf * CFrame.new(0, 1.1, 0), pierreSombre, M.Ardoise, "Socle")
 		O.bloc(m, Vector3.new(6, 0.4, 6), cf * CFrame.new(0, 2.0, 0), pierreClaire, M.Ardoise, "Socle")
-		O.texte(socle, Enum.NormalId.Front, d[3], texte)
 		nainGardien(cf * CFrame.new(0, 2.2, 0), d[2], 1.3)
 	end
 
@@ -2568,20 +2651,19 @@ function Village.preparerCercleBoss(village)
 	end
 
 	-- 11. Trophées du Titan et de la Reine sur hauts socles (le crâne du Seigneur de braise est au-dessus du portail)
-	local function socleTrophee(pied, texteSocle)
+	local function socleTrophee(pied)
 		local cf = versCentre(pied)
-		local socle = O.bloc(m, Vector3.new(4.6, 4, 4.6), cf * CFrame.new(0, 2, 0), pierreSombre, M.Ardoise, "Trophee")
+		O.bloc(m, Vector3.new(4.6, 4, 4.6), cf * CFrame.new(0, 2, 0), pierreSombre, M.Ardoise, "Trophee")
 		O.bloc(m, Vector3.new(5.2, 0.5, 5.2), cf * CFrame.new(0, 3.9, 0), pierreClaire, M.Ardoise, "Trophee")
 		O.bloc(m, Vector3.new(5.2, 0.6, 5.2), cf * CFrame.new(0, 0.3, 0), pierreClaire:Lerp(pierreSombre, 0.5), M.Ardoise, "Trophee")
-		O.texte(socle, Enum.NormalId.Front, texteSocle, texte)
 		return cf * CFrame.new(0, 4.15, 0)
 	end
 	do -- Titan de cristal : cristal géant (lumière 1,3)
-		local haut = socleTrophee(Vector3.new(c.X - 17.6, y, 152.5), "TITAN DE CRISTAL")
+		local haut = socleTrophee(Vector3.new(c.X - 17.6, y, 152.5))
 		B.cristal(m, haut, 8, Color3.fromRGB(80, 150, 200), Random.new(71), 16)
 	end
 	do -- Reine araignée : sa dépouille (sans lumière)
-		local haut = socleTrophee(Vector3.new(c.X + 17.6, y, 152.5), "REINE ARAIGNÉE")
+		local haut = socleTrophee(Vector3.new(c.X + 17.6, y, 152.5))
 		local k = 1.25
 		local function q(x, yy, z)
 			return haut * CFrame.new(x * k, yy * k, z * k)
@@ -2616,11 +2698,10 @@ function Village.preparerCercleBoss(village)
 	end
 
 	-- 13. Côté rue : deux piliers bas à lanternes de part et d'autre de l'avenue (la vue depuis le pont reste dégagée)
-	for i, s in {-1, 1} do
+	for _, s in {-1, 1} do
 		local p = Vector3.new(c.X + s * (R.SUD_LARGEUR / 2 + 2), niveau, c.Z - RE + 1.5)
 		O.bloc(m, Vector3.new(2.8, 1.2, 2.8), CFrame.new(p + Vector3.new(0, 0.3, 0)), pierreSombre, M.Ardoise, "Pilier")
-		local fut = O.bloc(m, Vector3.new(2.2, 4.6, 2.2), CFrame.new(p + Vector3.new(0, 3.2, 0)), pierreClaire:Lerp(pierre, 0.4), M.Ardoise, "Pilier")
-		O.texte(fut, Enum.NormalId.Front, if i == 1 then "ARÈNE" else "DES BOSS", {couleur = orTexte, lumiere = 0.2, ppp = 40})
+		O.bloc(m, Vector3.new(2.2, 4.6, 2.2), CFrame.new(p + Vector3.new(0, 3.2, 0)), pierreClaire:Lerp(pierre, 0.4), M.Ardoise, "Pilier")
 		O.bloc(m, Vector3.new(2.8, 0.6, 2.8), CFrame.new(p + Vector3.new(0, 5.8, 0)), pierreSombre, M.Ardoise, "Chapiteau")
 		O.bloc(m, Vector3.new(1.4, 0.3, 1.4), CFrame.new(p + Vector3.new(0, 6.25, 0)), fer, M.Metal, "Lanterne")
 		local verre = O.decor(O.bloc(m, Vector3.new(1.1, 1.3, 1.1), CFrame.new(p + Vector3.new(0, 7.05, 0)), Color3.fromRGB(120, 84, 50), M.Verre, "Lanterne"))

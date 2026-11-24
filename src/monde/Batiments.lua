@@ -1184,7 +1184,7 @@ end
 -- Fourneau du forgeron. cf = centre du foyer au sol, -Z = la gueule (vers l'atelier). Encombrement ≈ 9 × 6 au sol ;
 -- la cheminée monte à (0, 16.5, 1) comme l'ancien foyer (elle traverse le toit au même endroit).
 -- Modèle « Fourneau » (attribut VersionFourneau) : Village.preparerAteliers le pose aussi sur les cartes figées.
-B.VERSION_FOURNEAU = 1
+B.VERSION_FOURNEAU = 2
 function B.fourneau(parent, cf)
 	local m = O.modele(parent, "Fourneau")
 	m:SetAttribute("VersionFourneau", B.VERSION_FOURNEAU)
@@ -1224,9 +1224,11 @@ function B.fourneau(parent, cf)
 	-- Dessus en pierre et cerclage de fer riveté
 	O.bloc(m, Vector3.new(8.4, 0.7, 6), cf * CFrame.new(0, Y0 + H + 0.35, 0.1), COUL_AUBERGE.Pierre, M.Pierre, "Plateau")
 	for _, y in {Y0 + 0.9, Y0 + 4.2} do
-		O.decor(O.bloc(m, Vector3.new(8.5, 0.28, 0.15), cf * CFrame.new(0, y, -2.98), FER, M.Metal, "Cerclage"))
-		for _, x in {-3.9, -2.8, 2.8, 3.9} do
-			O.decor(O.ellipsoide(m, Vector3.new(0.24, 0.24, 0.14), cf * CFrame.new(x, y, -3.06), Color3.fromRGB(120, 116, 112), M.Metal, "Rivet"))
+		for _, s in {-1, 1} do
+			O.decor(O.bloc(m, Vector3.new(1.8, 0.28, 0.15), cf * CFrame.new(s * 3.35, y, -2.98), FER, M.Metal, "Cerclage"))
+			for _, x in {2.8, 3.9} do
+				O.decor(O.ellipsoide(m, Vector3.new(0.24, 0.24, 0.14), cf * CFrame.new(s * x, y, -3.06), Color3.fromRGB(120, 116, 112), M.Metal, "Rivet"))
+			end
 		end
 	end
 
@@ -1372,6 +1374,55 @@ function B.preparerToitForge(forge)
 	forge:SetAttribute("VersionToitForge", 1)
 end
 
+function B.preparerAmenagementForge(forge)
+	local sol = forge:FindFirstChild("Sol")
+	if not (sol and sol:IsA("BasePart")) then return end
+	local dessus = sol.Position.Y + sol.Size.Y / 2
+	if not forge:GetAttribute("SolForgeCorrige") then
+		-- Le terrain de la place arrive deux studs au-dessus du repère de la forge.
+		local repere = sol.CFrame
+		dessus += 1.1
+		for _, p in forge:GetChildren() do
+			if p:IsA("BasePart") and (p.Name == "Sol" or p.Name == "Seuil") then
+				local hausse = dessus - (p.Position.Y + p.Size.Y / 2)
+				p.Size += Vector3.new(0, hausse, 0)
+				p.CFrame += Vector3.yAxis * (hausse / 2)
+			elseif p:IsA("BasePart") and p.Name == "Billot" then
+				-- Le billot est un cylindre vertical dont l'épaisseur suit son axe X.
+				local haut = p.Position.Y + p.Size.X / 2
+				if haut > dessus then
+					p.Size = Vector3.new(haut - dessus, p.Size.Y, p.Size.Z)
+					p.CFrame += Vector3.yAxis * ((haut + dessus) / 2 - p.Position.Y)
+				end
+			elseif p:IsA("BasePart") and p.Name == "Barre" then
+				p.CFrame += Vector3.yAxis * 0.55
+			elseif p:IsA("Model") and p.Name == "Epee" then
+				p:PivotTo(p:GetPivot() + Vector3.yAxis * 0.55)
+			end
+		end
+		-- Sur les cartes figées, relever la caisse basse qui borde la forge.
+		for _, objet in forge.Parent:GetChildren() do
+			local corps = objet.Name == "Caisse" and objet:FindFirstChild("Corps")
+			if objet:IsA("Model") and corps and corps:IsA("BasePart") then
+				local p = repere:PointToObjectSpace(corps.Position)
+				local hausse = dessus - 0.1 - (corps.Position.Y - corps.Size.Y / 2)
+				if math.abs(p.X - 13.6) < 0.25 and math.abs(p.Z + 4) < 0.25 and hausse > 0.05 then
+					objet:PivotTo(objet:GetPivot() + Vector3.yAxis * hausse)
+				end
+			end
+		end
+		forge:SetAttribute("SolForgeCorrige", true)
+	end
+
+	local fourneau = forge:FindFirstChild("Fourneau")
+	local base = fourneau and fourneau:GetAttribute("Base")
+	if fourneau and fourneau:IsA("Model") and typeof(base) == "CFrame" then
+		local decalage = Vector3.yAxis * (dessus - base.Y)
+		fourneau:PivotTo(fourneau:GetPivot() + decalage)
+		fourneau:SetAttribute("Base", base + decalage)
+	end
+end
+
 -- La forge du forgeron : atelier ouvert (même structure qu'avant), dans le style des maisons du village :
 -- murs de pierre et colombages, toit de tuiles à deux pans, pignon de façade avec l'enseigne, bannières et lanternes.
 function B.forge(parent, cf)
@@ -1455,6 +1506,7 @@ function B.forge(parent, cf)
 	-- Armures exposées devant l'atelier
 	B.armure(m, cf * CFrame.new(-8, 1, -6), Color3.fromRGB(150, 154, 162), M.Metal, C.BoisFonce)
 	B.armure(m, cf * CFrame.new(8, 1, -6), Color3.fromRGB(226, 176, 70), M.Metal, C.CristalViolet)
+	B.preparerAmenagementForge(m)
 	B.preparerToitForge(m)
 	return m
 end

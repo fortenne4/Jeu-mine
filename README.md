@@ -294,7 +294,7 @@ L'ordre des minerais ne compte pas pour les autres paires (Fer + Charbon = EpeeC
 Les casques suivent la même logique (`Forge.ECHELLES.Casque`, 10 rangs, Défense).
 
 Deux pioches décoratives reprennent les couleurs des épées extérieures du râtelier mural de la forge. Leur position et leur échelle sont réglables en tête de `src/server/PiochesMurales.server.lua`.
-Le mur de la forge est raccordé à l'extension derrière les pioches ; sa toiture à deux pans ménage un passage pour la cheminée.
+Les pioches sont fixées à l'intérieur des bords du mur. Le dallage rejoint le seuil au niveau de la rue et la toiture à deux pans ménage un passage pour la cheminée.
 La rue à l'est de la forge comporte quatre tonneaux éclairés, et le baquet de trempe a été remplacé par un seau en bois avec une surface d'eau animée.
 
 Deux supports présentent l'armure générique et le casque de bronze à la forge. Les autres porte-armures et les deux anciens modèles de la forge sont conservés en réserve derrière le portail de retour de la plaine des mobs. Les plastrons et jambières réutilisent les modèles génériques du jeu. Les réglages de placement et d'affichage sont en tête de `src/server/ExpositionArmures.server.lua`. Si les meshes importés sont inaccessibles, l'exposition utilise les casques lisses existants du projet.
@@ -412,8 +412,8 @@ Le cercle « Sortie » derrière le point d'apparition ramène le joueur devant 
 
 ## Grottes profondes (expéditions à 1 ou 2)
 
-Dans la caverne, à droite du Tunnel VI, un panneau « Grottes profondes » et un **cercle lumineux « 0/2 »**
-(1,25 × plus grand que celui des tunnels privés). Le premier joueur qui entre dans le cercle devient le **chef** :
+Dans la grande salle de la caverne, à droite du Tunnel VI, se trouvent le panneau « Grottes profondes » et **trois cercles lumineux « 0/2 »**
+disposés en arc devant l'arche, à 15 studs d'intervalle. Le premier joueur qui entre dans un cercle devient le **chef** de ce groupe :
 l'interface de choix de profondeur s'ouvre. Très peu de texte : seulement les niveaux (−50 m … −500 m) et une
 **barre de difficulté** calculée selon SON équipement (pioche, épée, défense casque + plastron + jambières), et à droite
 les **minerais du palier** : petites pastilles 3D (les vrais modèles de minerai) qui se chevauchent, générées depuis
@@ -421,12 +421,10 @@ les **minerais du palier** : petites pastilles 3D (les vrais modèles de minerai
 **jamais miné** reste une **silhouette noire** avec un « ? » (infobulle « ??? ») ; dès qu'il en casse un (mine publique,
 tunnel privé ou grotte), il apparaît en couleurs avec son nom (Charbon, Cuivre, Fer, Or) et sa fréquence. Au survol,
 le niveau s'agrandit, la pile s'écarte et les rochers tournent. Le chef peut **inviter** un joueur (amis en premier dans la liste) ; un 2e joueur peut aussi
-simplement entrer dans le cercle (« 2/2 »). Quand le chef choisit un niveau, une **grotte aléatoire** est générée
-et le groupe y est téléporté. Le cercle « Sortie » de la grotte ramène devant l'entrée ; la grotte est détruite
+simplement entrer dans le même cercle (« 2/2 »). Un joueur peut appartenir à un seul groupe à la fois. Quand un chef choisit un niveau, le serveur génère une **grotte aléatoire** réservée à son équipe. Les trois équipes peuvent se former en parallèle et partir vers des grottes distinctes. Le cercle « Sortie » de la grotte ramène devant le cercle de départ. La grotte est détruite
 quand plus personne n'est dedans (sortie, mort ou départ du jeu).
 
-La plateforme d'entrée est générée au démarrage dans `Workspace.EntreeGrottes`. Une dalle ronde pleine porte le cercle
-et trois marches jointives mènent au seuil. Les rails, traverses et runes sont décoratifs. Le centre, le rayon et le point de retour du cercle restent identiques.
+La plateforme d'entrée est générée au démarrage dans `Workspace.EntreeGrottes`. Une dalle commune porte les trois cercles et trois marches jointives mènent au seuil. Les rails, traverses et runes sont décoratifs.
 
 5 paliers (réglages dans `src/partage/Grottes.lua`) : plus on descend, plus les minerais sont **rares et résistants**
 (du charbon à −50 m jusqu'à surtout de l'or à −500 m) et plus les **mobs** sont dangereux (chauves-souris, zombies,
