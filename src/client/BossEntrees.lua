@@ -550,10 +550,16 @@ local function reine(e, R: number, cinema: Instance)
 	return function(t: number): CFrame?
 		declencher(e, t)
 		if t < TD1 + 0.45 then
+			-- descente tête en bas, à la verticale, pendue au fil par l'abdomen ; elle se retourne juste avant le sol
 			local y, s = hauteur(t)
-			local pos = P + HAUT * y + cote * (math.sin(t * 2.4) * 1.2 * (1 - s))
-			poser(e, CFrame.new(pos) * e.rot * CFrame.Angles(0, (1 - s) ^ 1.5 * math.pi * 6, 0))
-			if t < TD1 + 0.15 then attache = pos + HAUT * (h * 0.7) end
+			local f = lisse(k01(t, TD1 - 0.75, TD1 - 0.05)) -- 0 = tête en bas, 1 = sur ses pattes
+			local demi = h * 0.5
+			local leve = math.max(w * 0.5 - demi, 0) * (1 - f) -- la tête ne touche pas le sol pendant le retournement
+			local centre = P + HAUT * (y + demi + leve) + cote * (math.sin(t * 2.4) * 1.2 * (1 - s))
+			local tour = (1 - s) ^ 1.5 * math.pi * 6
+			poser(e, CFrame.new(centre) * CFrame.Angles(0, tour, 0) * e.rot * CFrame.Angles(-math.pi / 2 * (1 - f), 0, 0)
+				* CFrame.new(0, -demi, 0))
+			if t < TD1 + 0.15 then attache = centre + HAUT * (w * 0.5 * (1 - f) + h * 0.2 * f) end
 		elseif t < TS + 0.65 then
 			local a = tangage(t)
 			poser(e, e.pivot * CFrame.new(0, math.abs(a) * w * 0.22, 0) * CFrame.Angles(a, 0, 0))
