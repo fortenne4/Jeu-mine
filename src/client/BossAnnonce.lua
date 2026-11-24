@@ -314,7 +314,7 @@ function Annonce.init(ctx)
 	majPeripherique()
 
 	-- ===== Bande du bas : mineurs déjà prêts (avatars) + attaques du boss =====
-	local xBande, yBande, largeurPrets = 158, 142, 300
+	local xBande, yBande, largeurPrets, hauteurBande = 158, 140, 236, 18
 	local avatars: {ImageLabel} = {}
 	for i = 1, 5 do
 		local a = creer("ImageLabel", {Size = UDim2.fromOffset(20, 20),
@@ -322,10 +322,16 @@ function Annonce.init(ctx)
 			{coin(1), trait(OMBRE, 1.5)})
 		avatars[i] = a
 	end
-	local prets = texte({Text = "Sois le premier dans le cercle !", Font = Enum.Font.GothamBold, TextColor3 = T.Parchemin,
-		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 47, RichText = true, Parent = carte}, 14)
-	local attaques = texte({Text = "", Font = Enum.Font.GothamBold, TextColor3 = T.Gris, AnchorPoint = Vector2.new(1, 0),
-		TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 47, RichText = true, Parent = carte}, 13)
+	-- bande sombre derrière les petits textes : sans elle, le voile coloré de la carte les rend flous / délavés
+	local fondBande = creer("Frame", {BackgroundColor3 = OMBRE, BackgroundTransparency = 0.35, BorderSizePixel = 0, ZIndex = 46,
+		Parent = carte})
+	local prets = texte({Text = "Sois le premier dans le cercle !", Font = Enum.Font.GothamBold, TextColor3 = BLANC,
+		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 47, RichText = true, Parent = carte}, 18)
+	local attaques = texte({Text = "", Font = Enum.Font.GothamBold, TextColor3 = Color3.fromRGB(215, 205, 190), AnchorPoint = Vector2.new(1, 0),
+		TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 47, RichText = true, Parent = carte}, 17)
+	for _, l in {prets, attaques} do
+		creer("UIStroke", {Thickness = 1, Color = OMBRE, Transparency = 0.25, Parent = l})
+	end
 	local NOMS_ATTAQUES = {Onde = "Onde", Poings = "Poings", Eclats = "Éclats", Toile = "Toile", Invocation = "Invocation",
 		Bond = "Bond", Meteores = "Météores", Lave = "Lave", Souffle = "Souffle"}
 	local nombrePrets = -1
@@ -339,8 +345,8 @@ function Annonce.init(ctx)
 			if id then Outils.avatar(id, a) end
 		end
 		local decalage = math.min(n, 5) * 15 + (if n > 0 then 10 else 0)
-		prets.Position = UDim2.fromOffset(xBande + decalage, yBande + 3)
-		prets.Size = UDim2.fromOffset(largeurPrets - decalage, 14)
+		prets.Position = UDim2.fromOffset(xBande + decalage, yBande + 10 - hauteurBande / 2)
+		prets.Size = UDim2.fromOffset(largeurPrets - decalage, hauteurBande)
 		prets.Text = if n == 0 then "Sois le premier dans le cercle !"
 			else string.format('<font color="#FFCC5C">%d/%d</font> mineurs prêts', n, Config.MAX_JOUEURS)
 		if n > nombrePrets and nombrePrets >= 0 then UI.pop(prets, 0.8) end
@@ -386,12 +392,15 @@ function Annonce.init(ctx)
 		plaque.Size = UDim2.fromOffset(if c then 148 else 132, if c then 64 else 78)
 		placer(bRejoindre, if c then 14 else 158, if c then 162 else 98, if c then 272 else 312, if c then 38 else 36)
 		placer(bIgnorer, if c then 186 else 482, if c then 208 else 98, if c then 100 else 122, if c then 30 else 36)
-		xBande, yBande, largeurPrets = if c then 14 else 158, if c then 212 else 142, if c then 168 else 300
+		xBande, yBande, largeurPrets = if c then 14 else 158, if c then 212 else 140, if c then 168 else 236
+		hauteurBande = if c then 16 else 18
+		fondBande.Position = UDim2.fromOffset(0, if c then 208 else 137)
+		fondBande.Size = UDim2.new(1, 0, 0, if c then 46 else 26)
 		for i, a in avatars do
 			a.Position = UDim2.fromOffset(xBande + (i - 1) * 15, yBande)
 		end
-		attaques.Position = UDim2.new(1, if c then -14 else -16, 0, if c then 238 else 145)
-		attaques.Size = UDim2.fromOffset(if c then 272 else 220, 14)
+		attaques.Position = UDim2.new(1, if c then -14 else -16, 0, if c then 236 else 141)
+		attaques.Size = UDim2.fromOffset(if c then 272 else 208, hauteurBande)
 		nombrePrets = -1
 		majPrets()
 	end
@@ -427,8 +436,8 @@ function Annonce.init(ctx)
 		for _, r in listeRayures do r.BackgroundColor3 = couleur end
 		local liste = {}
 		for _, a in def.attaques or {} do table.insert(liste, NOMS_ATTAQUES[a] or a) end
-		attaques.Text = if #liste > 0 then '<font color="#9C9084">ATTAQUES </font>' .. table.concat(liste, " · ") else ""
-		attaques.TextColor3 = couleur:Lerp(BLANC, 0.45)
+		attaques.Text = if #liste > 0 then '<font color="#C8BCAE">ATTAQUES </font>' .. table.concat(liste, " · ") else ""
+		attaques.TextColor3 = couleur:Lerp(BLANC, 0.6)
 		nombrePrets = -1
 		majPrets()
 		fond.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, couleur:Lerp(OMBRE, 0.78)),
@@ -504,7 +513,8 @@ function Annonce.init(ctx)
 
 	local yCote = 0
 	local function posVisible(): UDim2
-		return if format == "cote" then UDim2.new(1, -MARGE_COTE, 0, yCote) else UDim2.new(0.5, 0, 0, 4)
+		-- format haut : remonte de 30 px dans la barre Roblox (le centre de cette barre est libre)
+		return if format == "cote" then UDim2.new(1, -MARGE_COTE, 0, yCote) else UDim2.new(0.5, 0, 0, -26)
 	end
 	local function posCachee(): UDim2
 		local s = echelle.Scale

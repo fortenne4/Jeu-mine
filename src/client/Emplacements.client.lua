@@ -98,11 +98,12 @@ for i = 1, MAX do
 	table.insert(slots, {cadre = cadre, vue = vue, nom = nom, touche = touche, lisere = lisere, outil = nil})
 end
 
--- Nom court affiché sous l'aperçu (« Pioche de Quartz » → « Quartz »)
+-- Nom court affiché sous l'aperçu : toute pioche s'affiche « Pioche » (« Pioche du Bûcheron » → « Pioche »)
 local function nomCourt(outil: Tool): string
-	local n = outil.Name
-	n = n:gsub("^Pioche du ", ""):gsub("^Pioche de ", ""):gsub("^Pioche d'", ""):gsub("^Pioche ", "")
-	return n
+	if outil.Name:sub(1, 6) == "Pioche" then
+		return "Pioche"
+	end
+	return outil.Name
 end
 
 -- Aperçu 3D : copie des pièces visibles de l'outil (sans l'aura), cadrée de biais

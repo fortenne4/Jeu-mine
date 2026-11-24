@@ -1423,6 +1423,47 @@ function B.preparerAmenagementForge(forge)
 	end
 end
 
+-- Balustrades en bois sur les deux côtés ouverts de l'atelier, entre le poteau de façade (z = -9)
+-- et le début du mur latéral (z = -1). Même style que celles du quai de la mine.
+-- Modèle « BalustradesForge » : Village.preparerAteliers le pose aussi sur les cartes figées.
+function B.preparerBalustradesForge(forge)
+	if forge:FindFirstChild("BalustradesForge") then return end
+	local murPierre, sol = nil, forge:FindFirstChild("Sol")
+	for _, p in forge:GetChildren() do
+		if p:IsA("BasePart") and p.Name == "MurFond" and p.Material == M.Pierre then murPierre = p break end
+	end
+	if not (murPierre and sol and sol:IsA("BasePart")) then warn("[Forge] Mur ou sol absent : balustrades non posées") return end
+	local cf = murPierre.CFrame * CFrame.new(0, -5.5, -9) -- repère de la forge
+	local dessus = sol.Position.Y + sol.Size.Y / 2
+	local m = Instance.new("Model")
+	m.Name = "BalustradesForge"
+	local function point(x, z)
+		local p = cf * Vector3.new(x, 0, z)
+		return Vector3.new(p.X, dessus, p.Z)
+	end
+	local function balustrade(a, b)
+		local longueur = (b - a).Magnitude
+		local repere = CFrame.lookAt(a, b) -- axe -Z local le long de la balustrade
+		local poteaux = math.max(1, math.ceil(longueur / 3.4))
+		for i = 0, poteaux do
+			local d = longueur * i / poteaux
+			O.bloc(m, Vector3.new(0.5, 3.1, 0.5), repere * CFrame.new(0, 1.55, -d), C.BoisFonce, M.Bois, "PoteauBalustrade")
+			O.decor(O.bloc(m, Vector3.new(0.65, 0.25, 0.65), repere * CFrame.new(0, 3.2, -d), C.BoisFonce, M.Bois, "ChapeauBalustrade"))
+			if i < poteaux then
+				for k = 1, 3 do
+					O.decor(O.bloc(m, Vector3.new(0.22, 2.3, 0.22), repere * CFrame.new(0, 1.35, -(d + longueur / poteaux * k / 4)), C.Bois, M.Bois, "Barreau"))
+				end
+			end
+		end
+		O.bloc(m, Vector3.new(0.45, 0.35, longueur + 0.5), repere * CFrame.new(0, 2.9, -longueur / 2), C.Bois, M.Planches, "MainCourante")
+		O.decor(O.bloc(m, Vector3.new(0.3, 0.25, longueur), repere * CFrame.new(0, 0.35, -longueur / 2), C.Bois, M.Bois, "Lisse"))
+	end
+	for _, s in {-1, 1} do
+		balustrade(point(s * 11, -8.3), point(s * 11, -1))
+	end
+	m.Parent = forge
+end
+
 -- La forge du forgeron : atelier ouvert (même structure qu'avant), dans le style des maisons du village :
 -- murs de pierre et colombages, toit de tuiles à deux pans, pignon de façade avec l'enseigne, bannières et lanternes.
 function B.forge(parent, cf)
@@ -1508,6 +1549,7 @@ function B.forge(parent, cf)
 	B.armure(m, cf * CFrame.new(8, 1, -6), Color3.fromRGB(226, 176, 70), M.Metal, C.CristalViolet)
 	B.preparerAmenagementForge(m)
 	B.preparerToitForge(m)
+	B.preparerBalustradesForge(m)
 	return m
 end
 

@@ -230,6 +230,7 @@ function Village.preparerAteliers(village)
 			end
 		end
 		B.preparerAmenagementForge(forge)
+		B.preparerBalustradesForge(forge)
 	end
 	-- Puits
 	for _, puits in village:GetDescendants() do

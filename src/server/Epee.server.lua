@@ -137,6 +137,7 @@ local function creerGabarit(id: string): Tool
 	local degainer = son:Clone()
 	degainer.Name = "SonDegainer"
 	degainer.SoundId = SON_DEGAINER
+	degainer.Volume = son.Volume * 0.375 -- dégainage bien plus discret que les coups
 	degainer.Parent = poignee
 	return tool
 end

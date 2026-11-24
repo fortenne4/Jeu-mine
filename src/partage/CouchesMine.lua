@@ -60,7 +60,7 @@ CouchesMine.PALIERS_PIOCHES = {
 	Bois = 1, Pierre = 2, Cuivre = 3, Fer = 4, Quartz = 4, Givre = 5,
 	Volcan = 6, Celeste = 7, Demon = 8, Neant = 8, Legende = 8,
 } :: {[string]: number}
-CouchesMine.COUPS_DUR = 10
+CouchesMine.COUPS_DUR = 17
 CouchesMine.FACTEUR_DUR = 0.1
 
 CouchesMine.PALIERS_MINERAIS = {} :: {[string]: number}

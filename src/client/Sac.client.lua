@@ -359,16 +359,25 @@ local aideTouches = texte({Text = "[B] fermer", Font = Enum.Font.GothamBold, Tex
 	TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(0.925, 0.075),
 	Size = UDim2.fromScale(0.2, 0.03), Parent = fenetre}, 13)
 aideTouches.Visible = not UserInputService.TouchEnabled
-local fermer = creer("TextButton", {Name = "Fermer", Text = "✕", Font = Enum.Font.GothamBold, TextScaled = true, TextColor3 = T.Parchemin,
-	AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(0.978, 0.075), Size = UDim2.fromScale(0.07, 0.07),
-	SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = CARTE, BackgroundTransparency = 0.2, AutoButtonColor = false,
-	Parent = fenetre}, {coin(0.5), filet(0.8), creer("UIPadding", {PaddingTop = UDim.new(0.26, 0), PaddingBottom = UDim.new(0.26, 0)})})
+-- Bouton fermer : même croix que les autres interfaces (deux barres dessinées, aucun glyphe → jamais de rectangle vide)
+local fermer = creer("TextButton", {Name = "Fermer", Text = "", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(0.978, 0.075),
+	Size = UDim2.fromScale(0.07, 0.07), SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = Color3.fromRGB(150, 44, 32),
+	AutoButtonColor = false, Parent = fenetre}, {coin(0.5), trait(Color3.fromRGB(60, 16, 10), 3),
+	UI.degrade(Color3.new(1, 1, 1), Color3.fromRGB(150, 150, 150))})
+local barresCroix: {Frame} = {}
+for _, angle in {45, -45} do
+	table.insert(barresCroix, creer("Frame", {Name = "Croix", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.56, 0.13), Rotation = angle, BackgroundColor3 = T.Parchemin, BorderSizePixel = 0,
+		Parent = fermer}, {coin(0.5), trait(Color3.fromRGB(60, 16, 10), 1.5, 0.3)}))
+end
 UI.reactif(fermer, 1.1)
 fermer.MouseEnter:Connect(function()
-	TweenService:Create(fermer, FAST, {Rotation = 90, BackgroundColor3 = Color3.fromRGB(170, 52, 40), BackgroundTransparency = 0}):Play()
+	TweenService:Create(barresCroix[1], FAST, {Rotation = 135}):Play()
+	TweenService:Create(barresCroix[2], FAST, {Rotation = 45}):Play()
 end)
 fermer.MouseLeave:Connect(function()
-	TweenService:Create(fermer, FAST, {Rotation = 0, BackgroundColor3 = CARTE, BackgroundTransparency = 0.2}):Play()
+	TweenService:Create(barresCroix[1], FAST, {Rotation = 45}):Play()
+	TweenService:Create(barresCroix[2], FAST, {Rotation = -45}):Play()
 end)
 creer("Frame", {Position = UDim2.fromScale(0.02, 0.138), Size = UDim2.new(0.96, 0, 0, 1), BackgroundColor3 = T.Or, BorderSizePixel = 0,
 	Parent = fenetre}, {fonduBords(0.45)})
