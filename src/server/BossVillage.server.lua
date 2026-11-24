@@ -221,7 +221,7 @@ end
 
 -- ================= État =================
 local arene: Model? = nil -- arène du combat en cours : une par boss (Monde › AreneBoss.obtenir(id), construite au besoin)
-local index = 1 -- boss suivant dans Config.BOSS
+local index = math.random(1, #Config.BOSS) -- boss suivant dans Config.BOSS (tiré au hasard)
 local finAttente = os.clock() + CYCLE
 local annonceFaite = false -- bandeau « arrive dans 1 min » déjà envoyé pour ce cycle
 local combat = nil
@@ -974,7 +974,7 @@ local function fermer(c)
 		if c.effets then c.effets:Destroy() end
 	end)
 	combat = nil
-	index = index % #Config.BOSS + 1
+	index = math.random(1, #Config.BOSS) -- boss suivant au hasard (le même peut revenir)
 	dossier:SetAttribute("Etat", "Attente")
 	dossier:SetAttribute("Intro", nil)
 	dossier:SetAttribute("Debout", nil)

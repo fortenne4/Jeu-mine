@@ -22,14 +22,14 @@ BossVillage.DELAI_DEPART = 0.8
 BossVillage.CHARGEMENT = 5          -- fondu + écran de chargement, du départ au début de l'intro
 BossVillage.CHARGEMENT_FIN = 0.5    -- dont la fin de jauge (« Arène prête ! ») une fois l'intro reçue
 BossVillage.ATTENTE_ARRIVEE = 6     -- attente max des retardataires (≥ CHARGEMENT − DELAI_DEPART − CHARGEMENT_FIN)
-BossVillage.DUREE_INTRO = 8.8       -- intro par défaut (la plus longue)
+BossVillage.DUREE_INTRO = 10.2      -- intro par défaut (la plus longue)
 BossVillage.ROAR_INTRO = 6.2        -- instant du rugissement dans l'intro (plan bas sur le boss)
 -- Entrée en scène propre à chaque boss (client BossEntrees, plans fixes, minutée sur roar) : durée et rugissement.
 -- Le serveur décale roar et la fin de l'intro de CHARGEMENT_FIN (temps de fin de jauge côté client).
 BossVillage.INTRO = {
 	TitanCristal = {duree = 8.6, roar = 6.1},   -- gros plan cristal 1,8 s, fissures, éclate à roar − 2,1, bras levés
-	ReineAraignee = {duree = 8.8, roar = 6.4},  -- descente au fil, atterrit à roar − 3, crache à roar − 2, toile dissoute à roar
-	SeigneurBraise = {duree = 8.8, roar = 6.3}, -- portail à roar − 3,55, bond à roar − 2,15, atterrit à roar − 1,2
+	ReineAraignee = {duree = 9.4, roar = 7.0},  -- descente au fil (plan large), atterrit à roar − 3, crache à roar − 2, toile dissoute à roar
+	SeigneurBraise = {duree = 10.2, roar = 7.7}, -- rituel vu de haut, portail à roar − 5,6, bond à roar − 4,1, atterrit à roar − 3, éclate le sol à roar − 1,08
 }
 -- Phases : sous 66 % puis 33 % de PV, le boss s'enrage (2 s invulnérable, rugissement, attaques plus rapides)
 BossVillage.PHASES = {0.66, 0.33}

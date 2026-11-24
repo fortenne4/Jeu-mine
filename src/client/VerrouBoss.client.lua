@@ -211,15 +211,17 @@ local function chercherCible(): Model?
 	return meilleur
 end
 
--- Point vital : la tête (os « head »), sinon le haut du corps
+-- Point vital : au milieu du corps (torse / nombril), pour que le boss reste visible sous le réticule.
+-- Os « torso » (titans), « body » (araignée), sinon « hips », sinon le centre de la boîte du modèle, un peu plus bas.
 local function vital(m: Model): (Vector3, BasePart)
-	local tete = m:FindFirstChild("B_head")
-	if tete and tete:IsA("BasePart") then
-		local h = m:GetAttribute("Hauteur")
-		return tete.Position + Vector3.new(0, (if type(h) == "number" then h else 6) * 0.06, 0), tete
+	for _, nom in {"B_torso", "B_body", "B_hips"} do
+		local os = m:FindFirstChild(nom)
+		if os and os:IsA("BasePart") then
+			return os.Position, os
+		end
 	end
 	local cf, taille = m:GetBoundingBox()
-	return cf.Position + Vector3.new(0, taille.Y * 0.15, 0), m.PrimaryPart :: BasePart
+	return cf.Position - Vector3.new(0, taille.Y * 0.05, 0), m.PrimaryPart :: BasePart
 end
 
 local function desactiver()

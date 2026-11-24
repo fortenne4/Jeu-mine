@@ -3,10 +3,11 @@
 -- TitanCristal  : gros plan sur un cristal qui tremble au pied d'une statue de pierre (titan recoloré + coque de
 --                 roche qui l'englobe), plan large : la statue se fissure (veines bleues), secousses croissantes,
 --                 elle éclate en débris, le titan libéré grogne les bras levés, poings tremblants.
--- ReineAraignee : plan fixe sur la zone d'arrivée ; elle descend du haut de l'écran au bout d'un fil en tournoyant,
---                 atterrit, se cabre et crache une toile qui couvre l'écran puis se dissout.
--- SeigneurBraise: plan fixe ; cercle runique qui s'allume, portail de feu, le boss en jaillit d'un bond et brûle
---                 l'herbe en atterrissant (forte secousse, marque calcinée).
+-- ReineAraignee : plan fixe très large ; elle descend du haut de l'écran au bout d'un fil en tournoyant, atterrit,
+--                 plan plus proche : elle se cabre et crache une toile qui couvre l'écran puis se dissout.
+-- SeigneurBraise: vue de haut sur le rituel (cercle runique tracé trait par trait, obélisques de feu, portail) ;
+--                 plan bas : il jaillit du portail d'un bond ; plan rapproché : recroquevillé et rétréci, il tremble
+--                 dans les braises, puis se redresse, grandit et fait éclater le sol (onde, mottes, l'herbe brûle).
 -- Tout est local : le boss serveur reste gelé, on ne fait que le masquer / déplacer / recolorer chez ce joueur, et il
 -- revient exactement à sa position serveur à la fin. Aucun objet créé à chaque image.
 --	local e = Entrees.creer(id, boss, cinema, R) -- nil (avec warn) si l'entrée est impossible
@@ -461,19 +462,33 @@ local function reine(e, R: number, cinema: Instance)
 	local TS = R - 2 -- crachat
 	local TW = TS + 0.22 -- la toile touche l'écran
 	local TF = R - 0.95 -- la toile se dissout
+	local TC = TD1 + 0.35 -- second plan, plus proche, pour le crachat
 	local FOV0, FOV1 = 55, 51
 
-	-- plan fixe, face à l'arrivée ; elle démarre juste au-dessus du bord haut de l'image
-	local eye0 = P + av * (h * 1.7 + 10) + cote * (h * 0.22) + HAUT * (h * 0.32)
-	local cible = P + HAUT * (h * 0.42)
-	local eye1 = eye0 + (cible - eye0).Unit * 2
-	local dist = Vector3.new(eye0.X - P.X, 0, eye0.Z - P.Z).Magnitude
+	-- 1er plan : très large et lointain ; cadre haut de V = 3,4 h (elle occupe ~30 % de la hauteur), sol en bas
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = {e.boss, e.dossier}
 	local hit = workspace:Raycast(P + HAUT * 2, HAUT * 150, params)
 	local plafond = if hit then hit.Position.Y - P.Y else math.huge
-	local y0 = math.max(math.min(h * 0.42 + dist * math.tan(math.rad(FOV0 / 2)) + 3, plafond - h * 0.9), h + 4)
+	local V = h * 3.4
+	local cibleL = P + HAUT * (V * 0.38)
+	local dirL = (av + cote * 0.2).Unit
+	local fovL = 50
+	local distL = V / 2 / math.tan(math.rad(fovL / 2))
+	local mur = workspace:Raycast(cibleL, dirL * distL, params)
+	if mur and mur.Distance - 2 < distL then
+		local d = math.max(mur.Distance - 2, h * 1.6)
+		fovL = math.min(2 * math.deg(math.atan(V / 2 / d)), 80)
+		distL = d
+	end
+	local eyeL0 = cibleL + dirL * distL - HAUT * (V * 0.1)
+	local eyeL1 = eyeL0 + (cibleL - eyeL0).Unit * (distL * 0.04)
+	local y0 = math.max(math.min(V * 0.88 - h * 0.25, plafond - h * 0.9), h + 4)
+	-- 2e plan : face à l'arrivée, plus proche
+	local eye0 = P + av * (h * 1.7 + 10) + cote * (h * 0.22) + HAUT * (h * 0.32)
+	local cible = P + HAUT * (h * 0.42)
+	local eye1 = eye0 + (cible - eye0).Unit * 2
 	local sommet = if hit then hit.Position else P + HAUT * (y0 + h + 60)
 	local fil = piece(e, "Part", {Size = Vector3.new(0.3, 1, 0.3), CFrame = CFrame.new(sommet), Color = SOIE, Material = Enum.Material.Neon,
 		Transparency = 0.2})
@@ -488,7 +503,7 @@ local function reine(e, R: number, cinema: Instance)
 
 	local function hauteur(t: number): (number, number)
 		if t < TD1 then
-			local s = 1 - (1 - k01(t, TD0, TD1)) ^ 2.2
+			local s = 1 - (1 - k01(t, TD0, TD1)) ^ 1.7
 			return y0 * (1 - s), s
 		end
 		local b = k01(t, TD1, TD1 + 0.4)
@@ -561,18 +576,41 @@ local function reine(e, R: number, cinema: Instance)
 			crachat.CFrame = CFrame.new(bouche:Lerp(vise, k))
 		end
 		if t >= R then return nil end
-		return plan(e, eye0, eye1, cible, FOV0, FOV1, lisse(t / R))
+		if t < TC then return plan(e, eyeL0, eyeL1, cibleL, fovL, fovL, lisse(t / TC)) end
+		return plan(e, eye0, eye1, cible, FOV0, FOV1, lisse(k01(t, TC, R)))
 	end
 end
 
--- ================= Seigneur de braise : incantation, portail, bond =================
+-- ================= Seigneur de braise : rituel, portail, bond, éclosion =================
+-- os (Data.Bones) : root › hips › torso › head › jaw, torso › arm.* › fore.*, root › leg.* (jambe d'un seul os)
+local OS_BRAISE = {"root", "hips", "torso", "head", "jaw", "arm.L", "fore.L", "arm.R", "fore.R", "leg.L", "leg.R"}
+
+local function poseBraise(d: {[string]: CFrame}, sol: boolean)
+	local p = table.create(#OS_BRAISE, CFrame.identity)
+	for i, nom in OS_BRAISE do p[i] = d[nom] or CFrame.identity end
+	-- abaissement de la racine (en longueurs de jambe) pour garder les pieds au sol
+	local v = (d["leg.L"] or CFrame.identity):VectorToWorldSpace(-HAUT)
+	p.chute = if sol then 1 + v.Y else 0
+	return p
+end
+
+local function A(x: number, z: number?): CFrame
+	return CFrame.Angles(x, 0, z or 0)
+end
+
 local function braise(e, R: number)
 	local P, av, cote, h, w = e.pos, e.avant, e.cote, e.h, e.largeur
 	local rng = Random.new(17)
-	local TI = R - 1.2 -- atterrissage
-	local TS = TI - 0.95 -- saut hors du portail
-	local TP = TS - 1.4 -- ouverture du portail
-	local Q = P - av * 22 -- cercle runique et portail, derrière la place du boss
+	local TA = R - 4.7 -- fin du plan rituel vu de haut
+	local TP = TA - 0.9 -- le portail s'ouvre
+	local TS = TA + 0.6 -- saut hors du portail
+	local TI = TS + 1.1 -- atterrissage recroquevillé
+	local TC = TI + 0.35 -- plan rapproché
+	local TG = R - 1.3 -- se redresse et grandit
+	local TX = TG + 0.22 -- éclate le sol
+	local rr = math.max(9, h * 0.5)
+	local rr2 = rr * 0.72
+	local Q = P - av * math.max(22, rr * 1.9) -- cercle runique et portail, derrière la place du boss
 	local Pc = Q + HAUT * (h * 0.62)
 	local Dp = h * 1.15
 	masquer(e, true)
@@ -598,41 +636,80 @@ local function braise(e, R: number)
 	local fumee = emetteur(zoneFeu, TEX_FUMEE, {Color = ColorSequence.new(Color3.fromRGB(55, 50, 48)), Size = NumberSequence.new(2, 6),
 		Transparency = NumberSequence.new(0.35, 1), Lifetime = NumberRange.new(1.5, 2.5), Speed = NumberRange.new(3, 5),
 		EmissionDirection = Enum.NormalId.Top, Drag = 1})
+	local braisesAir = emetteur(zoneFeu, TEX_ETINCELLE, {Color = ColorSequence.new(Color3.fromRGB(255, 200, 90), ROUGE), LightEmission = 1,
+		Size = NumberSequence.new(0.45, 0), Lifetime = NumberRange.new(1, 2), Speed = NumberRange.new(0.5, 2.5),
+		Acceleration = Vector3.new(0, 4, 0), EmissionDirection = Enum.NormalId.Top, SpreadAngle = Vector2.new(70, 70)})
+	local souffleSol = emetteur(zoneFeu, TEX_FUMEE, {Color = ColorSequence.new(Color3.fromRGB(110, 85, 60)), Size = NumberSequence.new(3, 10),
+		Transparency = NumberSequence.new(0.3, 1), Lifetime = NumberRange.new(0.9, 1.8), Speed = NumberRange.new(18, 34),
+		SpreadAngle = Vector2.new(85, 10), EmissionDirection = Enum.NormalId.Top, Drag = 4})
+	local gerbe = emetteur(zoneFeu, TEX_ETINCELLE, {Color = ColorSequence.new(Color3.fromRGB(255, 220, 120), BRAISE), LightEmission = 1,
+		Size = NumberSequence.new(0.8, 0), Lifetime = NumberRange.new(0.6, 1.3), Speed = NumberRange.new(25, 50),
+		Acceleration = Vector3.new(0, -25, 0), SpreadAngle = Vector2.new(60, 60), EmissionDirection = Enum.NormalId.Top, Drag = 1})
+	local lueurSol = creer("PointLight", {Color = BRAISE, Brightness = 0, Range = rG * 2.5, Parent = zoneFeu})
+	local rougeur = piece(e, "Part", {Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.1, rG * 1.7, rG * 1.7), Color = ROUGE,
+		Material = Enum.Material.Neon, Transparency = 1, CFrame = CFrame.new(P + HAUT * 0.07) * CFrame.Angles(0, 0, math.pi / 2)})
 	local marque = piece(e, "Part", {Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.08, rG * 2.1, rG * 2.1),
 		CFrame = CFrame.new(P + HAUT * 0.05) * CFrame.Angles(0, 0, math.pi / 2), Color = CENDRE, Material = Enum.Material.Slate, Transparency = 1})
 	local braisesSol = {}
-	for k = 1, 8 do
-		local a = k / 8 * math.pi * 2 + rng:NextNumber(-0.2, 0.2)
-		local l = rG * rng:NextNumber(0.5, 0.9)
-		table.insert(braisesSol, piece(e, "Part", {Size = Vector3.new(0.3, 0.1, l), Color = BRAISE, Material = Enum.Material.Neon, Transparency = 1,
-			CFrame = CFrame.new(P + HAUT * 0.1) * CFrame.Angles(0, a, 0) * CFrame.new(0, 0, -l / 2)}))
+	for k = 1, 10 do
+		local a = k / 10 * math.pi * 2 + rng:NextNumber(-0.2, 0.2)
+		local l = rG * rng:NextNumber(0.5, 0.95)
+		table.insert(braisesSol, piece(e, "Part", {Size = Vector3.new(0.35, 0.1, l), Color = BRAISE, Material = Enum.Material.Neon, Transparency = 1,
+			CFrame = CFrame.new(P + HAUT * 0.12) * CFrame.Angles(0, a, 0) * CFrame.new(0, 0, -l / 2)}))
+	end
+	-- mottes de sol projetées par l'éclatement (cachées jusque-là)
+	local mottes = {}
+	for _ = 1, 24 do
+		local s = rng:NextNumber(0.9, 2.4)
+		local a, r = rng:NextNumber(0, math.pi * 2), rG * rng:NextNumber(0.25, 0.85)
+		table.insert(mottes, piece(e, "Part", {Size = Vector3.new(s, s * rng:NextNumber(0.5, 0.9), s * rng:NextNumber(0.7, 1.2)),
+			CFrame = CFrame.new(P + Vector3.new(math.cos(a) * r, s * 0.3, math.sin(a) * r)) * CFrame.Angles(rng:NextNumber(0, 6), rng:NextNumber(0, 6), 0),
+			Color = Color3.fromRGB(92, 70, 52):Lerp(Color3.fromRGB(70, 110, 45), rng:NextNumber() * 0.5), Material = Enum.Material.Slate,
+			Transparency = 1, CastShadow = true}))
 	end
 
-	-- cercle runique (anneaux qui tournent en sens contraires, runes, hexagramme)
+	-- cercle runique (anneaux qui tournent en sens contraires, runes, hexagramme), tracé trait par trait
 	local runes = {}
 	local function rune(props, offset: CFrame, sens: number, app: number)
 		props.Color, props.Material, props.Transparency = ROUGE, Enum.Material.Neon, 1
 		props.CFrame = CFrame.new(Q) * offset
-		table.insert(runes, {piece(e, "Part", props), offset, sens, app})
+		table.insert(runes, {piece(e, "Part", props), offset, sens, app, props.Size, 0})
 	end
-	local rr, rr2 = 9, 6.5
 	for k = 0, 15 do
-		rune({Size = Vector3.new(2 * math.pi * rr / 16 * 1.05, 0.12, 0.35)}, CFrame.Angles(0, k / 16 * math.pi * 2, 0) * CFrame.new(0, 0.06, -rr), 1, 0.3 + k * 0.03)
+		rune({Size = Vector3.new(2 * math.pi * rr / 16 * 1.05, 0.12, 0.45)}, CFrame.Angles(0, k / 16 * math.pi * 2, 0) * CFrame.new(0, 0.06, -rr), 1, 0.25 + k * 0.06)
 	end
 	for k = 0, 11 do
-		rune({Size = Vector3.new(2 * math.pi * rr2 / 12 * 1.05, 0.12, 0.3)}, CFrame.Angles(0, k / 12 * math.pi * 2, 0) * CFrame.new(0, 0.06, -rr2), -1, 0.8 + k * 0.03)
+		rune({Size = Vector3.new(2 * math.pi * rr2 / 12 * 1.05, 0.12, 0.38)}, CFrame.Angles(0, k / 12 * math.pi * 2, 0) * CFrame.new(0, 0.06, -rr2), -1, 0.9 + k * 0.06)
 	end
 	for k = 0, 7 do
-		rune({Size = Vector3.new(0.9, 0.14, 1.4)}, CFrame.Angles(0, (k + 0.5) / 8 * math.pi * 2, 0) * CFrame.new(0, 0.07, -(rr + rr2) / 2), 1, 1.2 + k * 0.05)
+		rune({Size = Vector3.new(1.3, 0.14, 2)}, CFrame.Angles(0, (k + 0.5) / 8 * math.pi * 2, 0) * CFrame.new(0, 0.07, -(rr + rr2) / 2), 1, 1.3 + k * 0.07)
 	end
 	for k = 0, 5 do
-		rune({Size = Vector3.new(rr2 * 1.732, 0.12, 0.25)}, CFrame.Angles(0, k / 6 * math.pi * 2, 0) * CFrame.new(0, 0.06, -rr2 * 0.5), -1, 1.6 + k * 0.06)
+		rune({Size = Vector3.new(rr2 * 1.732, 0.12, 0.3)}, CFrame.Angles(0, k / 6 * math.pi * 2, 0) * CFrame.new(0, 0.06, -rr2 * 0.5), -1, 1.6 + k * 0.07)
 	end
 	local disque = piece(e, "Part", {Size = Vector3.new(rr * 2, 0.2, rr * 2), Transparency = 1, CFrame = CFrame.new(Q + HAUT * 0.3)})
 	local montee = emetteur(disque, TEX_ETINCELLE, {Color = ColorSequence.new(Color3.fromRGB(255, 160, 60), ROUGE), LightEmission = 1,
-		Size = NumberSequence.new(0.5, 0), Lifetime = NumberRange.new(1, 1.8), Speed = NumberRange.new(6, 12),
+		Size = NumberSequence.new(0.6, 0), Lifetime = NumberRange.new(1.2, 2.2), Speed = NumberRange.new(6, 14),
 		EmissionDirection = Enum.NormalId.Top, SpreadAngle = Vector2.new(8, 8)})
-	local lumiereCercle = creer("PointLight", {Color = ROUGE, Brightness = 0, Range = 30, Parent = disque})
+	local lumiereCercle = creer("PointLight", {Color = ROUGE, Brightness = 0, Range = rr * 3, Parent = disque})
+	-- obélisques de feu autour du cercle, allumés un par un
+	for k = 0, 5 do
+		local a = (k + 0.5) / 6 * math.pi * 2
+		local ho = 4 + h * 0.15
+		local base = CFrame.new(Q) * CFrame.Angles(0, a, 0) * CFrame.new(0, 0, -rr * 1.28)
+		piece(e, "Part", {Size = Vector3.new(1.8, ho, 1.8), CFrame = base * CFrame.new(0, ho / 2, 0), Color = PIERRE_SOMBRE, Material = Enum.Material.Slate,
+			CastShadow = true})
+		local tete = piece(e, "Part", {Size = Vector3.new(1.2, 0.8, 1.2), CFrame = base * CFrame.new(0, ho + 0.4, 0), Color = CENDRE,
+			Material = Enum.Material.Slate})
+		local f = emetteur(tete, TEX_FEU, {Color = ColorSequence.new(Color3.fromRGB(255, 190, 80), Color3.fromRGB(220, 50, 15)), LightEmission = 1,
+			Size = NumberSequence.new(1.8, 0), Lifetime = NumberRange.new(0.5, 0.9), Speed = NumberRange.new(4, 7),
+			EmissionDirection = Enum.NormalId.Top, SpreadAngle = Vector2.new(10, 10)})
+		quand(e, 0.5 + k * 0.22, function()
+			tete.Color, tete.Material = BRAISE, Enum.Material.Neon
+			f.Rate = 30
+			f:Emit(8)
+		end)
+	end
 
 	-- portail de feu (disques dont la normale est l'avant du boss)
 	local cfP = CFrame.fromMatrix(Pc, av, HAUT)
@@ -658,49 +735,150 @@ local function braise(e, R: number)
 		return o * (1 - lisse(k01(t, TI + 0.2, TI + 0.9)))
 	end
 
+	-- rig : poses clés (rotations en axes du modèle, devant = -Z ; Rx > 0 : membre pendant vers l'avant, torse/tête en arrière)
+	local PREP = poseBraise({hips = A(-0.15), torso = A(-0.35), head = A(0.2), ["arm.L"] = A(-0.9, -0.15), ["arm.R"] = A(-0.9, 0.15),
+		["fore.L"] = A(0.3), ["fore.R"] = A(0.3), ["leg.L"] = A(0.6, -0.1), ["leg.R"] = A(0.6, 0.1)}, true)
+	local LANCER = poseBraise({hips = A(-0.1), torso = A(-0.2), head = A(0.25), ["arm.L"] = A(1.9, -0.2), ["arm.R"] = A(1.9, 0.2),
+		["fore.L"] = A(0.3), ["fore.R"] = A(0.3), ["leg.L"] = A(-0.45), ["leg.R"] = A(-0.25)}, false)
+	local VOL = poseBraise({hips = A(-0.2), torso = A(-0.3), head = A(0.15), ["arm.L"] = A(0.9, -0.5), ["arm.R"] = A(0.9, 0.5),
+		["fore.L"] = A(0.9), ["fore.R"] = A(0.9), ["leg.L"] = A(1, -0.15), ["leg.R"] = A(0.85, 0.15)}, false)
+	local RECROQ = poseBraise({hips = A(-0.45), torso = A(-0.5), head = A(-0.35), ["arm.L"] = A(0.55, 0.35), ["arm.R"] = A(0.55, -0.35),
+		["fore.L"] = A(1.6, 0.3), ["fore.R"] = A(1.6, -0.3), ["leg.L"] = A(0.85, -0.35), ["leg.R"] = A(0.85, 0.35)}, true)
+	RECROQ.chute += 0.05
+	local EXT = poseBraise({hips = A(0.1), torso = A(0.25), head = A(0.4), jaw = A(-0.5), ["arm.L"] = A(-0.25, -2.1), ["arm.R"] = A(-0.25, 2.1),
+		["fore.L"] = A(0, -0.5), ["fore.R"] = A(0, 0.5), ["leg.L"] = A(0, -0.2), ["leg.R"] = A(0, 0.2)}, true)
+	local CLES = {{TS, PREP}, {TS + 0.25, LANCER}, {TS + 0.6, VOL}, {TI - 0.12, VOL}, {TI + 0.1, RECROQ}, {TG, RECROQ}, {TG + 0.25, EXT}}
+	local rig = {} -- {Motor6D, indice, base, dernier, graine}
+	for i, nom in OS_BRAISE do
+		local m = e.joints[nom]
+		if m and m:IsA("Motor6D") then table.insert(rig, {m, i, CFrame.identity, CFrame.identity, rng:NextNumber(0, 50)}) end
+	end
+	local jambe = e.joints["leg.L"]
+	local s0 = e.boss:GetScale()
+	local ech = s0
+	local function echelle(s: number)
+		if math.abs(s - ech) > 1e-4 and e.boss.Parent then
+			ech = s
+			pcall(e.boss.ScaleTo, e.boss, s)
+		end
+	end
+	e.restaurer = function() echelle(s0) end
+
+	local function animer(t: number)
+		local ia = 1
+		while ia < #CLES - 1 and CLES[ia + 1][1] <= t do ia += 1 end
+		local ca, cb = CLES[ia], CLES[ia + 1]
+		local k = lisse(k01(t, ca[1], cb[1]))
+		local pa, pb = ca[2], cb[2]
+		local L = if jambe and jambe:IsA("Motor6D") then jambe.C0.Y else h * 0.35
+		local chute = pa.chute + (pb.chute - pa.chute) * k
+		local tremble = 0.07 * k01(t, TI + 0.3, TG) * (1 - k01(t, TG, TG + 0.05))
+		local wb = 1 - lisse(k01(t, R, R + 0.5))
+		for _, b in rig do
+			local m, i = b[1], b[2]
+			local cf = if i == 1 then CFrame.new(0, -chute * L, 0) else pa[i]:Lerp(pb[i], k)
+			if tremble > 0 and i > 1 and i < 10 then
+				cf *= CFrame.Angles(math.noise(t * 19, b[5]) * tremble, 0, math.noise(t * 23, b[5] + 5) * tremble)
+			end
+			if wb < 1 then
+				local cur = m.Transform
+				if cur ~= b[4] then b[3] = cur end -- l'animateur a réécrit : nouvelle base
+				cf = b[3]:Lerp(cf, wb)
+			end
+			m.Transform = cf
+			b[4] = cf
+		end
+	end
+
 	-- sons
 	local feu = son(e, SON.feu, 0, 1, true)
 	quand(e, 0.2, function() feu:Play() end)
 	quand(e, 0.3, function() Outils.jouer("grondement", 0.45, 0.5) end)
 	bruit(e, 0.6, SON.clochette, 0.4, 0.8)
-	bruit(e, 1.5, SON.clochette, 0.5, 0.65)
+	bruit(e, 1.3, SON.clochette, 0.5, 0.65)
 	bruit(e, TP, SON.souffle, 0.8, 0.5, 0.25)
 	quand(e, TP, function() Outils.jouer("grondement", 0.35, 0.6) end)
 	bruit(e, TS, SON.souffle, 0.8, 0.8)
 	bruit(e, TS, SON.criBraise, 0.9, 0.85)
-	bruit(e, TI, SON.impactRoche, 1, 0.8)
-	bruit(e, TI, SON.rocheCasse, 0.7, 0.7)
+	bruit(e, TI, SON.impactRoche, 0.9, 0.9, 0.5)
+	bruit(e, TI, SON.rocheSol, 0.7, 0.7)
+	quand(e, TI + 0.4, function() Outils.jouer("grondement", 0.4, 0.55) end)
+	bruit(e, TG, SON.souffle, 0.9, 0.55)
+	bruit(e, TX, SON.impactRoche, 1, 0.6)
+	bruit(e, TX, SON.rocheCasse2, 1, 0.7)
+	bruit(e, TX, SON.statue, 0.8, 0.8)
 	bruit(e, R, SON.criBraise2, 1, 0.75)
 
-	quand(e, 0.3, function() montee.Rate = 45 end)
+	quand(e, 0.3, function() montee.Rate = 50 end)
 	quand(e, TP + 0.3, function() feuPortail.Rate = 80 end)
-	quand(e, TS, function() masquer(e, false) end)
+	quand(e, TS, function()
+		echelle(s0 * 0.85)
+		masquer(e, false)
+	end)
 	quand(e, TI, function()
-		poser(e, e.pivot)
 		montee.Rate = 0
-		flammes.Rate = 160
-		fumee.Rate = 40
+		souffleSol:Emit(20)
+		braisesAir.Rate = 15
+		flammes.Rate = 12
+	end)
+	for k, b in braisesSol do
+		quand(e, TI + 0.25 + (k - 1) * 0.13, function()
+			TweenService:Create(b, TweenInfo.new(0.3), {Transparency = 0.15}):Play()
+		end)
+	end
+	quand(e, TI + 0.3, function() feuPortail.Rate = 0 end)
+	quand(e, TX, function()
+		echelle(s0)
+		braisesAir.Rate = 0
+		flammes.Rate = 200
+		fumee.Rate = 45
+		souffleSol:Emit(60)
+		gerbe:Emit(90)
 		Outils.secouer(1)
-		Outils.jouer("impact", 0.35, 0.7)
-		TweenService:Create(marque, TweenInfo.new(0.4), {Transparency = 0.1}):Play()
+		Outils.jouer("impact", 0.3, 0.8)
+		lueurSol.Brightness = 14
+		TweenService:Create(lueurSol, TweenInfo.new(1.4), {Brightness = 2}):Play()
+		TweenService:Create(rougeur, TweenInfo.new(0.9), {Transparency = 1}):Play()
+		TweenService:Create(marque, TweenInfo.new(0.3), {Transparency = 0.05}):Play()
 		for _, b in braisesSol do
-			b.Transparency = 0
 			TweenService:Create(b, TweenInfo.new(1.6, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 0.75}):Play()
 		end
-		local onde = piece(e, "Part", {Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 2, 2), Color = BRAISE, Material = Enum.Material.Neon,
-			Transparency = 0.2, CFrame = CFrame.new(P + HAUT * 0.15) * CFrame.Angles(0, 0, math.pi / 2)})
-		TweenService:Create(onde, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = Vector3.new(0.2, rG * 3.2, rG * 3.2), Transparency = 1}):Play()
+		local c = P - HAUT * 2
+		for _, p in mottes do
+			p.Transparency = 0
+			projeter(p, c, rng)
+		end
+		local onde = piece(e, "Part", {Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 2, 2), Color = BRAISE, Material = Enum.Material.Neon,
+			Transparency = 0.1, CFrame = CFrame.new(P + HAUT * 0.2) * CFrame.Angles(0, 0, math.pi / 2)})
+		TweenService:Create(onde, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = Vector3.new(0.3, rG * 4.5, rG * 4.5), Transparency = 1}):Play()
+		local flash = piece(e, "Part", {Shape = Enum.PartType.Ball, Size = Vector3.one * 4, CFrame = CFrame.new(P + HAUT * (h * 0.3)), Color = Color3.fromRGB(255, 210, 120),
+			Material = Enum.Material.Neon, Transparency = 0.05})
+		TweenService:Create(flash, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = Vector3.one * (h * 1.6), Transparency = 1}):Play()
 	end)
-	quand(e, TI + 0.3, function() feuPortail.Rate = 0 end)
-	quand(e, TI + 1, function() flammes.Rate = 0 end)
-	quand(e, TI + 2.4, function() fumee.Rate = 0 end)
+	quand(e, TX + 1.2, function() flammes.Rate = 40 end)
+	quand(e, TX + 2.2, function() flammes.Rate = 0 end)
+	quand(e, TX + 3, function() fumee.Rate = 0 end)
+	quand(e, R + 1.6, function()
+		for _, p in mottes do
+			if p.Parent then TweenService:Create(p, TweenInfo.new(0.8), {Transparency = 1}):Play() end
+		end
+	end)
 
-	local depart = Q + HAUT * (h * 0.12)
-	local herbeFinie, runesFinies = false, false
-	-- plan fixe de trois quarts face : cercle et portail au fond, place d'atterrissage et herbe au premier plan
-	local cible = P - av * 8 + HAUT * (h * 0.48)
-	local eye0 = P + av * (h * 1.2 + 10) + cote * (h * 0.28) + HAUT * (h * 0.22)
-	local eye1 = eye0 + (cible - eye0).Unit * 2.5
+	local depart = Q - av * 2 + HAUT * (h * 0.08)
+	local herbeFinie, runesFinies, pose = false, false, false
+	-- A : plongée presque verticale sur le rituel
+	local HA = rr * 2.6 + h * 0.5
+	local cibleA = Q + HAUT * (h * 0.25)
+	local camA0 = Q + av * (HA * 0.32) + cote * (HA * 0.08) + HAUT * HA
+	local camA1 = camA0 + (cibleA - camA0).Unit * (HA * 0.15)
+	-- B : plan bas fixe sur le portail et la trajectoire
+	local cibleB = Q:Lerp(P, 0.4) + HAUT * (h * 0.6)
+	local camB0 = P + av * (h + 10) + cote * (h * 0.55) + HAUT * (h * 0.22)
+	local camB1 = camB0 + (cibleB - camB0).Unit * 2
+	-- C : plan rapproché sur le boss recroquevillé puis l'éclatement
+	local cibleC = P + HAUT * (h * 0.42)
+	local camC0 = P + av * (h * 0.9 + 9) + cote * (h * 0.25) + HAUT * (h * 0.12)
+	local camC1 = camC0 + (cibleC - camC0).Unit * 3
 
 	return function(t: number): CFrame?
 		declencher(e, t)
@@ -708,10 +886,18 @@ local function braise(e, R: number)
 		if not runesFinies then
 			local fin = k01(t, TI, TI + 0.8)
 			for _, r in runes do
-				r[1].CFrame = CFrame.new(Q) * CFrame.Angles(0, t * 0.5 * r[3], 0) * r[2]
-				r[1].Transparency = math.max(1 - k01(t, r[4], r[4] + 0.25), fin)
+				local p = r[1]
+				if r[6] < 1 then
+					local g = k01(t, r[4], r[4] + 0.2)
+					if g > 0 then
+						r[6] = g
+						p.Size = Vector3.new(r[5].X * g, r[5].Y, r[5].Z)
+					end
+				end
+				p.CFrame = CFrame.new(Q) * CFrame.Angles(0, t * 0.5 * r[3], 0) * r[2]
+				p.Transparency = math.max(1 - r[6], fin)
 			end
-			lumiereCercle.Brightness = 3 * k01(t, 0.2, 2) * (1 - fin)
+			lumiereCercle.Brightness = 4 * k01(t, 0.2, 2) * (1 - fin)
 			runesFinies = fin >= 1
 		end
 		-- portail
@@ -737,18 +923,35 @@ local function braise(e, R: number)
 			for _, p in spirale do p.Transparency = 1 end
 			lumierePortail.Brightness = 0
 		end
-		-- bond hors du portail, vers la caméra
-		if t >= TS and t < TI then
-			local kj = k01(t, TS, TI)
-			local pos = depart:Lerp(P, kj) + HAUT * (4 * kj * (1 - kj) * h * 0.55)
-			poser(e, CFrame.new(pos) * e.rot * CFrame.Angles(0.7 * (0.5 - kj) * math.sin(kj * math.pi), 0, 0))
+		-- bond hors du portail, en arc vers la caméra
+		if t >= TS then
+			if t < TI then
+				local kj = k01(t, TS, TI)
+				local pos = depart:Lerp(P, kj) + HAUT * (4 * kj * (1 - kj) * h * 0.55)
+				poser(e, CFrame.new(pos) * e.rot * CFrame.Angles(-0.3 * math.sin(kj * math.pi), 0, 0))
+			elseif t < TG then
+				local a = 0.15 * k01(t, TI + 0.3, TG)
+				poser(e, e.pivot * CFrame.new(math.noise(t * 21, 3) * a, 0, math.noise(t * 19, 11) * a))
+			elseif not pose then
+				pose = true
+				poser(e, e.pivot)
+			end
+			if t >= TG and t < TX then echelle(s0 * (0.85 + 0.15 * lisse(k01(t, TG, TX)))) end
+			if t < R + 0.5 then animer(t) end
+		end
+		-- recroquevillé : braises qui s'accumulent, le sol rougit
+		if t >= TI and t < TX then
+			local g = k01(t, TI, TG)
+			braisesAir.Rate = 15 + 110 * g
+			rougeur.Transparency = 1 - 0.6 * g
+			lueurSol.Brightness = 5 * g
 		end
 		-- l'herbe brûle : orange, noircit, se recroqueville, disparaît
-		if t >= TI and not herbeFinie then
+		if t >= TX and not herbeFinie then
 			local reste = false
 			for _, b in touffes do
 				if b[6] < 1 then
-					local g = k01(t, TI + b[3], TI + b[3] + 0.9)
+					local g = k01(t, TX + b[3], TX + b[3] + 0.9)
 					b[6] = g
 					local p = b[1]
 					if g >= 1 then
@@ -767,9 +970,11 @@ local function braise(e, R: number)
 			end
 			herbeFinie = not reste
 		end
-		feu.Volume = (0.35 * k01(t, 0.2, 2) + 0.45 * k01(t, TI, TI + 0.2)) * (1 - k01(t, R + 0.8, R + 2.2))
+		feu.Volume = (0.35 * k01(t, 0.2, 2) + 0.45 * k01(t, TX, TX + 0.2)) * (1 - k01(t, R + 0.8, R + 2.2))
 		if t >= R then return nil end
-		return plan(e, eye0, eye1, cible, 60, 56, lisse(t / R))
+		if t < TA then return plan(e, camA0, camA1, cibleA, 60, 56, lisse(t / TA)) end
+		if t < TC then return plan(e, camB0, camB1, cibleB, 62, 60, lisse(k01(t, TA, TC))) end
+		return plan(e, camC0, camC1, cibleC, 62, 58, lisse(k01(t, TC, R)))
 	end
 end
 

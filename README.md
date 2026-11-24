@@ -715,7 +715,7 @@ fine et des étincelles aux couleurs du boss s'élèvent du cercle.
   1600 studs d'écart). Même règles pour les trois : sol de combat plat et dégagé sur le rayon 70 (seule pièce
   solide), murs invisibles, décor bas sans collision dans le cercle, arrivée des joueurs à 40 studs du centre,
   pas de rouge au sol (les zones rouges des attaques restent lisibles), peu de lumières (8 à 17).
-  L'arène du premier boss est construite au démarrage ; celle du boss suivant pendant l'attente (fin du combat
+  Le boss est tiré au hasard à chaque fois (le même peut revenir). L'arène du premier boss est construite au démarrage ; celle du boss suivant pendant l'attente (fin du combat
   précédent), puis gardée. Modèles `workspace › AreneBoss_<id>` (attributs `Centre`, `Rayon`, `Arene`).
   - **Seigneur de braise → « La Fosse des Rois Nains »** (x = −2600) : volcan. Disque de dalles sombres (rosace
     dorée, cercle de runes naines qui pulsent, fissures, éclats d'obsidienne) suspendu par huit chaînes géantes
@@ -753,7 +753,7 @@ fine et des étincelles aux couleurs du boss s'élèvent du cercle.
   qui balaie (éventail de 3 en phase 3), **rayons de feu** en étoile.
 - **Transformation à chaque phase** (`TRANSFORMATIONS` dans `src/partage/BossVillage.lua`) : le boss grandit (+15 % par phase), change de couleur en fondu et s'illumine (yeux et veines en néon, lueur autour de lui, éclat de lumière) ; phase 3 : aura de ki. Titan : cristaux violets → magenta → rouge sang ; Reine : marques rouges → vert venimeux → violet sur carapace d'ébène ; Seigneur : lave orange → jaune vif → feu infernal bleu. La hitbox suit la nouvelle taille (`MobsGrotte.grandir`).
 - **Écran de chargement** (`src/client/BossChargement.lua`) : un décor par boss (géode de cristaux, nid avec toiles, yeux et araignées, lave avec braises et fissures), portrait 3D du boss en contre-jour qui rugit, nom en impact, menace, mineurs, attaques à éviter, conseil, jauge à thème et astuces qui défilent.
-- **Verrouillage (focus)** (`src/client/VerrouBoss.client.lua`) : Ctrl (PC), R3 (manette) ou appui sur le logo en bas à gauche (téléphone) : la caméra suit le boss (sinon le mob le plus proche), réticule rouge « point vital » sur sa tête, le personnage lui fait face ; rappuyer libère. Saute si la cible meurt ou s'éloigne. Caméra de visée (`CameraVisee.client.lua`) : souris bloquée au viseur en 3e personne, libre dès qu'une interface ou un pop-up est ouvert (`Curseur.lua`) ou pendant les cinématiques, Alt maintenu pour la libérer ; champ de vision 90 en 1re personne.
+- **Verrouillage (focus)** (`src/client/VerrouBoss.client.lua`) : Ctrl (PC), R3 (manette) ou appui sur le logo en bas à gauche (téléphone) : la caméra suit le boss (sinon le mob le plus proche), réticule rouge « point vital » au milieu du corps (torse / nombril), le personnage lui fait face ; rappuyer libère. Saute si la cible meurt ou s'éloigne. Caméra de visée (`CameraVisee.client.lua`) : souris bloquée au viseur en 3e personne, libre dès qu'une interface ou un pop-up est ouvert (`Curseur.lua`) ou pendant les cinématiques, Alt maintenu pour la libérer ; champ de vision 90 en 1re personne.
 - **Ciblage** : le boss attaque au hasard un des mineurs à moins de 24 studs de lui et change de cible toutes les
   2,5 à 4,5 s ; si sa cible s'éloigne, il passe à un mineur proche (ou au plus proche).
 - **Barre de PV** : grand trait rouge centré en haut de l'écran, nom du boss en plus petit dessous (PV chiffrés, temps
