@@ -145,11 +145,10 @@ function UI.milliers(n: number): string
 end
 
 -- ================= Sons =================
--- swoosh.wav n'est plus livré avec Studio (« Asset is not approved ») : l'ouverture utilise un glissement de lame aigu
+-- « ouvrir » (bruit de sabre unsheath.wav) retiré à la demande : UI.jouer("ouvrir") est désormais silencieux
 local SONS = {
 	clic = {"rbxasset://sounds/clickfast.wav", 0.5},
 	survol = {"rbxasset://sounds/clickfast.wav", 0.15},
-	ouvrir = {"rbxasset://sounds/unsheath.wav", 0.22},
 	succes = {"rbxasset://sounds/electronicpingshort.wav", 0.6},
 	metal = {"rbxasset://sounds/button.wav", 0.55},
 }

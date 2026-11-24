@@ -55,7 +55,6 @@ local function montrer(oui: boolean)
 		bouton.Visible = true
 		bouton.Position = HORS_ECRAN
 		TweenService:Create(bouton, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = EN_PLACE}):Play()
-		UI.jouer("ouvrir", 1.2)
 	else
 		local t = TweenService:Create(bouton, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = HORS_ECRAN})
 		t.Completed:Once(function()

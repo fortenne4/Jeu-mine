@@ -421,7 +421,6 @@ local function majEpuise(e: boolean)
 		TweenService:Create(barreSta.rempli, CLIGNE, {BackgroundTransparency = 0.6}):Play()
 		nom.Text, nom.TextColor3 = "ÉPUISÉ", T.Rouge
 		UI.secouer(iconeSta, 4)
-		UI.jouer("ouvrir", 0.55)
 	else
 		barreSta.degrade.Enabled = true
 		TweenService:Create(barreSta.rempli, FAST, {BackgroundTransparency = 0, BackgroundColor3 = Color3.new(1, 1, 1)}):Play()

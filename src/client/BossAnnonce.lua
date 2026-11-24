@@ -565,7 +565,6 @@ function Annonce.init(ctx)
 			local fondu = TweenService:Create(traitEclair, TweenInfo.new(0.9, Enum.EasingStyle.Quad), {Transparency = 1})
 			fondu.Completed:Once(function() eclair.Visible = false end)
 			fondu:Play()
-			Outils.jouer("lame", 0.9, 0.5)
 			Outils.jouer("grondement", 0.8, 0.45)
 		else
 			Outils.jouer("souffle", 1.1, 0.35)

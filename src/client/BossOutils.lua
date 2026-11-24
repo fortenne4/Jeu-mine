@@ -13,10 +13,9 @@ local Outils = {}
 -- ================= Sons (seulement des sons déjà utilisés dans le jeu : rbxasset://sounds/…) =================
 local SONS = {
 	grondement = {"rbxasset://sounds/electronicpingshort.wav", 0.4, 0.35}, -- grave : rugissement, phase, chargement
-	impact = {"rbxasset://sounds/swordslash.wav", 0.45, 0.55},             -- coup sourd : secousse, bannière
-	lame = {"rbxasset://sounds/unsheath.wav", 0.55, 0.85},                 -- carte de nom, MVP
+	-- « impact », « lame » et « souffle » (bruits de sabre : swordslash / unsheath) retirés à la demande :
+	-- Outils.jouer ignore les noms absents, les appels existants restent donc silencieux.
 	metal = {"rbxasset://sounds/button.wav", 0.5, 1},                      -- arrivée d'un joueur dans la file
-	souffle = {"rbxasset://sounds/unsheath.wav", 0.3, 1},                   -- fondus, panneaux
 	ping = {"rbxasset://sounds/electronicpingshort.wav", 0.45, 1},         -- compte à rebours, victoire
 	clic = {"rbxasset://sounds/clickfast.wav", 0.5, 1},
 }
