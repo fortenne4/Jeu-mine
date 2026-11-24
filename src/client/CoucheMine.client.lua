@@ -4,7 +4,7 @@
 -- RemonterMine.server) : « COUCHE 4 · BASALTE · −142 m », une barre de profondeur découpée en couches (repère
 -- du joueur) et les minerais de la couche (silhouette « ? » tant qu'il n'en a jamais miné : attribut
 -- « MineraisDecouverts »). Grande annonce « Nouvelle couche ! » quand il descend dans une couche plus profonde.
--- « Pioche trop faible » quand le serveur refuse de creuser une couche (RemoteEvent « AvisMine »).
+-- « Il te faut une meilleure pioche » quand le serveur refuse une couche ou un minerai (RemoteEvent « AvisMine »).
 -- Couches, couleurs et pioche requise : Partage › CouchesMine.
 
 local Players = game:GetService("Players")
@@ -13,7 +13,6 @@ local TweenService = game:GetService("TweenService")
 
 local Partage = ReplicatedStorage:WaitForChild("Partage")
 local CouchesMine = require(Partage:WaitForChild("CouchesMine"))
-local Pioches = require(Partage:WaitForChild("Pioches"))
 local Forge = require(Partage:WaitForChild("Forge"))
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
 local Icones = require(script.Parent:WaitForChild("IconesObjets"))
@@ -89,7 +88,7 @@ local echelleAnnonce = creer("UIScale", {Scale = 1, Parent = annonce})
 
 -- ===== Avertissement « Pioche trop faible » =====
 local avis = texte({Text = "", Font = Enum.Font.GothamBlack, TextColor3 = T.Rouge, AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 110), Size = UDim2.fromOffset(520, 26), Visible = false, Parent = gui}, 20)
+	Position = UDim2.new(0.5, 0, 0, 110), Size = UDim2.fromOffset(700, 26), Visible = false, Parent = gui}, 20)
 creer("UIStroke", {Thickness = 2, Color = OMBRE, Parent = avis})
 
 -- ================= Logique =================
@@ -109,18 +108,9 @@ local function nomMinerai(id: string): string
 	return if m then m.nom else id
 end
 
--- Pioche la moins chère assez puissante pour cette couche (nil si toutes conviennent)
+-- Pioche la moins chère qui ouvre cette couche (nil si toutes conviennent)
 local function piocheRequise(c: number): any
-	local besoin = LISTE[c].puissance
-	if besoin <= 1 then
-		return nil
-	end
-	for _, p in Pioches.LISTE do
-		if p.puissance >= besoin then
-			return p
-		end
-	end
-	return nil
+	return CouchesMine.piocheRequise(LISTE[c].palier)
 end
 
 local coucheAffichee = 0
@@ -238,12 +228,15 @@ maj()
 local jetonAvis = 0
 local avisMine = ReplicatedStorage:WaitForChild("AvisMine") :: RemoteEvent
 avisMine.OnClientEvent:Connect(function(genre: any, c: any)
-	if genre ~= "pioche" or type(c) ~= "number" or not LISTE[c] then
+	local p, quoi
+	if genre == "pioche" and type(c) == "number" and LISTE[c] then
+		p, quoi = piocheRequise(c), "cette couche"
+	elseif genre == "minerai" and type(c) == "string" then
+		p, quoi = CouchesMine.piocheRequise(CouchesMine.palierMinerai(c)), "ce minerai (" .. nomMinerai(c) .. ")"
+	else
 		return
 	end
-	local p = piocheRequise(c)
-	avis.Text = string.format("Pioche trop faible pour la couche %s", LISTE[c].nom)
-		.. (if p then " : il faut la " .. p.nom else "")
+	avis.Text = string.format("Il te faut une meilleure pioche (%s) pour %s", if p then p.nom else "?", quoi)
 	avis.Visible = true
 	UI.secouer(avis, 6)
 	jetonAvis += 1

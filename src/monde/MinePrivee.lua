@@ -14,7 +14,6 @@ local Debris = game:GetService("Debris")
 local Partage = game:GetService("ReplicatedStorage"):WaitForChild("Partage")
 local MineraisModeles = require(Partage:WaitForChild("MineraisModeles"))
 local CouchesMine = require(Partage:WaitForChild("CouchesMine"))
-local Pioches = require(Partage:WaitForChild("Pioches"))
 local D = require(script.Parent.Disposition)
 local O = require(script.Parent.Outils)
 local B = require(script.Parent.Batiments)
@@ -60,7 +59,7 @@ MinePrivee.LIMITES = {demiLargeur = LARGEUR_MASSIF / 2 + 4, zMin = Z_FOND - 10, 
 -- blocs sous le sol de la galerie). Le massif est découpé en paquets de 3 × 3 × 3 cases : chaque paquet abrite
 -- au plus UN nœud, tiré dans les minerais de sa couche (tirage déterministe nouveau à chaque visite).
 -- id = clé de MineraisModeles.VISUEL et de Forge.MINERAIS ; pv = CouchesMine.PV.
--- Creuser la roche d'une couche demande une pioche de puissance ≥ couche.puissance (Partage › Pioches).
+-- Creuser la roche d'une couche dépend du palier de la pioche (Partage › CouchesMine.PALIERS_PIOCHES).
 local PAQUET = 3
 local PI_, PJ_ = NX // PAQUET + 2, NY // PAQUET + 2 -- dimensions de la grille des paquets (clé unique)
 local ECHELLE_NOEUD = 0.8 -- le rocher (≈ 3 studs) tient dans sa case de 2 et mord un peu dans la roche autour
@@ -314,6 +313,7 @@ local function creerNoeud(mine, n, def, cf, i, j, k)
 	coeur:SetAttribute("PV", def.pv)
 	coeur:SetAttribute("PVMax", def.pv)
 	coeur:SetAttribute("Proprietaire", mine.proprietaire)
+	coeur:SetAttribute("Palier", CouchesMine.palierMinerai(def.id)) -- PiocheBraise (dégâts) et ViseurPioche.client
 	modele.Parent = mine.massif
 	CollectionService:AddTag(coeur, "Minerai")
 	noeuds[coeur] = {mine = mine, n = n, i = i, j = j, k = k}
@@ -337,6 +337,7 @@ local function creerBloc(mine, i, j, k)
 	bloc:SetAttribute("Colonne", i)
 	bloc:SetAttribute("Ligne", j)
 	bloc:SetAttribute("Couche", k)
+	bloc:SetAttribute("Palier", couche.palier) -- ViseurPioche.client (affichage seulement)
 	CollectionService:AddTag(bloc, "BlocMine")
 	mine.blocs[n] = bloc
 end
@@ -391,17 +392,18 @@ end
 
 -- Retire les cases pleines dont le centre est dans la boîte orientée (repère local), s'il y a au moins
 -- un bloc visible dedans ; fait apparaître les voisins devenus exposés. Au plus MAX_PAR_COUP cases.
--- Les cases de minerai restent (le nœud se casse à la pioche). Les cases d'une couche trop dure pour la pioche
--- (puissance) restent aussi. Renvoie le premier bloc retiré, et l'index de la couche qui a bloqué (ou nil).
+-- Les cases de minerai restent (le nœud se casse à la pioche). Écart de palier (Partage › CouchesMine) : 1 = case
+-- dure (retirée seulement si dur), ≥ 2 = case bloquée. Renvoie le premier bloc retiré ; trace reçoit
+-- bloquee (couche la plus dure qui bloque), mur (bloc bloqué visible) et resiste (bloc dur visible).
 local MAX_PAR_COUP = 40
-local function retirer(mine, boite: CFrame, taille: Vector3, puissance: number)
+local function retirer(mine, boite: CFrame, taille: Vector3, palier: number, dur: boolean, trace)
 	local demi = taille / 2
 	local r = demi.Magnitude
 	local p = boite.Position
 	local i0, i1 = math.max(1, math.ceil((p.X - r + LARGEUR_MASSIF / 2) / T + 0.5)), math.min(NX, math.floor((p.X + r + LARGEUR_MASSIF / 2) / T + 0.5))
 	local j0, j1 = math.max(1, math.ceil((p.Y - r - Y_BAS) / T + 0.5)), math.min(NY, math.floor((p.Y + r - Y_BAS) / T + 0.5))
 	local k0, k1 = math.max(1, math.ceil((Z_AVANT - p.Z - r) / T + 0.5)), math.min(NZ, math.floor((Z_AVANT - p.Z + r) / T + 0.5))
-	local cases, visible, bloquee = {}, false, nil
+	local cases, visible = {}, false
 	for k = k0, k1 do
 		for j = j0, j1 do
 			for i = i0, i1 do
@@ -411,8 +413,12 @@ local function retirer(mine, boite: CFrame, taille: Vector3, puissance: number)
 					if math.abs(q.X) <= demi.X and math.abs(q.Y) <= demi.Y and math.abs(q.Z) <= demi.Z
 						and not minerai(mine, i, j, k) then
 						local c = coucheCase(i, j, k)
-						if CouchesMine.LISTE[c].puissance > puissance then
-							if aPart then bloquee = math.max(bloquee or 0, c) end
+						local ecart = CouchesMine.LISTE[c].palier - palier
+						local b = mine.blocs[indice(i, j, k)]
+						if ecart >= 2 then
+							if b then trace.bloquee, trace.mur = math.max(trace.bloquee or 0, c), trace.mur or b end
+						elseif ecart == 1 and not dur then
+							trace.resiste = trace.resiste or b
 						else
 							table.insert(cases, Vector3.new(i, j, k))
 							visible = visible or aPart
@@ -422,7 +428,7 @@ local function retirer(mine, boite: CFrame, taille: Vector3, puissance: number)
 			end
 		end
 	end
-	if not visible then return nil, bloquee end
+	if not visible then return nil end
 	local premier = nil
 	for _, c in cases do
 		local n = indice(c.X, c.Y, c.Z)
@@ -447,17 +453,23 @@ local avisMine = Instance.new("RemoteEvent")
 avisMine.Name = "AvisMine"
 avisMine.Parent = game:GetService("ReplicatedStorage")
 local derniersAvis = {}
-local function avertir(joueur, couche)
-	local t = os.clock()
-	if t - (derniersAvis[joueur] or 0) < 1.5 then return end
-	derniersAvis[joueur] = t
-	avisMine:FireClient(joueur, "pioche", couche)
+-- genre « pioche » (couche) / « minerai » (id) : un avis toutes les 1,5 s au plus ; « dur » (0..1) : à chaque coup
+function MinePrivee.avertir(joueur, genre: string, valeur: any)
+	if genre ~= "dur" then
+		local t = os.clock()
+		if t - (derniersAvis[joueur] or 0) < 1.5 then return end
+		derniersAvis[joueur] = t
+	end
+	avisMine:FireClient(joueur, genre, valeur)
 end
+game:GetService("Players").PlayerRemoving:Connect(function(joueur) derniersAvis[joueur] = nil end)
 
 -- Coup de pioche du joueur dans SA mine (serveur autoritaire). Zone ≈ taille du joueur
 -- (ZONE_COUP : largeur × hauteur × profondeur), orientée selon son regard ; essaie devant,
 -- puis devant-bas (boîte inclinée en descente), puis sous ses pieds.
--- Renvoie le premier bloc retiré (sorti du jeu : l'appelant le détruit après les éclats), ou nil.
+-- Renvoie le premier bloc retiré (sorti du jeu : l'appelant le détruit après les éclats), ou nil puis le bloc qui
+-- résiste et true s'il est hors de portée de la pioche (écart de palier ≥ 2). Roche dure (écart 1) : elle cède
+-- au bout de CouchesMine.COUPS_DUR coups qui n'ont rien retiré d'autre.
 function MinePrivee.creuser(joueur, racine: BasePart, vise: Vector3?, origine: Vector3?)
 	local mine = mines[joueur]
 	if not mine or not mine.modele.Parent then return nil end
@@ -466,9 +478,8 @@ function MinePrivee.creuser(joueur, racine: BasePart, vise: Vector3?, origine: V
 	local regard = mine.base:VectorToObjectSpace(racine.CFrame.LookVector) * Vector3.new(1, 0, 1)
 	regard = if regard.Magnitude > 1e-3 then regard.Unit else Vector3.new(0, 0, -1)
 	local Z = MinePrivee.ZONE_COUP
-	local pioche = Pioches.get(joueur:GetAttribute("Pioche")) or Pioches.get(Pioches.DEPART)
-	local puissance = if pioche then pioche.puissance else 1
-	local bloquee = nil
+	local palier = CouchesMine.palierPioche(joueur:GetAttribute("Pioche"))
+	local boites = {}
 	-- Viseur (distance déjà validée) : le serveur refait le rayon tête → point dans SA mine ; on ne garde
 	-- que le premier bloc réellement touché (impossible de creuser à travers la roche)
 	if vise and origine then
@@ -488,23 +499,39 @@ function MinePrivee.creuser(joueur, racine: BasePart, vise: Vector3?, origine: V
 			dir = dir.Unit
 			local haut = if math.abs(dir.Y) > 0.95 then regard else Vector3.yAxis
 			local centre = b + dir * (Z.Z / 2 - 0.5) -- la zone mord dans la roche derrière le point visé
-			local bloc, b2 = retirer(mine, CFrame.lookAt(centre, centre + dir, haut), Z, puissance)
-			if bloc then return bloc end
-			bloquee = b2
+			table.insert(boites, {CFrame.lookAt(centre, centre + dir, haut), Z})
 		end
 	end
 	local face = CFrame.lookAt(l, l + regard) -- -Z = regard, Y = haut
-	local essais = {
-		{face * CFrame.new(0, -0.3, -(Z.Z / 2 + 0.6)), Z},
-		{face * CFrame.new(0, -2.6, -(Z.Z / 2 + 0.4)) * CFrame.Angles(math.rad(-35), 0, 0), Z},
-		{face * CFrame.new(0, -3 - Z.Z / 2, 0), Vector3.new(Z.X, Z.Z, Z.X)},
-	}
-	for _, essai in essais do
-		local bloc, b2 = retirer(mine, essai[1], essai[2], puissance)
-		if bloc then return bloc end
-		bloquee = bloquee or b2
+	table.insert(boites, {face * CFrame.new(0, -0.3, -(Z.Z / 2 + 0.6)), Z})
+	table.insert(boites, {face * CFrame.new(0, -2.6, -(Z.Z / 2 + 0.4)) * CFrame.Angles(math.rad(-35), 0, 0), Z})
+	table.insert(boites, {face * CFrame.new(0, -3 - Z.Z / 2, 0), Vector3.new(Z.X, Z.Z, Z.X)})
+	local trace = {}
+	local function passe(dur: boolean)
+		for _, boite in boites do
+			local bloc = retirer(mine, boite[1], boite[2], palier, dur, trace)
+			if bloc then return bloc end
+		end
+		return nil
 	end
-	if bloquee then avertir(joueur, bloquee) end
+	local bloc = passe(false)
+	if not bloc and trace.resiste then
+		mine.effort = (mine.effort or 0) + 1
+		if mine.effort < CouchesMine.COUPS_DUR then
+			MinePrivee.avertir(joueur, "dur", mine.effort / CouchesMine.COUPS_DUR)
+			return nil, trace.resiste, false
+		end
+		bloc = passe(true)
+	end
+	if bloc then
+		if (mine.effort or 0) > 0 then MinePrivee.avertir(joueur, "dur", 1) end
+		mine.effort = 0
+		return bloc
+	end
+	if trace.bloquee then
+		MinePrivee.avertir(joueur, "pioche", trace.bloquee)
+		return nil, trace.mur, true
+	end
 	return nil
 end
 

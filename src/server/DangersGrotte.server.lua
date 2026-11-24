@@ -11,16 +11,27 @@
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
 
+local Brulure = require(script.Parent:WaitForChild("Brulure"))
+
 local DEGATS_CHUTE = 15
 local DEGATS_LAVE = 10 -- toutes les 0,4 s
 local DEGATS_GEYSER = 18 -- toutes les 0,4 s
 local RAYON_GEYSER = 4
+local DEGATS_FAILLE = 6 -- faille au repos (petites flammes) : on se brûle en marchant dessus
+local RAYON_FAILLE = 2.8
+local BRULURE_FAILLE = 3 -- secondes de brûlure après un contact
+local BRULURE_GEYSER = 5
+local BRULURE_LAVE = 4
+-- hitbox du jet de flammes en éruption : un rectangle invisible qui suit la gerbe visible (MachinesGrotte.client).
+-- La gerbe part de la face « Top » de la faille ; la faille est un cylindre couché, donc le jet est un trait
+-- horizontal au ras du sol. Repère local de la faille : Y = sens du jet, X = vertical, Z = largeur.
+local LONGUEUR_JET = 24 -- portée du jet (studs)
+local LARGEUR_JET = 5 -- largeur du rectangle (studs)
+local HAUTEUR_JET = 5 -- demi-hauteur : touche un joueur debout ou qui saute bas
+local RECUL_JET = 34 -- poussée hors du jet (sur le côté)
 
 -- dégâts de feu réduits par l'attribut joueur « ResistanceFeu » (0..1, casque magmatique : CasqueMagma.server)
-local function degatsFeu(joueur: Player, degats: number): number
-	local r = joueur:GetAttribute("ResistanceFeu")
-	return degats * (1 - (if type(r) == "number" then math.clamp(r, 0, 0.9) else 0))
-end
+local degatsFeu = Brulure.degatsFeu
 
 local function racines(): {{joueur: Player, r: BasePart, hum: Humanoid}}
 	local t = {}
@@ -54,6 +65,7 @@ end
 
 local horloge = 0
 local dernierCoup: {[Player]: number} = {}
+local dernierJet: {[Player]: number} = {}
 
 task.spawn(function()
 	while true do
@@ -104,16 +116,36 @@ task.spawn(function()
 					for _, e in joueurs do
 						local p = e.r.Position
 						local propulsion = g:GetAttribute("Propulsion")
-						if Vector3.new(p.X - g.Position.X, 0, p.Z - g.Position.Z).Magnitude < RAYON_GEYSER and math.abs(p.Y - g.Position.Y) < 10
-							and maintenant - (dernierCoup[e.joueur] or 0) > (if propulsion then 1 else 0.4) then
-							dernierCoup[e.joueur] = maintenant
+						local horiz = Vector3.new(p.X - g.Position.X, 0, p.Z - g.Position.Z)
+						local dy = p.Y - g.Position.Y
+						local local_ = g.CFrame:PointToObjectSpace(p)
+						local dansJet = if type(propulsion) == "number" then horiz.Magnitude < RAYON_GEYSER and math.abs(dy) < 10
+							else local_.Y > -1.5 and local_.Y < LONGUEUR_JET and math.abs(local_.Z) < LARGEUR_JET / 2 + 1 and math.abs(local_.X) < HAUTEUR_JET
+						if dansJet and maintenant - (dernierJet[e.joueur] or 0) > (if propulsion then 1 else 0.5) then
+							dernierJet[e.joueur] = maintenant
 							if type(propulsion) == "number" then
 								-- geyser propulseur : aucun dégât, il projette très haut (corniche secrète)
 								e.r.AssemblyLinearVelocity = Vector3.new(e.r.AssemblyLinearVelocity.X, propulsion, e.r.AssemblyLinearVelocity.Z)
 							else
 								e.hum:TakeDamage(degatsFeu(e.joueur, DEGATS_GEYSER))
-								e.r.AssemblyLinearVelocity = Vector3.new(0, 45, 0)
+								-- projeté hors du jet, sur le côté où l'on se trouve, un peu en l'air
+								local lat = g.CFrame.LookVector * (if local_.Z > 0 then -1 else 1)
+								local cote = Vector3.new(lat.X, 0, lat.Z)
+								cote = if cote.Magnitude > 0.1 then cote.Unit else Vector3.xAxis
+								e.r.AssemblyLinearVelocity = cote * RECUL_JET + Vector3.new(0, 28, 0)
+								Brulure.appliquer(e.joueur, BRULURE_GEYSER)
 							end
+						end
+					end
+				elseif g.Name == "Faille" and not g:GetAttribute("Propulsion") then
+					-- faille au repos : les petites flammes brûlent quand on marche dessus, puis on brûle encore un peu
+					for _, e in joueurs do
+						local p = e.r.Position
+						if Vector3.new(p.X - g.Position.X, 0, p.Z - g.Position.Z).Magnitude < RAYON_FAILLE and math.abs(p.Y - g.Position.Y) < 5
+							and maintenant - (dernierCoup[e.joueur] or 0) > 0.8 then
+							dernierCoup[e.joueur] = maintenant
+							e.hum:TakeDamage(degatsFeu(e.joueur, DEGATS_FAILLE))
+							Brulure.appliquer(e.joueur, BRULURE_FAILLE)
 						end
 					end
 				end
@@ -133,6 +165,7 @@ task.spawn(function()
 						if maintenant - (dernierCoup[e.joueur] or 0) > 0.4 then
 							dernierCoup[e.joueur] = maintenant
 							e.hum:TakeDamage(degatsFeu(e.joueur, DEGATS_LAVE))
+							Brulure.appliquer(e.joueur, BRULURE_LAVE)
 						end
 					end
 				end
@@ -149,4 +182,5 @@ end)
 
 Players.PlayerRemoving:Connect(function(j)
 	dernierCoup[j] = nil
+	dernierJet[j] = nil
 end)

@@ -16,6 +16,7 @@ local NOMS = {
 	GolemChampignon = "Golem champignon",
 	CrabeLueur = "Crabe des lueurs",
 	SpectreNain = "Spectre nain",
+	RoiDechu = "Le Roi déchu",
 }
 local ECART, PORTEE = 6, 300
 

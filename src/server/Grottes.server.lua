@@ -20,6 +20,7 @@ local MobsGrotte = require(script.Parent:WaitForChild("MobsGrotte"))
 local Sanctuaire = require(script.Parent:WaitForChild("Sanctuaire")) -- palier 1 : arche, gardiens, coffre (+ fragments de carte)
 local EvenementsGrotte = require(script.Parent:WaitForChild("EvenementsGrotte")) -- palier 1 : événements aléatoires
 local ArenaTemple = require(script.Parent:WaitForChild("ArenaTemple")) -- palier 1 : arène du temple (gong)
+local TroneLave = require(script.Parent:WaitForChild("TroneLave")) -- palier 4 : trône de magma, le Roi déchu
 
 local monde = ServerStorage:WaitForChild("Monde")
 local D = require(monde:WaitForChild("Disposition"))
@@ -462,6 +463,8 @@ local function lancer(teleporteur, niveau)
 	if not okEvenements then warn("[Grottes] Événements : " .. tostring(errEvenements)) end
 	local okArene, errArene = pcall(ArenaTemple.preparer, exp)
 	if not okArene then warn("[Grottes] Arène : " .. tostring(errArene)) end
+	local okTrone, errTrone = pcall(TroneLave.preparer, exp)
+	if not okTrone then warn("[Grottes] Trône : " .. tostring(errTrone)) end
 	-- Le cercle se libère tout de suite pour le groupe suivant
 	libererGroupe(teleporteur)
 	Cercle.activer(teleporteur.cercle)

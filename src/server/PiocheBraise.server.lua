@@ -23,6 +23,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Pioches = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("Pioches"))
 -- Aura de l'Atelier 3D (style, couleurs, intensité réglés pour chaque pioche dans Partage › AurasPioches)
 local AurasPioches = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("AurasPioches"))
+-- Paliers : quelle pioche ouvre quelle couche / quel minerai de la mine privée
+local CouchesMine = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("CouchesMine"))
 local AuraPioche = require(script.Parent:WaitForChild("AuraPioche"))
 -- Modèles 3D Blender des pioches
 local PiochesModeles = require(script.Parent:WaitForChild("PiochesModeles"))
@@ -71,6 +73,8 @@ local ECLAT_MINERAI = {
 local GRIP = CFrame.new(0, -1.0, 0)
 
 local BLANC = Color3.new(1, 1, 1)
+local TROP_DUR = Color3.fromRGB(255, 60, 50) -- coup sans effet (pioche trop faible)
+local DUR = Color3.fromRGB(255, 160, 50) -- roche ou minerai très dur (un palier au-dessus)
 local POUSSIERE = Color3.fromRGB(120, 108, 96)
 local TEX_ETINCELLE = "rbxasset://textures/particles/sparkles_main.dds"
 local TEX_FUMEE = "rbxasset://textures/particles/smoke_main.dds"
@@ -508,11 +512,17 @@ local function creerPioche(def: Pioches.Pioche): Tool
 		if not aTouche and joueur and Donnees.profil(joueur) then
 			-- Dans sa mine privée : la zone de coup retire quelques blocs de roche exposés (0 gain ; les
 			-- nœuds de minerai restent et se cassent comme dans la mine publique)
-			local bloc = MinePrivee.creuser(joueur, racine, cible, origine)
+			local bloc, resiste, impossible = MinePrivee.creuser(joueur, racine, cible, origine)
 			if bloc then
 				sonIci(bloc.Position, SONS.PIERRE, 0.62)
 				eclats(bloc, COULEUR)
 				bloc:Destroy()
+				return
+			end
+			if resiste then
+				-- roche trop dure : « clang » sourd et petite étincelle (rouge = impossible, orange = très lent)
+				son(ancre(resiste.Position, 3), SONS.METAL, 0.5, 0.6)
+				impact(resiste.Position, 0.3, if impossible then TROP_DUR else DUR)
 				return
 			end
 		end
@@ -537,6 +547,18 @@ local function creerPioche(def: Pioches.Pioche): Tool
 			local degats = CONFIG.DEGATS_MINERAI * def.puissance
 			local pvMax = minerai:GetAttribute("PVMax") or minerai:GetAttribute("PV") or 3
 			local pvAvant = minerai:GetAttribute("PV") or pvMax
+			-- Palier du minerai (attribut serveur, mine privée) : 1 au-dessus = dégâts × FACTEUR_DUR ; 2 et + = rien
+			local ecart = CouchesMine.ecart(minerai:GetAttribute("Palier") or 1, def.id)
+			if ecart >= 2 then
+				son(ancre(minerai.Position, 3), SONS.METAL, 0.5, 0.6)
+				impact(minerai.Position, 0.3, TROP_DUR)
+				if joueur then MinePrivee.avertir(joueur, "minerai", minerai:GetAttribute("Type")) end
+				mineraiSerie = nil
+				return
+			elseif ecart == 1 then
+				degats *= CouchesMine.FACTEUR_DUR
+				if joueur then MinePrivee.avertir(joueur, "dur", math.clamp(1 - (pvAvant - degats) / pvMax, 0, 1)) end
+			end
 			if minerai ~= mineraiSerie then
 				mineraiSerie = minerai
 				serieIntacte = pvAvant >= pvMax -- la série doit commencer sur le minerai intact

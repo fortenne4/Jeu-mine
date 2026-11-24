@@ -7,7 +7,8 @@
 	- LA FORÊT DE BASALTE : colonnes hexagonales de toutes tailles, orgues qui sortent des parois
 	- Geysers de feu (failles rougeoyantes) qui jaillissent à intervalles (DangersGrotte) : on attend son tour
 	- Pics et éclats d'obsidienne, cendres qui tombent, braises, veines de magma
-	- Salle du fond : LE TRÔNE DE MAGMA (trône d'obsidienne au-dessus d'un bassin de lave, cornes, braseros)
+	- Salle du fond : LE TRÔNE DE MAGMA (trône de l'enfer : crâne aux cornes torsadées, runes, chaînes, braseros ;
+	  on s'y assoit pour réveiller le Roi déchu, qui surgit du bassin de lave : TroneLave.lua)
 	Zones : Camp, LacLave, Basalte, Trone. ]]
 
 local GT = require(script.Parent.GrotteTheme)
@@ -388,7 +389,7 @@ function GrotteLave.decorer(ctx, infos, outils)
 					faille.CastShadow = false
 					T.tag(faille, "GrottePulse")
 					faille:SetAttribute("Periode", rng:NextNumber(6, 9))
-					faille:SetAttribute("Duree", 1.6)
+					faille:SetAttribute("Duree", 2.6) -- le jet crache 2,6 s
 					faille:SetAttribute("Decalage", rng:NextNumber(0, 9))
 					T.tag(faille, "Geyser")
 				end
@@ -421,7 +422,12 @@ function GrotteLave.decorer(ctx, infos, outils)
 		end
 	end
 
-	-- ===== 7. LE TRÔNE DE MAGMA =====
+	-- ===== 7. LE TRÔNE DE MAGMA (trône de l'enfer du Roi déchu) =====
+	-- Estrade de basalte à trois niveaux (marches veinées de lave, runes), trône d'obsidienne : dossier frappé d'un
+	-- crâne aux cornes torsadées et d'un cercle de runes, pointes, accoudoirs à crânes, ailes d'obsidienne, chaînes
+	-- tendues vers deux poteaux, braseros, colonnes de feu, crânes épars, bassin de lave cerclé de basalte.
+	-- On peut s'y asseoir (Seat « SiegeRoi » + invite « S'asseoir ») : TroneLave.lua réveille alors le Roi déchu,
+	-- qui surgit du bassin. Attributs du modèle « TroneMagma » : TroneCF, Bassin, CentreSalle, RayonSalle.
 	do
 		local s = boss
 		local sol = T.solEn(s.p, 10)
@@ -429,27 +435,212 @@ function GrotteLave.decorer(ctx, infos, outils)
 		local fond, dirFond = T.coinSalle(s, T.rb * 0.55)
 		local q = T.solEn(fond)
 		if q then
-			local cf = CFrame.lookAt(q.Position, q.Position - dirFond)
+			local cf = CFrame.lookAt(q.Position, q.Position - dirFond) -- devant (-Z) = vers la salle
 			local m = T.modele("TroneMagma")
-			-- bassin de lave en demi-lune devant le trône
-			local pb = (cf * CFrame.new(0, 0, -7)).Position
-			workspace.Terrain:FillCylinder(CFrame.new(pb.X, q.Position.Y - 1, pb.Z), 3, 6, Enum.Material.Air)
-			nappe(CFrame.new(pb.X, q.Position.Y - 1.6, pb.Z), Vector3.new(11, 0.5, 11), "BassinTrone")
-			-- estrade et trône
-			T.bloc(m, Vector3.new(12, 1.6, 8), cf * CFrame.new(0, 0.8, 2), P.basalte, Enum.Material.Basalt, "Estrade")
-			T.bloc(m, Vector3.new(10, 1, 6), cf * CFrame.new(0, 2.1, 2.4), P.obsidienne, Enum.Material.SmoothPlastic, "Marche").Reflectance = 0.2
-			T.bloc(m, Vector3.new(6, 2.4, 4), cf * CFrame.new(0, 3.8, 3), P.obsidienne, Enum.Material.SmoothPlastic, "Assise").Reflectance = 0.2
-			T.bloc(m, Vector3.new(6.4, 12, 1.6), cf * CFrame.new(0, 9, 5), P.obsidienne, Enum.Material.SmoothPlastic, "Dossier").Reflectance = 0.2
-			for _, sx in {-1, 1} do
-				T.bloc(m, Vector3.new(1.4, 3, 4), cf * CFrame.new(sx * 3.6, 5.5, 3), P.obsidienne, Enum.Material.SmoothPlastic, "Accoudoir")
-				-- cornes
-				for k = 0, 3 do
-					T.coin(m, Vector3.new(1.2 - k * 0.2, 2.4, 1.2 - k * 0.2), cf * CFrame.new(sx * (3.6 + k * 0.9), 15 + k * 1.6, 5) * CFrame.Angles(0, 0, -sx * (0.4 + k * 0.25)),
-						P.croute, Enum.Material.Basalt, "Corne")
+			local osC, osSombre = Color3.fromRGB(196, 182, 160), Color3.fromRGB(120, 104, 90)
+			local fer = Color3.fromRGB(52, 46, 48)
+			local veloursSang = Color3.fromRGB(92, 14, 14)
+			local function veine(taille: Vector3, c: CFrame, nom: string?)
+				local v = T.bloc(m, taille, cf * c, P.lave, M.Neon, nom or "VeineLave")
+				v.CastShadow = false
+				T.tag(v, "GrottePulse")
+				return v
+			end
+			local function crane(c: CFrame, k: number, yeux: boolean, nom: string)
+				-- petit crâne (k = taille) : boîte crânienne, mâchoire, orbites (néon si yeux)
+				local cm = T.modele(nom, m)
+				T.bloc(cm, Vector3.new(1, 0.85, 0.9) * k, cf * c, osC, Enum.Material.SmoothPlastic, "Crane")
+				T.bloc(cm, Vector3.new(0.75, 0.3, 0.75) * k, cf * c * CFrame.new(0, -0.5 * k, -0.05 * k), osSombre, Enum.Material.SmoothPlastic, "Machoire")
+				for _, sx in {-1, 1} do
+					local o = T.bloc(cm, Vector3.new(0.24, 0.2, 0.08) * k, cf * c * CFrame.new(sx * 0.22 * k, 0.02 * k, -0.45 * k),
+						if yeux then P.braise else P.croute, if yeux then M.Neon else Enum.Material.SmoothPlastic, "Orbite")
+					o.CastShadow = false
 				end
+				return cm
+			end
+
+			-- bassin de lave devant le trône (le Roi déchu en surgit), cerclé de pierres de basalte
+			local centreBassin = cf * CFrame.new(0, 0, -9.5)
+			local pb = centreBassin.Position
+			workspace.Terrain:FillCylinder(CFrame.new(pb.X, q.Position.Y - 1, pb.Z), 3, 6, Enum.Material.Air)
+			local bassin = nappe(CFrame.new(pb.X, q.Position.Y - 1.6, pb.Z), Vector3.new(12.5, 0.5, 12.5), "BassinTrone")
+			T.emetteur(bassin, {
+				Name = "FlammesBassin", Texture = GT.TEX_FEU, LightEmission = 0.5, LightInfluence = 0, Color = ColorSequence.new(P.laveClaire, P.braise),
+				Size = NumberSequence.new({T.kp(0, 1.2), T.kp(1, 0)}), Lifetime = NumberRange.new(0.6, 1.1), Speed = NumberRange.new(2, 4),
+				Rate = 6, EmissionDirection = Enum.NormalId.Top,
+			})
+			for k = 0, 11 do
+				local a = k / 12 * 2 * math.pi
+				if math.cos(a) < 0.82 then -- pas devant les marches (côté trône = +Z local)
+					local c = CFrame.new(0, 0, -9.5) * CFrame.Angles(0, a, 0) * CFrame.new(0, 0.2, 6.4)
+					T.bloc(m, Vector3.new(rng:NextNumber(1.4, 2), rng:NextNumber(0.6, 1), 1.1), cf * c * CFrame.Angles(rng:NextNumber(-0.1, 0.1), 0, rng:NextNumber(-0.1, 0.1)),
+						if k % 2 == 0 then P.basalte else P.croute, Enum.Material.Basalt, "MargelleBassin")
+				end
+			end
+			local lueurB = T.volume(m, Vector3.one, CFrame.new(pb + Vector3.new(0, 2, 0)), "LueurBassin")
+			T.lumiere(lueurB, Color3.fromRGB(255, 60, 20), 1.2, 28)
+
+			-- estrade : trois niveaux et une première marche, liserés de lave sur chaque contremarche
+			T.solide(m, Vector3.new(13, 0.6, 1.4), cf * CFrame.new(0, 0.3, -2.7), P.basalteClair, Enum.Material.Basalt, "Marche")
+			T.solide(m, Vector3.new(16, 1.2, 9), cf * CFrame.new(0, 0.6, 2.5), P.basalte, Enum.Material.Basalt, "Estrade")
+			T.solide(m, Vector3.new(12, 1, 6.5), cf * CFrame.new(0, 1.7, 3.6), P.obsidienne, Enum.Material.SmoothPlastic, "Marche").Reflectance = 0.15
+			T.solide(m, Vector3.new(8, 1, 4.5), cf * CFrame.new(0, 2.7, 4.6), P.basalteClair, Enum.Material.Basalt, "Socle")
+			veine(Vector3.new(13, 0.08, 0.06), CFrame.new(0, 0.45, -3.42))
+			veine(Vector3.new(16, 0.1, 0.06), CFrame.new(0, 0.95, -2.03))
+			veine(Vector3.new(12, 0.1, 0.06), CFrame.new(0, 1.9, 0.33))
+			veine(Vector3.new(8, 0.1, 0.06), CFrame.new(0, 2.9, 2.33))
+			-- fissures de lave sur l'estrade, qui filent vers le bassin
+			for _, sx in {-1, 1} do
+				veine(Vector3.new(0.2, 0.05, 3.2), CFrame.new(sx * 4.6, 1.22, -0.4) * CFrame.Angles(0, sx * 0.35, 0), "FissureLave")
+				veine(Vector3.new(0.14, 0.05, 1.6), CFrame.new(sx * 5.6, 1.22, 1.6) * CFrame.Angles(0, -sx * 0.5, 0), "FissureLave")
+			end
+			-- runes gravées devant le trône (losange + barre), qui pulsent
+			for i = -2, 2 do
+				local c = CFrame.new(i * 2, 2.22, 1.1)
+				veine(Vector3.new(0.45, 0.06, 0.45), c * CFrame.Angles(0, math.rad(45), 0), "Rune")
+				veine(Vector3.new(0.1, 0.07, 0.8), c * CFrame.Angles(0, i * 0.4, 0), "Rune")
+			end
+
+			-- le trône : assise d'obsidienne, coussin de velours sang (le Seat), dossier, piliers
+			T.solide(m, Vector3.new(5.2, 1.6, 3.6), cf * CFrame.new(0, 4, 4.6), P.obsidienne, Enum.Material.SmoothPlastic, "Assise").Reflectance = 0.2
+			veine(Vector3.new(5.2, 0.1, 0.06), CFrame.new(0, 4.6, 2.78))
+			local siege = Instance.new("Seat")
+			siege.Name = "SiegeRoi"
+			siege.Anchored = true
+			siege.Size = Vector3.new(3.4, 0.4, 2.8)
+			siege.CFrame = cf * CFrame.new(0, 5, 4.4)
+			siege.Color = veloursSang
+			siege.Material = Enum.Material.Fabric
+			siege.TopSurface, siege.BottomSurface = Enum.SurfaceType.Smooth, Enum.SurfaceType.Smooth
+			siege.CanQuery = false
+			siege.Parent = m
+			local invite = Instance.new("ProximityPrompt")
+			invite.Name = "InviteTrone"
+			invite.ActionText = "S'asseoir"
+			invite.ObjectText = "Trône du Roi déchu"
+			invite.HoldDuration = 0.3
+			invite.MaxActivationDistance = 10
+			invite.RequiresLineOfSight = false
+			invite:SetAttribute("TroneRoi", true)
+			invite.Parent = siege
+			T.solide(m, Vector3.new(5.6, 9, 1.4), cf * CFrame.new(0, 9.3, 6.3), P.obsidienne, Enum.Material.SmoothPlastic, "Dossier").Reflectance = 0.2
+			for _, sx in {-1, 1} do
+				T.solide(m, Vector3.new(1, 10.5, 1.8), cf * CFrame.new(sx * 3.2, 8.45, 6.2), P.basalteClair, Enum.Material.Basalt, "Pilier")
+				T.bloc(m, Vector3.new(0.6, 2.2, 0.6), cf * CFrame.new(sx * 3.2, 14.8, 6.2), P.obsidienne, Enum.Material.SmoothPlastic, "Pointe").Reflectance = 0.3
+				veine(Vector3.new(0.3, 0.5, 0.3), CFrame.new(sx * 3.2, 16.1, 6.2), "PointeFeu")
+				T.bloc(m, Vector3.new(0.5, 1.6, 0.5), cf * CFrame.new(sx * 1.9, 14.4, 6.5) * CFrame.Angles(0, 0, -sx * 0.25), P.obsidienne, Enum.Material.SmoothPlastic, "Pointe")
+			end
+			-- veines de lave qui ramifient sur le dossier, cercle de runes autour d'une gemme de feu
+			veine(Vector3.new(0.22, 5.5, 0.08), CFrame.new(0, 7.6, 5.56))
+			for _, sx in {-1, 1} do
+				veine(Vector3.new(0.16, 2.2, 0.08), CFrame.new(sx * 0.8, 6.4, 5.56) * CFrame.Angles(0, 0, sx * 0.55))
+				veine(Vector3.new(0.16, 1.6, 0.08), CFrame.new(sx * 1.7, 12.2, 5.56) * CFrame.Angles(0, 0, -sx * 0.6))
+			end
+			for k = 0, 7 do
+				local a = k / 8 * 2 * math.pi
+				veine(Vector3.new(0.35, 0.35, 0.08), CFrame.new(math.cos(a) * 1.7, 10.2 + math.sin(a) * 1.7, 5.55) * CFrame.Angles(0, 0, math.rad(45)), "Rune")
+			end
+			local gemme = T.bloc(m, Vector3.new(1, 1, 0.35), cf * CFrame.new(0, 10.2, 5.45) * CFrame.Angles(0, 0, math.rad(45)), P.laveClaire, M.Neon, "Gemme")
+			T.tag(gemme, "GrottePulse")
+			T.lumiere(gemme, Color3.fromRGB(255, 50, 20), 1.8, 24)
+
+			-- grand crâne au sommet du dossier, orbites de feu, cornes torsadées
+			T.bloc(m, Vector3.new(2.4, 2, 2), cf * CFrame.new(0, 14.6, 6.1), osC, Enum.Material.SmoothPlastic, "GrandCrane")
+			T.bloc(m, Vector3.new(2.5, 0.4, 0.5), cf * CFrame.new(0, 14.95, 5.2), osSombre, Enum.Material.SmoothPlastic, "Arcade")
+			T.bloc(m, Vector3.new(1.8, 0.6, 1.6), cf * CFrame.new(0, 13.35, 5.9), osSombre, Enum.Material.SmoothPlastic, "Machoire")
+			T.bloc(m, Vector3.new(0.3, 0.35, 0.12), cf * CFrame.new(0, 13.95, 5.07), P.croute, Enum.Material.SmoothPlastic, "Nez")
+			for i = 0, 3 do
+				T.bloc(m, Vector3.new(0.25, 0.3, 0.12), cf * CFrame.new(-0.6 + i * 0.4, 13.72, 5.1), osC, Enum.Material.SmoothPlastic, "Dent")
+			end
+			for _, sx in {-1, 1} do
+				local oeil = veine(Vector3.new(0.55, 0.45, 0.15), CFrame.new(sx * 0.55, 14.4, 5.06), "OeilCrane")
+				oeil.Color = P.braise
+				T.emetteur(oeil, {
+					Name = "FlammeOeil", Texture = GT.TEX_FEU, LightEmission = 1, LightInfluence = 0, Color = ColorSequence.new(P.laveClaire, P.braise),
+					Size = NumberSequence.new({T.kp(0, 0.5), T.kp(1, 0)}), Lifetime = NumberRange.new(0.3, 0.6), Speed = NumberRange.new(1, 2),
+					Rate = 14, EmissionDirection = Enum.NormalId.Top,
+				})
+				-- corne torsadée : blocs qui tournent sur eux-mêmes en montant et en s'écartant (deux teintes alternées)
+				for k = 0, 7 do
+					local x = sx * (1.25 + 0.6 * k - 0.03 * k * k)
+					local y = 15 + 0.55 * k + 0.04 * k * k
+					local z = 6.1 + 0.4 * math.sin(k * 1.1)
+					local t = math.max(0.35, 1.1 - 0.1 * k)
+					T.bloc(m, Vector3.new(t, t * 1.2, t), cf * CFrame.new(x, y, z) * CFrame.Angles(k * 0.5, 0, -sx * (0.5 + 0.08 * k)),
+						if k % 2 == 0 then P.croute else P.obsidienneReflet, Enum.Material.SmoothPlastic, "CorneTorsadee")
+				end
+				veine(Vector3.new(0.3, 0.6, 0.3), CFrame.new(sx * (1.25 + 0.6 * 8 - 0.03 * 64), 15 + 0.55 * 8 + 0.04 * 64, 6.1 + 0.4 * math.sin(8.8)), "PointeCorne")
+			end
+			-- auréole de pointes derrière le crâne
+			for k = -2, 2 do
+				local a = k * 0.42
+				T.bloc(m, Vector3.new(0.5, 3.5, 0.5), cf * CFrame.new(math.sin(a) * 2.6, 14.5 + math.cos(a) * 2.6, 6.9) * CFrame.Angles(0, 0, -a), P.croute, Enum.Material.Basalt, "Pointe")
+			end
+
+			-- accoudoirs : crânes aux yeux de braise, griffes ; ailes d'obsidienne derrière
+			for _, sx in {-1, 1} do
+				T.solide(m, Vector3.new(1.3, 1.3, 3.8), cf * CFrame.new(sx * 3.25, 5.45, 4.6), P.basalte, Enum.Material.Basalt, "Accoudoir")
+				T.bloc(m, Vector3.new(1.5, 0.2, 4), cf * CFrame.new(sx * 3.25, 6.2, 4.6), P.obsidienne, Enum.Material.SmoothPlastic, "Accoudoir").Reflectance = 0.2
+				crane(CFrame.new(sx * 3.25, 6.75, 2.75), 1, true, "CraneAccoudoir")
+				for _, z in {3.6, 5.4} do
+					T.bloc(m, Vector3.new(0.35, 1.4, 0.35), cf * CFrame.new(sx * 4.1, 6.5, z) * CFrame.Angles(0, 0, -sx * 0.7), P.obsidienne, Enum.Material.SmoothPlastic, "Griffe")
+				end
+				T.bloc(m, Vector3.new(0.6, 6, 1.4), cf * CFrame.new(sx * 4.6, 7.5, 6.4) * CFrame.Angles(0, 0, -sx * 0.35), P.obsidienne, Enum.Material.SmoothPlastic, "AileObsidienne").Reflectance = 0.3
+				T.bloc(m, Vector3.new(0.5, 4.5, 1.2), cf * CFrame.new(sx * 5.6, 6, 6) * CFrame.Angles(0, 0, -sx * 0.6), P.obsidienne, Enum.Material.SmoothPlastic, "AileObsidienne").Reflectance = 0.3
+				veine(Vector3.new(0.12, 4.6, 0.1), CFrame.new(sx * 4.32, 7.3, 5.68) * CFrame.Angles(0, 0, -sx * 0.35))
+			end
+
+			-- chaînes tendues des piliers du trône vers deux poteaux à pointe (maillons alternés, légère chute)
+			for _, sx in {-1, 1} do
+				T.bloc(m, Vector3.new(0.9, 3.5, 0.9), cf * CFrame.new(sx * 7.2, 2.95, -1.2), P.basalte, Enum.Material.Basalt, "PoteauChaine")
+				T.bloc(m, Vector3.new(0.5, 1.2, 0.5), cf * CFrame.new(sx * 7.2, 5.3, -1.2), P.obsidienne, Enum.Material.SmoothPlastic, "Pointe")
+				local a, b = Vector3.new(sx * 3.2, 12, 5.4), Vector3.new(sx * 7.2, 4.2, -1.2)
+				local n = 16
+				local function pt(t: number): Vector3
+					return a:Lerp(b, t) - Vector3.new(0, 1.6 * math.sin(math.pi * t), 0)
+				end
+				for i = 0, n - 1 do
+					local t = (i + 0.5) / n
+					local p, suiv = pt(t), pt(t + 0.02)
+					local maillon = T.bloc(m, Vector3.new(0.12, 0.42, 0.7), cf * CFrame.lookAt(p, suiv) * CFrame.Angles(0, 0, if i % 2 == 0 then 0 else math.pi / 2),
+						fer, Enum.Material.Metal, "Chaine")
+					maillon.CastShadow = false
+				end
+			end
+
+			-- braseros à l'avant de l'estrade
+			for _, sx in {-1, 1} do
+				local bm = T.modele("Brasero", m)
+				local b0 = CFrame.new(sx * 5.5, 1.2, -0.9)
+				T.bloc(bm, Vector3.new(1.4, 0.4, 1.4), cf * b0 * CFrame.new(0, 0.2, 0), P.basalte, Enum.Material.Basalt, "Pied")
+				T.bloc(bm, Vector3.new(0.6, 1.8, 0.6), cf * b0 * CFrame.new(0, 1.3, 0), P.obsidienne, Enum.Material.SmoothPlastic, "Tige")
+				T.bloc(bm, Vector3.new(2.2, 0.6, 2.2), cf * b0 * CFrame.new(0, 2.5, 0), P.croute, Enum.Material.Basalt, "Vasque")
+				for k = 0, 3 do
+					local a = k / 4 * 2 * math.pi + math.pi / 4
+					T.bloc(bm, Vector3.new(0.3, 0.9, 0.3), cf * b0 * CFrame.new(math.cos(a) * 1.05, 3.05, math.sin(a) * 1.05) * CFrame.Angles(0, -a, 0) * CFrame.Angles(0, 0, -0.35),
+						fer, Enum.Material.Metal, "Griffe")
+				end
+				local feu = T.bloc(bm, Vector3.new(1.6, 0.3, 1.6), cf * b0 * CFrame.new(0, 2.85, 0), P.braise, M.Neon, "FeuBrasero")
+				feu.CastShadow = false
+				T.emetteur(feu, {
+					Name = "Flammes", Texture = GT.TEX_FEU, LightEmission = 1, LightInfluence = 0, Color = ColorSequence.new(P.laveClaire, P.lave),
+					Size = NumberSequence.new({T.kp(0, 1.6), T.kp(1, 0.3)}), Lifetime = NumberRange.new(0.5, 0.9), Speed = NumberRange.new(3, 5),
+					Rate = 26, EmissionDirection = Enum.NormalId.Top,
+				})
+				T.emetteur(feu, {
+					Name = "Braises", Texture = GT.TEX_ETINCELLE, LightEmission = 1, LightInfluence = 0, Color = ColorSequence.new(P.laveClaire, P.braise),
+					Size = NumberSequence.new({T.kp(0, 0.2), T.kp(1, 0)}), Lifetime = NumberRange.new(1, 2), Speed = NumberRange.new(2, 5),
+					SpreadAngle = Vector2.new(25, 25), Rate = 8, EmissionDirection = Enum.NormalId.Top, Acceleration = Vector3.new(0, 2, 0),
+				})
+				T.lumiere(feu, P.lave, 1.4, 22)
+			end
+
+			-- colonnes de feu de part et d'autre
+			for _, sx in {-1, 1} do
 				local col = T.modele("ColonneTrone", m)
-				prisme(col, cf * CFrame.new(sx * 9, 0, 1), 16, 1.4, P.basalte, Enum.Material.Basalt, "Colonne")
-				local feuC = T.bloc(col, Vector3.new(1.6, 1, 1.6), cf * CFrame.new(sx * 9, 16.5, 1), P.laveClaire, M.Neon, "Feu")
+				prisme(col, cf * CFrame.new(sx * 9.5, 0, 2), 16, 1.4, P.basalte, Enum.Material.Basalt, "Colonne")
+				T.bloc(col, Vector3.new(0.14, 11, 0.14), cf * CFrame.new(sx * 9.5 - sx * 1.2, 6, 2), P.lave, M.Neon, "VeineLave").CastShadow = false
+				local feuC = T.bloc(col, Vector3.new(1.6, 1, 1.6), cf * CFrame.new(sx * 9.5, 16.5, 2), P.laveClaire, M.Neon, "FeuColonne")
 				T.emetteur(feuC, {
 					Name = "Flammes", Texture = GT.TEX_FEU, LightEmission = 1, LightInfluence = 0, Color = ColorSequence.new(P.laveClaire, P.lave),
 					Size = NumberSequence.new({T.kp(0, 2), T.kp(1, 0.4)}), Lifetime = NumberRange.new(0.6, 1), Speed = NumberRange.new(3, 5),
@@ -457,9 +648,23 @@ function GrotteLave.decorer(ctx, infos, outils)
 				})
 				T.lumiere(feuC, P.lave, 1.6, 30)
 			end
-			local gemme = T.bloc(m, Vector3.new(1.4, 1.4, 0.4), cf * CFrame.new(0, 13.5, 4.1) * CFrame.Angles(0, 0, math.rad(45)), P.laveClaire, M.Neon, "Gemme")
-			T.tag(gemme, "GrottePulse")
-			T.interdire(q.Position, 11)
+
+			-- crânes épars sur l'estrade
+			for i, c in {CFrame.new(-6.2, 1.5, 2.5), CFrame.new(-5.4, 1.5, 5.8), CFrame.new(6, 1.5, 4.2), CFrame.new(5.2, 1.5, 6.3),
+				CFrame.new(-2.8, 2.5, 1.5), CFrame.new(6.6, 1.5, 0.8), CFrame.new(-6.6, 1.5, 0.6)} do
+				crane(c * CFrame.Angles(rng:NextNumber(-0.3, 0.3), rng:NextNumber(-0.8, 0.8), rng:NextNumber(-0.3, 0.3)), 0.7, i == 5, "Crane")
+			end
+
+			-- lumière rouge qui monte de l'estrade vers le trône
+			local spot = T.volume(m, Vector3.one, CFrame.lookAt((cf * CFrame.new(0, 1, -3)).Position, (cf * CFrame.new(0, 9, 5)).Position), "LumiereTrone")
+			T.lumiere(spot, Color3.fromRGB(255, 40, 20), 1.6, 28, "SpotLight")
+
+			m:SetAttribute("TroneCF", cf)
+			m:SetAttribute("Bassin", Vector3.new(pb.X, q.Position.Y, pb.Z))
+			m:SetAttribute("CentreSalle", Vector3.new(s.p.X, y0, s.p.Z))
+			m:SetAttribute("RayonSalle", T.rb)
+			T.interdire(q.Position, 13)
+			T.interdire(pb, 8)
 		end
 		T.zone(Vector3.new(s.p.X, y0, s.p.Z), T.rb + 8, P.lave, "Trone")
 	end

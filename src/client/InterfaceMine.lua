@@ -1290,7 +1290,11 @@ function UI.bourse(parent: Instance): (number, boolean?) -> ()
 	local piece = creer("Frame", {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.fromScale(0.04, 0.5), Size = UDim2.fromScale(0.78, 0.78),
 		SizeConstraint = Enum.SizeConstraint.RelativeYY, BackgroundColor3 = T.Or, ZIndex = 5, Parent = b}, {coin(0.5), trait(T.OrFonce, 2),
 		UI.degrade(Color3.fromRGB(255, 250, 210), Color3.fromRGB(200, 130, 30), 45)})
-	texte({Text = "◉", TextColor3 = T.OrFonce, Size = UDim2.fromScale(1, 1), ZIndex = 6, Parent = piece}, 30)
+	-- frappe de la pièce dessinée (anneau + barre) : le glyphe « ◉ » s'affichait en carré vide chez certains joueurs
+	creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.62, 0.62),
+		BackgroundTransparency = 1, ZIndex = 6, Parent = piece}, {coin(0.5), trait(T.OrFonce, 1.5, 0.15)})
+	creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.13, 0.36),
+		BackgroundColor3 = T.OrFonce, BorderSizePixel = 0, ZIndex = 6, Parent = piece}, {coin(0.5)})
 	local montant = texte({Font = Enum.Font.GothamBlack, TextColor3 = T.Or, TextXAlignment = Enum.TextXAlignment.Right,
 		Position = UDim2.fromScale(0.3, 0.16), Size = UDim2.fromScale(0.62, 0.68), ZIndex = 5, Parent = b}, 30)
 	local maj = UI.compteur(montant, UI.milliers)

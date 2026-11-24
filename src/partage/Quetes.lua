@@ -199,7 +199,7 @@ function Q.texteObjectif(o: Objectif): string
 	elseif o.type == "pecher" then
 		return string.format("Inscris %d prises au carnet de pêche", o.n)
 	elseif o.type == "sortie" then
-		return "Reviens vivant de la grotte à −" .. tostring(o.cible) .. " m"
+		return "Reviens vivant de la grotte à -" .. tostring(o.cible) .. " m"
 	end
 	return "?"
 end

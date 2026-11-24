@@ -15,6 +15,11 @@
 --	h.boss = mob du boss (table interne) ; def.vue / def.abandon / def.rayon / def.preparation : détection, poursuite,
 --	rayon de contact et délai avant l'impact propres au mob (défauts : VUE, ABANDON, taille du modèle, PREPARATION)
 --	m.invulnerable = true : les coups d'épée l'ignorent (intro / changement de phase du boss du village)
+--	m.gele = true : l'IA et le recul sont suspendus, le mob suit m.pos / m.yaw (cinématique : Roi déchu, TroneLave)
+--	MobsGrotte.creer(h, def, point, boss?) : un mob précis (boss d'événement, ex. le Roi déchu du trône de magma)
+--	def.tenace : ne lâche jamais sa cible (ni distance ni perte de vue) ; def.vitesseCible (ex. 0.9) : poursuite à
+--	cette fraction de la vitesse de la cible (marche ou course mesurée), Etat « Run » quand elle court ;
+--	def.toucher(joueur, humanoid, degats) : remplace hum:TakeDamage à l'impact (dégâts de feu + brûlure…)
 --	MobsGrotte.retirerJoueur(h, joueur) / MobsGrotte.ajouterJoueur(h, joueur)
 --	MobsGrotte.nettoyer(h)
 
@@ -256,7 +261,26 @@ local function frapper(h, m, maintenant: number)
 	if d > 1.5 and devant:Dot(vers.Unit) < 0.35 then return end -- esquivé sur le côté
 	local defense = joueur:GetAttribute("StatDefense")
 	if type(defense) ~= "number" then defense = 0 end
-	hum:TakeDamage(m.def.degats * Grottes.reductionDefense(defense))
+	local degats = m.def.degats * Grottes.reductionDefense(defense)
+	if m.def.toucher then
+		m.def.toucher(joueur, hum, degats)
+	else
+		hum:TakeDamage(degats)
+	end
+end
+
+-- Poursuite calée sur la cible (def.vitesseCible) : vitesse horizontale mesurée du joueur, lissée ; au-dessus de
+-- 1,2 × sa marche il « court » (course du Hud = marche × MULT_COURSE). Renvoie (vitesse du mob, court ?)
+local MULT_COURSE = 1.85 -- Hud.client.lua
+local function vitessePoursuite(m, hrp: BasePart, dt: number): (number, boolean)
+	local perso = hrp.Parent
+	local hum = perso and perso:FindFirstChildOfClass("Humanoid")
+	local marche = if hum and hum.WalkSpeed > 0 then hum.WalkSpeed else 16
+	local v = aplatir(hrp.AssemblyLinearVelocity).Magnitude
+	local avant = m.vCible or marche
+	m.vCible = avant + (v - avant) * math.min(1, dt * 4)
+	local court = m.vCible > marche * 1.2
+	return (if court then marche * MULT_COURSE else marche) * m.def.vitesseCible, court
 end
 
 local function chercherCible(h, m)
@@ -292,12 +316,12 @@ local function majMob(h, m, dt: number, maintenant: number)
 			m.cible = nil
 		else
 			hrp = racineJoueur(m.cible)
-			if not hrp or (hrp.Position - m.pos).Magnitude > (m.def.abandon or ABANDON)
+			if not hrp or (not m.def.tenace and (hrp.Position - m.pos).Magnitude > (m.def.abandon or ABANDON))
 				or (m.garde and aplatir(hrp.Position - m.garde).Magnitude > GARDE_LAISSE) then
 				m.cible, hrp = nil, nil
 			elseif voit(h, m, hrp.Position) then
 				m.vuA = maintenant
-			elseif maintenant - m.vuA > PERTE_VUE then
+			elseif not m.def.tenace and maintenant - m.vuA > PERTE_VUE then
 				m.cible, hrp = nil, nil
 			end
 		end
@@ -340,13 +364,17 @@ local function majMob(h, m, dt: number, maintenant: number)
 			end
 			etat(m, "Idle")
 		else
-			local avance = math.min(m.def.vitesse * dt, math.max(0, d - m.def.portee * 0.7))
+			local vitesse, court = m.def.vitesse, false
+			if m.def.vitesseCible then vitesse, court = vitessePoursuite(m, hrp, dt) end
+			local avance = math.min(vitesse * dt, math.max(0, d - m.def.portee * 0.7))
 			if m.garde and aplatir(m.pos + dir * avance - m.garde).Magnitude > GARDE_LAISSE then
 				-- au bout de la laisse : le garde abandonne et rentre (jamais figé à attendre)
 				m.cible = nil
 				m.errance, m.finErrance = m.origine, maintenant + 20
 				etat(m, "Idle")
-			elseif deplacer(h, m, dir, avance) then marcher(m, 1) else etat(m, "Idle") end
+			elseif deplacer(h, m, dir, avance) then
+				if court then etat(m, "Run") else marcher(m, 1) end
+			else etat(m, "Idle") end
 		end
 	else
 		-- repos : petite errance autour du point d'apparition
@@ -449,6 +477,8 @@ local function majGrotte(h, dt: number, maintenant: number)
 				m.modele:Destroy()
 				table.remove(mobs, i)
 			end
+		elseif m.gele then -- figé (cinématique) : suit m.pos / m.yaw posés par son script
+			m.recul = nil
 		else
 			local r = m.recul
 			if r then -- knockback : glisse dans le sens du coup, s'arrête au mur (deplacer fait le raycast)
@@ -683,6 +713,12 @@ function MobsGrotte.peupler(grotte, niveau, joueurs)
 
 	grottes[h] = true
 	return h
+end
+
+-- Un mob précis en `point` (boss d'événement : le Roi déchu du trône de magma, TroneLave)
+function MobsGrotte.creer(h, def, point: Vector3, boss: boolean?)
+	if not (h and h.actif) then return nil end
+	return creerMob(h, def, point, boss)
 end
 
 -- Fait grandir un mob (transformation de phase d'un boss) : `facteur` × sa taille actuelle, en `duree` s.

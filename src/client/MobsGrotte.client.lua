@@ -26,6 +26,7 @@ local NOMS = {
 	TitanCristal = "Titan de cristal",
 	ReineAraignee = "Reine araignée",
 	SeigneurBraise = "Seigneur de braise",
+	RoiDechu = "Le Roi déchu",
 }
 
 local rng = Random.new()
@@ -238,14 +239,14 @@ local function flash(e)
 end
 
 local function jouer(e, nom: string, boucle: boolean, fondu: number)
-	if not e.anim.Clips[nom] then nom = "Idle" end
+	if not e.anim.Clips[nom] then nom = if nom == "Run" and e.anim.Clips.Walk then "Walk" else "Idle" end -- « Run » : Roi déchu
 	e.anim:Jouer(nom, boucle, fondu)
 	e.unique = not boucle
-	e.anim.Vitesse = if nom == "Walk" then math.clamp(e.modele:GetAttribute("Allure") or 1, 0.4, 1.2) else 1
+	e.anim.Vitesse = if nom == "Walk" or nom == "Run" then math.clamp(e.modele:GetAttribute("Allure") or 1, 0.4, 1.2) else 1
 end
 
 local function boucleDe(etat: string?): string
-	return if etat == "Walk" then "Walk" else "Idle"
+	return if etat == "Walk" then "Walk" elseif etat == "Run" then "Run" else "Idle"
 end
 
 local function fondre(e)
@@ -271,11 +272,14 @@ local function surEtat(e)
 		fondre(e)
 	elseif etat == "Roar" then
 		jouer(e, "Roar", false, 0.15)
-	elseif etat == "Walk" or etat == "Idle" then
+	elseif etat == "Walk" or etat == "Idle" or etat == "Run" then
 		-- laisse finir une attaque / blessure en cours, sinon passe à la boucle
 		if not (e.unique and not e.anim:Fini()) then
 			jouer(e, boucleDe(etat), true, 0.2)
 		end
+	elseif etat ~= "Attack" and etat ~= "Hurt" and e.anim.Clips[etat] then
+		-- clip propre au mob (attaques spéciales du Roi déchu : Frappe, Elan, Charge en boucle, Incantation)
+		jouer(e, etat, etat == "Charge", 0.12)
 	end
 	-- "Attack" : joué via l'attribut Coup ; "Hurt" : joué à la baisse de PV
 end
@@ -318,7 +322,7 @@ local function suivre(modele: Instance)
 			if e.etat ~= "Death" then jouer(e, "Attack", false, 0.08) end
 		end))
 		table.insert(e.connexions, modele:GetAttributeChangedSignal("Allure"):Connect(function()
-			if e.anim:EnCours() == "Walk" then
+			if e.anim:EnCours() == "Walk" or e.anim:EnCours() == "Run" then
 				e.anim.Vitesse = math.clamp(modele:GetAttribute("Allure") or 1, 0.4, 1.2)
 			end
 		end))

@@ -343,7 +343,8 @@ La progression est enregistrée dans la sauvegarde existante.
 |---|---|
 | `src/partage/Quetes.lua` | Catalogue : histoire, rangs, générateur des contrats. Modifier ici pour équilibrer (récompenses, quantités). |
 | `src/server/Quetes.server.lua` | Progression, livraisons, récompenses et rangs, validés par le serveur (distance de Margot, anti-spam). |
-| `src/client/Quetes.client.lua` | Tableau de la Guilde, suivi à l'écran, bannières, marqueur au-dessus de Margot. |
+| `src/client/Quetes.client.lua` | Tableau de la Guilde (cartes par type de quête, parchemin, tampon d'état, sceau de cire), suivi à l'écran (progression animée), bandeaux d'annonce (nouvelle quête, objectif, quête terminée, rang), marqueur au-dessus de Margot. |
+| `src/client/LogosGuilde.lua` | Logos dessinés en Frames (pioche, enclume, wagon, poisson, sceau de cire…) : aucun emoji ni glyphe spécial. |
 
 Forge, boutique et wagonnet préviennent la Guilde par `ServerStorage.QueteEvenement` ; le minage par `MineraiCasse`.
 Test en Studio (partie non sauvegardée) : `game.ServerStorage.QuetesAPI:Invoke("finir", game.Players.TonNom)`
@@ -396,7 +397,7 @@ une couche de **roche-mère inminable** de 4 studs : pavés presque noirs (`Roch
 reconnaissables au premier coup d'œil puisqu'aucune couche de minage n'a cet aspect ; la pioche n'y retire rien.
 
 **Couches de minage** (`src/partage/CouchesMine.lua`, source unique) : 8 couches selon la profondeur, chacune avec sa
-couleur et sa matière de roche (limites légèrement ondulées), ses minerais et sa pioche requise.
+couleur et sa matière de roche (limites légèrement ondulées), ses minerais et son palier de pioche requis.
 
 | # | Couche | Profondeur | Minerais (du plus fréquent au plus rare) |
 |---|---|---|---|
@@ -409,10 +410,29 @@ couleur et sa matière de roche (limites légèrement ondulées), ses minerais e
 | 7 | Magma | 255–300 m | Magmaïte, Lunarite, Diamant |
 | 8 | Néant | 300–338 m | Diamant, Orichalque, Néantite |
 
-**Pioche requise** : la `puissance` de chaque couche est la puissance de pioche minimale (`Partage › Pioches`) pour
-creuser sa roche. Le serveur refuse les blocs trop durs (`MinePrivee.creuser`) et prévient le joueur (RemoteEvent
-`AvisMine` → « Pioche trop faible… il faut la … »). **Pour l'instant toutes les couches sont à 1 (toutes les pioches) :
-la pioche de chaque couche reste à choisir.**
+**Paliers de pioche (crescendo)** : chaque couche a un `palier` (1 à 8) et chaque pioche aussi
+(`CouchesMine.PALIERS_PIOCHES`, réglages centralisés). Un minerai a le palier de la 1re couche où il apparaît
+(`PALIERS_MINERAIS`, calculé ; minerais de la mine publique et des grottes : palier 1, donc inchangés).
+Écart = palier requis − palier de la pioche, vérifié **côté serveur** (`MinePrivee.creuser` pour la roche,
+`PiocheBraise` pour les nœuds via leur attribut `Palier`) :
+- **≤ 0** : normal ;
+- **1** : presque impossible — roche : la zone ne cède qu'au bout de `COUPS_DUR` (10) coups ; minerai : dégâts × `FACTEUR_DUR` (0,1) ;
+- **≥ 2** : impossible — le coup ne fait rien (« clang » + étincelle rouge) et le joueur lit
+  « Il te faut une meilleure pioche (X) pour cette couche / ce minerai » (RemoteEvent `AvisMine`, 1 avis / 1,5 s au plus).
+
+| Pioche | Palier | Couches normales | Couche suivante (très lente) |
+|---|---|---|---|
+| Bûcheron (Bois, départ) | 1 | 1 Terre battue | 2 Grès |
+| Silex (Pierre) | 2 | 1–2 | 3 Roche grise |
+| Cuivre | 3 | 1–3 | 4 Basalte |
+| Fer, Quartz | 4 | 1–4 | 5 Glacier |
+| Givre | 5 | 1–5 | 6 Cristaux |
+| Volcan | 6 | 1–6 | 7 Magma |
+| Céleste | 7 | 1–7 | 8 Néant |
+| Démon, Néant, Légende | 8 | toutes | — |
+
+Au viseur (`ViseurPioche.client`) : rond blanc = normal, **orange « TRÈS DUR »** + jauge de progression (envoyée par
+le serveur), **rouge « TROP DUR » + cadenas** = hors de portée (affichage seulement, d'après l'attribut `Palier` des blocs).
 
 **À l'écran** (`src/client/CoucheMine.client.lua`) : dès qu'on est dans sa mine, un bandeau en haut affiche
 « COUCHE 4 · BASALTE · −142 m », la barre de profondeur découpée en couches avec un repère, et les minerais de la couche
@@ -631,7 +651,7 @@ pose ses zones d'ambiance (musique de `SonsGrotte` par alias) et le dossier `Gui
 |---|---|---|
 | −100 m | `GrotteMine.lua` « La Mine oubliée de Brumefer » | Portail du puits n°3, galeries boisées (cadres de mine, lanternes), rails et wagonnets d'améthyste, **Grand Puits** (cheminée vers le haut, cage d'ascenseur, roue qui tourne, lumière du jour), **Cathédrale d'améthyste** (cristal-roi), éboulement, échafaudages, lanternes fantômes qui flottent, **Treuil géant** (engrenages qui tournent) et filon d'améthyste |
 | −200 m | `GrotteFonderie.lua` « La Fonderie de l'Abîme » | Porte de la fonderie royale, **l'Abîme** (gouffre de fer en fusion, ponts à chaînes, pilier-enclume, chaînes géantes), **la Fonderie** (creuset suspendu qui déverse sa coulée, rigoles, lingotières, haut-fourneau), **salle des Rouages** (engrenages géants qui tournent), conduites de cuivre et braseros dans les galeries, **Grande Forge des Rois** (statue du nain forgeron) |
-| −350 m | `GrotteLave.lua` « Les Rivières de lave » | Avant-poste de basalte, **lac de lave** qui brûle (ponts de basalte, îlot à l'obélisque d'obsidienne), chutes de lave, **forêt de basalte** (orgues hexagonales), **geysers de feu** à intervalles, pics d'obsidienne, cendres, **Trône de magma**. Toute la roche passe en basalte sombre (la lave craquelée seulement en berges) |
+| −350 m | `GrotteLave.lua` « Les Rivières de lave » | Avant-poste de basalte, **lac de lave** qui brûle (ponts de basalte, îlot à l'obélisque d'obsidienne), chutes de lave, **forêt de basalte** (orgues hexagonales), **geysers de feu** à intervalles, pics d'obsidienne, cendres, **Trône de magma** du **Roi déchu** (voir plus bas). Toute la roche passe en basalte sombre (la lave craquelée seulement en berges) |
 | −500 m | `GrotteCoeur.lua` « Le Cœur maudit » | Dernier camp d'une expédition, **le Vide suspendu** (gouffre sans fond, dalles runiques, rochers qui flottent), failles du vide qui aspirent la lumière, cristaux corrompus, runes maudites, esprits errants, ossements, **Arène du Cœur** (cœur de cristal géant enchaîné à la voûte au-dessus du combat du boss, piliers d'obsidienne aux flammes violettes, cercle de runes) |
 
 - **Dangers** (`src/server/DangersGrotte.server.lua`) : on tombe dans un gouffre → ramené au bord (−15 PV) ;
@@ -656,6 +676,25 @@ pose ses zones d'ambiance (musique de `SonsGrotte` par alias) et le dossier `Gui
     Seigneur de braise), aucun bonus de vitesse. Modèle en Parts (visible par tous) + FBX/OBJ dans `assets/casques/`.
   - −350 m : **la lave monte** toutes les 2 à 3 min (alerte 6 s, crue sur les berges pendant 16 s : on se réfugie
     sur les prismes de basalte « Refuge ») ; **geyser bleu** propulseur (sans dégâts) vers la **corniche secrète** (2 Or).
+    **Le trône du Roi déchu** (`GrotteLave` section 7, `src/server/TroneLave.lua`, `src/client/TroneRoi.client.lua`) :
+    au fond de la salle du boss, un trône de l'enfer en blocs (estrade de basalte à marches veinées de lave, trône
+    d'obsidienne, grand crâne aux cornes torsadées, cercle de runes et gemme de feu, pointes, accoudoirs à crânes,
+    ailes d'obsidienne, chaînes, braseros, colonnes de feu, bassin de lave devant). On s'y assoit (Seat « SiegeRoi »
+    ou invite « S'asseoir ») : **cinématique** de 9 s (le trône tremble, le bassin bouillonne, un anneau de flammes
+    monte, le **Roi déchu** surgit de la lave, rugit, titre « LE ROI DÉCHU »), puis combat contre le joueur assis
+    + au plus un allié présent dans la salle. Roi déchu (`src/partage/MobsVoxels/RoiDechu.lua`, écrit avec MobsKit :
+    couronne noircie à pointe brisée en flammes, cape en lambeaux, armure noire et rouge, yeux brûlants, épée de feu,
+    aura de braises ; clips Idle, Walk, Run, Attack, Hurt, Roar, Death) : PV 5000 seul, 8500 à deux ; coups de 60
+    (avant défense, puis résistance au feu) + **brûlure** 3 s (`Brulure.lua`). Il ne lâche jamais sa cible et la
+    suit à **90 % de sa vitesse** (marche 16 → 14,4 ; course 29,6 → 26,6, mesurée côté serveur) : on peut le fuir,
+    jamais le semer. Victoire : 250 pièces + 3 Or par joueur (pop-up « Trésor du Roi déchu »), une fois par
+    expédition. Défaite (plus personne de vivant dans la grotte, ou 20 s sans cible) : il replonge dans la lave et
+    le trône se repose 45 s. Un seul combat à la fois. Réglages en tête de `TroneLave.lua`.
+    **Attaques spéciales** (une toutes les 7 s, en rotation avec le coup d'épée, annoncées par une animation et une
+    zone rouge au sol, validées côté serveur, brûlantes) : **onde de feu** (il plante l'épée, un anneau de feu de
+    16 studs part de lui : sauter au passage ou rester hors du disque rouge, 45) ; **charge** (couloir rouge, puis il
+    fonce 18 studs épée en avant, 70) ; **pluie de météores** (6 cercles rouges, dont un sous chaque combattant,
+    impacts l'un après l'autre, 40). La cinématique reste sobre (lumières et flammes atténuées, aucun flash plein écran).
   - −500 m : le boss est relié au **Cœur maudit** : à 75, 50 et 25 % de ses PV une des 6 chaînes cède, et dès la
     2e phase les **runes brûlantes** de l'arène (geysers violets) s'éveillent ; à sa mort, cinématique : le Cœur
     se brise en éclats.
@@ -691,6 +730,7 @@ pose ses zones d'ambiance (musique de `SonsGrotte` par alias) et le dossier `Gui
 | `src/client/GrotteReactive.client.lua` | Veines qui s'allument au passage, spores des champignons, onde des coups de pioche (palier 1). |
 | `src/client/BoussoleFeux.client.lua` | Boussole des feux follets (touche F) vers la cachette de fragment la plus proche (palier 1). |
 | `src/server/MobsGrotte.lua` + `src/client/MobsGrotte.client.lua` | IA des mobs, coups d'épée, renforts, boss ; animations et barres de vie. |
+| `src/server/TroneLave.lua` + `src/client/TroneRoi.client.lua` + `src/partage/MobsVoxels/RoiDechu.lua` | Trône de magma (−350 m) : réveil du Roi déchu, cinématique, combat, récompense. |
 | `src/client/InterfaceGrottes.client.lua` | Choix de profondeur (barre, minerais du palier en silhouettes / couleurs), groupe, invitations. |
 
 ## Boss du village (événement de groupe)

@@ -118,7 +118,8 @@ end
 -- ================= Brûlure dans la lave =================
 local braises: ParticleEmitter? = nil
 local function majBrule()
-	local b = joueur:GetAttribute("Brule") == true
+	-- « Brule » : dans la lave ; « EnFeu » : brûlure qui continue après un coup de feu (Brulure.lua)
+	local b = joueur:GetAttribute("Brule") == true or joueur:GetAttribute("EnFeu") == true
 	local perso = joueur.Character
 	local r = perso and perso:FindFirstChild("HumanoidRootPart")
 	if b and r and not (braises and braises.Parent == r) then
@@ -141,3 +142,4 @@ local function majBrule()
 	end
 end
 joueur:GetAttributeChangedSignal("Brule"):Connect(majBrule)
+joueur:GetAttributeChangedSignal("EnFeu"):Connect(majBrule)
