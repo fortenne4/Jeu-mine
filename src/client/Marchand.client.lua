@@ -32,7 +32,7 @@ local creer, coin, trait, texte, jouer, pop, milliers = UI.creer, UI.coin, UI.tr
 local FAST, BOUNCY = UI.FAST, UI.BOUNCY
 local DISTANCE_FERMETURE = 16
 local NOIR, BLANC = Color3.new(0, 0, 0), Color3.new(1, 1, 1)
-local ORDRE = Forge.ORDRE_MINERAIS
+local ORDRE = Forge.ORDRE_SAC -- les 4 de départ + les nouveaux minerais de la mine privée
 local COULEUR_VENDRE = Color3.fromRGB(70, 170, 80)
 local COULEUR_TOUT = Color3.fromRGB(214, 150, 40)
 
@@ -304,6 +304,7 @@ local function rafraichirListe()
 		local choisie = id == selection
 		local _, couleurR, niveau = rareteMinerai(id)
 		c.bouton.LayoutOrder = if dispo then i else i + 100 -- les minerais épuisés descendent en bas
+		c.bouton.Visible = dispo or i <= #Forge.ORDRE_MINERAIS -- nouveaux minerais : seulement quand on en a
 		c.bouton.Active = dispo
 		c.bouton.BackgroundColor3 = if choisie then T.CarteClaire elseif dispo then T.Carte else Color3.fromRGB(30, 24, 21)
 		-- Carte choisie : liseré et reflet dorés (le reflet de rareté teintait l'or en brun : sélection illisible)

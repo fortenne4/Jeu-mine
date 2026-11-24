@@ -1,6 +1,7 @@
 -- Mine privée : une galerie par joueur, construite en Parts (pas en terrain) pour être creusée.
--- Galerie étayée (~28 studs), torches, rail, petit wagonnet ; au bout, un très grand massif de roche en blocs
--- de 2 studs (20 de large, 200 de long, 172 de haut) dont la face descend en pente (~35°) : on creuse en descendant.
+-- Galerie étayée (~28 studs), torches, rail, petit wagonnet, creusée DANS un très grand massif de roche en blocs
+-- de 2 studs (80 de large, 836 de long, 696 de haut) ; au bout, une descente en pente (~35°) : on creuse en descendant.
+-- 8 couches de minage selon la profondeur (Partage › CouchesMine) : couleur de roche, minerais, pioche requise.
 -- Grille virtuelle côté serveur : le massif est plein par défaut, on ne stocke que les cases CREUSÉES ;
 -- seules les cases pleines EXPOSÉES (voisines de l'air) existent en Parts (tag « BlocMine », attributs
 -- Colonne / Ligne / Couche) ; creuser fait apparaître les voisines.
@@ -10,7 +11,10 @@
 local CollectionService = game:GetService("CollectionService")
 local TweenService = game:GetService("TweenService")
 local Debris = game:GetService("Debris")
-local MineraisModeles = require(game:GetService("ReplicatedStorage"):WaitForChild("Partage"):WaitForChild("MineraisModeles"))
+local Partage = game:GetService("ReplicatedStorage"):WaitForChild("Partage")
+local MineraisModeles = require(Partage:WaitForChild("MineraisModeles"))
+local CouchesMine = require(Partage:WaitForChild("CouchesMine"))
+local Pioches = require(Partage:WaitForChild("Pioches"))
 local D = require(script.Parent.Disposition)
 local O = require(script.Parent.Outils)
 local B = require(script.Parent.Batiments)
@@ -24,33 +28,41 @@ MinePrivee.ZONE_COUP = Vector3.new(4.5, 5.5, 3) -- zone d'un coup : largeur × h
 
 local T = MinePrivee.TAILLE_BLOC
 local LARGEUR = 16                        -- intérieur de la galerie (X)
-local LARGEUR_MASSIF = 20                 -- intérieur du massif (X)
+local LARGEUR_MASSIF = 80                 -- intérieur du massif (X)
 local HAUTEUR = 12                        -- hauteur de la galerie
 local Z_ARRIERE = 8                       -- paroi derrière le point d'apparition
-local Z_MUR = -20                         -- début du massif
-local LONGUEUR_MASSIF = 200
-local Z_FOND = Z_MUR - LONGUEUR_MASSIF    -- -220, paroi indestructible au bout du massif
-local Y_BAS = -160                        -- fond indestructible du massif
+local Z_MUR = -20                         -- bout de la galerie : la descente commence ici
+local LONGUEUR_MASSIF = 800
+local Z_FOND = Z_MUR - LONGUEUR_MASSIF    -- -820, roche-mère au bout du massif
+local Y_BAS = -676                        -- roche-mère au fond du massif (338 m sous la galerie)
+-- Marge de roche minable entre la galerie / la descente et la roche-mère (3 blocs) : la galerie est creusée DANS
+-- le massif, qui l'entoure sur les côtés, au-dessus et derrière
+local MARGE = 3 * T
+local Y_HAUT = HAUTEUR + 2 + MARGE        -- 20 : haut du massif (plafond de la galerie 12..14 + 3 blocs)
+local Z_AVANT = Z_ARRIERE + 2 + MARGE     -- 16 : avant du massif (fond arrière de la galerie 8..10 + 3 blocs)
 local PENTE = math.tan(math.rad(35))      -- pente de la face de départ
 local LONGUEUR_PENTE = 16                 -- partie déjà ouverte de la descente
+local LARGEUR_PENTE = LARGEUR + 8         -- 24 : largeur de la descente ouverte (la roche l'entoure)
 local Z_RETOUR = 1.5                      -- cercle de sortie (anneau r 5.5)
 local Z_APPARITION = -7
 
--- Grille : Colonne i (X, 1 = gauche vu du joueur), Ligne j (Y, 1 = bas), Couche k (profondeur, 1 = face)
-local NX = LARGEUR_MASSIF // T            -- 10
-local NY = (HAUTEUR - Y_BAS) // T         -- 86
-local NZ = LONGUEUR_MASSIF // T           -- 100
+-- Grille : Colonne i (X, 1 = gauche vu du joueur), Ligne j (Y, 1 = bas), Couche k (profondeur, 1 = avant du massif,
+-- derrière la galerie). Les cases de la galerie (intérieur, murs, sol, plafond) ne font pas partie du massif.
+local NX = LARGEUR_MASSIF // T            -- 40
+local NY = (Y_HAUT - Y_BAS) // T          -- 348
+local NZ = (Z_AVANT - Z_FOND) // T        -- 418
 MinePrivee.COLONNES, MinePrivee.LIGNES, MinePrivee.COUCHES = NX, NY, NZ
 
--- Nœuds de minerai enfouis, par profondeur sous le sol de la galerie (studs). Le massif est découpé en paquets
--- de 3 × 3 × 3 cases : chaque paquet abrite au plus UN nœud, avec la probabilité « chance » (tirage déterministe
--- nouveau à chaque visite). id = clé de MineraisModeles.VISUEL et de Forge.MINERAIS ; pv = comme la mine publique
--- (Minerais.server). Les modèles Bronze / Fer / Gold existent : il suffit de décommenter (plus rare en premier).
-MinePrivee.MINERAIS = {
-	{id = "Charbon", profMin = -10, profMax = 60, chance = 0.22, pv = 2},
-	-- {id = "Bronze", profMin = 40, profMax = 110, chance = 0.12, pv = 3},
-}
+-- Repères pour les autres scripts (RemonterMine.server) : repère local de mine.base
+MinePrivee.LIMITES = {demiLargeur = LARGEUR_MASSIF / 2 + 4, zMin = Z_FOND - 10, zMax = Z_AVANT + 6, yMin = Y_BAS - 15}
+
+-- Nœuds de minerai enfouis et roche : selon la COUCHE de minage (Partage › CouchesMine, profondeur en m =
+-- blocs sous le sol de la galerie). Le massif est découpé en paquets de 3 × 3 × 3 cases : chaque paquet abrite
+-- au plus UN nœud, tiré dans les minerais de sa couche (tirage déterministe nouveau à chaque visite).
+-- id = clé de MineraisModeles.VISUEL et de Forge.MINERAIS ; pv = CouchesMine.PV.
+-- Creuser la roche d'une couche demande une pioche de puissance ≥ couche.puissance (Partage › Pioches).
 local PAQUET = 3
+local PI_, PJ_ = NX // PAQUET + 2, NY // PAQUET + 2 -- dimensions de la grille des paquets (clé unique)
 local ECHELLE_NOEUD = 0.8 -- le rocher (≈ 3 studs) tient dans sa case de 2 et mord un peu dans la roche autour
 
 local PIERRE = Color3.fromRGB(116, 113, 110)
@@ -65,31 +77,44 @@ local dossier
 local function emplacement(i)
 	local col = (i - 1) % D.MINES_PRIVEES_COLONNES
 	local rang = (i - 1) // D.MINES_PRIVEES_COLONNES
-	return D.MINES_PRIVEES_ORIGINE + Vector3.new(col * D.MINES_PRIVEES_ECART, 0, -rang * D.MINES_PRIVEES_ECART)
+	return D.MINES_PRIVEES_ORIGINE + Vector3.new(col * D.MINES_PRIVEES_ECART, 0, -rang * D.MINES_PRIVEES_ECART_Z)
 end
 
--- Coque fermée et indestructible : galerie + boîte autour du massif (on ne peut pas tomber dans le vide)
+-- Roche-mère : couche INMINABLE sur les 6 faces de la zone de minage, derrière au moins 3 blocs de roche minable
+-- autour de la galerie et de la descente (MARGE). Pavés presque noirs reconnaissables au premier coup d'œil
+-- (aucune couche de minage n'utilise ce matériau ni cette teinte). Ces Parts sont hors de la grille : la pioche
+-- n'y retire rien (MinePrivee.creuser ne touche que les cases du massif).
+local ROCHE_MERE = Color3.fromRGB(30, 30, 36)
+local EPAISSEUR_MERE = 4
+
+local function rocheMere(m, taille, cf, nom)
+	local p = O.bloc(m, taille, cf, ROCHE_MERE, M.Pierre, nom)
+	p:SetAttribute("Inminable", true)
+	return p
+end
+
+-- Coque fermée et indestructible : galerie + boîte de roche-mère autour du massif (on ne peut pas tomber dans le vide)
 local function coque(m, base)
-	local longueur = Z_ARRIERE - Z_FOND + 4
-	local zc = (Z_ARRIERE + Z_FOND) / 2
-	O.bloc(m, Vector3.new(LARGEUR_MASSIF + 4, 2, longueur), base * CFrame.new(0, HAUTEUR + 1, zc), PAROI, M.Roche, "Plafond")
-	-- Galerie : murs, fond arrière, sol plein qui descend jusqu'au fond (ferme le massif côté galerie)
+	local E = EPAISSEUR_MERE
+	-- Galerie (creusée dans le massif) : plafond, murs, fond arrière et sol de 2 studs ; ces cases-là sont hors massif
 	local longueurGalerie = Z_ARRIERE + 2 - Z_MUR
 	local zg = Z_MUR + longueurGalerie / 2
+	O.bloc(m, Vector3.new(LARGEUR + 4, 2, longueurGalerie), base * CFrame.new(0, HAUTEUR + 1, zg), PAROI, M.Roche, "Plafond")
 	for _, s in {-1, 1} do
 		O.bloc(m, Vector3.new(2, HAUTEUR, longueurGalerie), base * CFrame.new(s * (LARGEUR / 2 + 1), HAUTEUR / 2, zg), PAROI, M.Roche, "Mur")
 	end
-	O.bloc(m, Vector3.new(LARGEUR_MASSIF + 4, -Y_BAS + 2, longueurGalerie), base * CFrame.new(0, (Y_BAS - 2) / 2, zg),
-		Color3.fromRGB(78, 72, 66), M.Ardoise, "Sol")
+	O.bloc(m, Vector3.new(LARGEUR + 4, 2, longueurGalerie), base * CFrame.new(0, -1, zg), Color3.fromRGB(78, 72, 66), M.Ardoise, "Sol")
 	O.bloc(m, Vector3.new(LARGEUR, HAUTEUR, 2), base * CFrame.new(0, HAUTEUR / 2, Z_ARRIERE + 1), PAROI, M.Roche, "FondArriere")
-	-- Massif : murs, fond et bout
-	local hautMur = HAUTEUR - Y_BAS + 4
-	local zm = Z_MUR - LONGUEUR_MASSIF / 2 - 1
+	-- Massif (de Z_AVANT à Z_FOND, de Y_BAS à Y_HAUT) : boîte de roche-mère sur les 6 faces
+	local L, H = Z_AVANT - Z_FOND, Y_HAUT - Y_BAS
+	local zm, yc = (Z_AVANT + Z_FOND) / 2, (Y_HAUT + Y_BAS) / 2
 	for _, s in {-1, 1} do
-		O.bloc(m, Vector3.new(2, hautMur, LONGUEUR_MASSIF + 2), base * CFrame.new(s * (LARGEUR_MASSIF / 2 + 1), (HAUTEUR + Y_BAS) / 2, zm), PAROI, M.Roche, "MurMassif")
+		rocheMere(m, Vector3.new(E, H + 2 * E, L + 2 * E), base * CFrame.new(s * (LARGEUR_MASSIF / 2 + E / 2), yc, zm), "RocheMereCote")
 	end
-	O.bloc(m, Vector3.new(LARGEUR_MASSIF, 2, LONGUEUR_MASSIF + 2), base * CFrame.new(0, Y_BAS - 1, zm), PAROI, M.Roche, "FondMassif")
-	O.bloc(m, Vector3.new(LARGEUR_MASSIF, HAUTEUR - Y_BAS, 2), base * CFrame.new(0, (HAUTEUR + Y_BAS) / 2, Z_FOND - 1), PAROI, M.Roche, "FondAvant")
+	rocheMere(m, Vector3.new(LARGEUR_MASSIF, E, L + 2 * E), base * CFrame.new(0, Y_BAS - E / 2, zm), "RocheMereFond")
+	rocheMere(m, Vector3.new(LARGEUR_MASSIF, E, L + 2 * E), base * CFrame.new(0, Y_HAUT + E / 2, zm), "RocheMerePlafond")
+	rocheMere(m, Vector3.new(LARGEUR_MASSIF, H, E), base * CFrame.new(0, yc, Z_FOND - E / 2), "RocheMereBout")
+	rocheMere(m, Vector3.new(LARGEUR_MASSIF, H, E), base * CFrame.new(0, yc, Z_AVANT + E / 2), "RocheMereAvant")
 end
 
 -- Moellons irréguliers qui dépassent des parois de la galerie (aspect « roche taillée en blocs »)
@@ -184,36 +209,44 @@ local function indice(i, j, k)
 end
 
 local function centreCase(i, j, k)
-	return Vector3.new(-LARGEUR_MASSIF / 2 + T * (i - 0.5), Y_BAS + T * (j - 0.5), Z_MUR - T * (k - 0.5))
+	return Vector3.new(-LARGEUR_MASSIF / 2 + T * (i - 0.5), Y_BAS + T * (j - 0.5), Z_AVANT - T * (k - 0.5))
 end
 
 local function dansGrille(i, j, k)
 	return i >= 1 and i <= NX and j >= 1 and j <= NY and k >= 1 and k <= NZ
 end
 
--- Au départ : une descente ouverte (sol et plafond en pente) ; tout le reste est plein
-local K_OUVERT = math.ceil(LONGUEUR_PENTE / T)
-local function ouverteAuDepart(i, j, k)
-	local c = centreCase(i, j, k)
+-- Cases de la galerie (intérieur + murs, sol, plafond, fond arrière) : hors massif, jamais de bloc ni de creusage
+local function dansGalerie(c: Vector3)
+	return c.Z > Z_MUR and c.Z < Z_ARRIERE + 2 and math.abs(c.X) < LARGEUR / 2 + 2 and c.Y > -2 and c.Y < HAUTEUR + 2
+end
+local function interieurGalerie(c: Vector3)
+	return c.Z > Z_MUR and c.Z < Z_ARRIERE and math.abs(c.X) < LARGEUR / 2 and c.Y > 0 and c.Y < HAUTEUR
+end
+
+-- Au départ : une descente ouverte (sol et plafond en pente) au bout de la galerie, à peine plus large qu'elle :
+-- la roche minable l'entoure de tous côtés ; tout le reste est plein
+local K_OUVERT = (Z_AVANT - Z_MUR + LONGUEUR_PENTE) // T + 1 -- dernière couche k touchée par la descente
+local function ouverteAuDepart(c: Vector3)
 	local d = Z_MUR - c.Z
 	local s = -PENTE * d
-	return d <= LONGUEUR_PENTE and c.Y > s and c.Y < s + HAUTEUR
+	return d >= 0 and d <= LONGUEUR_PENTE and math.abs(c.X) < LARGEUR_PENTE / 2 and c.Y > s and c.Y < s + HAUTEUR
 end
 
 local function estPleine(mine, i, j, k)
-	return not mine.creuses[indice(i, j, k)] and not ouverteAuDepart(i, j, k)
+	if mine.creuses[indice(i, j, k)] then return false end
+	local c = centreCase(i, j, k)
+	return not dansGalerie(c) and not ouverteAuDepart(c)
 end
 
 local VOISINS = {Vector3.new(1, 0, 0), Vector3.new(-1, 0, 0), Vector3.new(0, 1, 0), Vector3.new(0, -1, 0), Vector3.new(0, 0, 1), Vector3.new(0, 0, -1)}
 
--- Hors grille : seule la galerie (devant la couche 1, dans sa largeur, au-dessus du sol) est de l'air
+-- Hors grille : roche-mère (jamais de l'air). Dans la galerie : seul son intérieur est de l'air.
 local function estAir(mine, i, j, k)
-	if k < 1 and i >= 1 and i <= NX and j >= 1 and j <= NY then
-		local c = centreCase(i, j, 1)
-		return math.abs(c.X) < LARGEUR / 2 and c.Y > 0 and c.Y < HAUTEUR
-	end
 	if not dansGrille(i, j, k) then return false end
-	return not estPleine(mine, i, j, k)
+	local c = centreCase(i, j, k)
+	if dansGalerie(c) then return interieurGalerie(c) end
+	return mine.creuses[indice(i, j, k)] == true or ouverteAuDepart(c)
 end
 
 local function expose(mine, i, j, k)
@@ -225,8 +258,25 @@ end
 
 -- Nœud du paquet (I, J, K) : case et minerai tirés une fois (mémorisés) ; décalage 1 ou 2 dans le paquet,
 -- donc deux nœuds ne sont jamais collés
+-- Profondeur (m) d'une case, avec une petite ondulation : les limites entre couches ne sont pas des plans parfaits
+local function profondeurCase(i, j, k)
+	return -centreCase(i, j, k).Y / T + math.noise(i * 0.09, k * 0.09, 3.7) * 3
+end
+local function coucheCase(i, j, k)
+	return CouchesMine.index(profondeurCase(i, j, k))
+end
+
+-- Minerais de chaque couche : {id, chance, pv}
+local MINERAIS_COUCHE = {}
+for c, couche in CouchesMine.LISTE do
+	MINERAIS_COUCHE[c] = {}
+	for _, e in couche.minerais do
+		table.insert(MINERAIS_COUCHE[c], {id = e[1], chance = e[2], pv = CouchesMine.PV[e[1]] or 2})
+	end
+end
+
 local function noeudDuPaquet(mine, I, J, K)
-	local cle = I + J * 8 + K * 256
+	local cle = I + J * PI_ + K * PI_ * PJ_
 	local n = mine.paquets[cle]
 	if n == nil then
 		n = false
@@ -234,12 +284,9 @@ local function noeudDuPaquet(mine, I, J, K)
 		local i, j, k = I * PAQUET + r:NextInteger(1, 2), J * PAQUET + r:NextInteger(1, 2), K * PAQUET + r:NextInteger(1, 2)
 		local tirage = r:NextNumber()
 		if dansGrille(i, j, k) then
-			local prof = -centreCase(i, j, k).Y
-			for _, def in MinePrivee.MINERAIS do
-				if prof >= def.profMin and prof <= def.profMax then
-					if tirage < def.chance then n = {indice = indice(i, j, k), def = def}; break end
-					tirage -= def.chance
-				end
+			for _, def in MINERAIS_COUCHE[coucheCase(i, j, k)] do
+				if tirage < def.chance then n = {indice = indice(i, j, k), def = def}; break end
+				tirage -= def.chance
 			end
 		end
 		mine.paquets[cle] = n
@@ -282,9 +329,11 @@ local function creerBloc(mine, i, j, k)
 		mine.blocs[n] = creerNoeud(mine, n, def, cf, i, j, k)
 		return
 	end
+	-- Roche teintée selon la couche de minage (Partage › CouchesMine), nuancée par un bruit
+	local couche = CouchesMine.LISTE[coucheCase(i, j, k)]
 	local bruit = math.noise(i * 0.31, j * 0.27, k * 0.33) + 0.5
-	local teinte = PIERRE:Lerp(PAROI, math.clamp(bruit * 0.5 + (NY - j) * 0.006, 0, 0.8))
-	local bloc = O.bloc(mine.massif, Vector3.new(T, T, T), cf, teinte, M.Ardoise, "BlocMine")
+	local teinte = couche.couleur:Lerp(couche.couleur2, math.clamp(bruit, 0, 1))
+	local bloc = O.bloc(mine.massif, Vector3.new(T, T, T), cf, teinte, couche.materiau, "BlocMine")
 	bloc:SetAttribute("Colonne", i)
 	bloc:SetAttribute("Ligne", j)
 	bloc:SetAttribute("Couche", k)
@@ -324,9 +373,10 @@ local function massif(mine)
 	f.Parent = mine.modele
 	mine.massif = f
 	mine.creuses, mine.blocs, mine.paquets = {}, {}, {}
-	-- Seules les cases autour de la descente ouverte (et la face côté galerie) peuvent être exposées
+	-- Seules les cases autour de la descente ouverte (au bout de la galerie) peuvent être exposées
+	local J_PENTE = math.max(1, math.floor((-PENTE * LONGUEUR_PENTE - 6 - Y_BAS) / T))
 	for k = 1, K_OUVERT + 1 do
-		for j = 1, NY do
+		for j = J_PENTE, NY do -- en dessous de la descente ouverte, rien ne peut être exposé
 			for i = 1, NX do
 				if estPleine(mine, i, j, k) and expose(mine, i, j, k) then creerBloc(mine, i, j, k) end
 			end
@@ -341,16 +391,17 @@ end
 
 -- Retire les cases pleines dont le centre est dans la boîte orientée (repère local), s'il y a au moins
 -- un bloc visible dedans ; fait apparaître les voisins devenus exposés. Au plus MAX_PAR_COUP cases.
--- Les cases de minerai restent (le nœud se casse à la pioche). Renvoie le premier bloc retiré.
+-- Les cases de minerai restent (le nœud se casse à la pioche). Les cases d'une couche trop dure pour la pioche
+-- (puissance) restent aussi. Renvoie le premier bloc retiré, et l'index de la couche qui a bloqué (ou nil).
 local MAX_PAR_COUP = 40
-local function retirer(mine, boite: CFrame, taille: Vector3)
+local function retirer(mine, boite: CFrame, taille: Vector3, puissance: number)
 	local demi = taille / 2
 	local r = demi.Magnitude
 	local p = boite.Position
 	local i0, i1 = math.max(1, math.ceil((p.X - r + LARGEUR_MASSIF / 2) / T + 0.5)), math.min(NX, math.floor((p.X + r + LARGEUR_MASSIF / 2) / T + 0.5))
 	local j0, j1 = math.max(1, math.ceil((p.Y - r - Y_BAS) / T + 0.5)), math.min(NY, math.floor((p.Y + r - Y_BAS) / T + 0.5))
-	local k0, k1 = math.max(1, math.ceil((Z_MUR - p.Z - r) / T + 0.5)), math.min(NZ, math.floor((Z_MUR - p.Z + r) / T + 0.5))
-	local cases, visible = {}, false
+	local k0, k1 = math.max(1, math.ceil((Z_AVANT - p.Z - r) / T + 0.5)), math.min(NZ, math.floor((Z_AVANT - p.Z + r) / T + 0.5))
+	local cases, visible, bloquee = {}, false, nil
 	for k = k0, k1 do
 		for j = j0, j1 do
 			for i = i0, i1 do
@@ -359,14 +410,19 @@ local function retirer(mine, boite: CFrame, taille: Vector3)
 					local aPart = mine.blocs[indice(i, j, k)] ~= nil
 					if math.abs(q.X) <= demi.X and math.abs(q.Y) <= demi.Y and math.abs(q.Z) <= demi.Z
 						and not minerai(mine, i, j, k) then
-						table.insert(cases, Vector3.new(i, j, k))
-						visible = visible or aPart
+						local c = coucheCase(i, j, k)
+						if CouchesMine.LISTE[c].puissance > puissance then
+							if aPart then bloquee = math.max(bloquee or 0, c) end
+						else
+							table.insert(cases, Vector3.new(i, j, k))
+							visible = visible or aPart
+						end
 					end
 				end
 			end
 		end
 	end
-	if not visible then return nil end
+	if not visible then return nil, bloquee end
 	local premier = nil
 	for _, c in cases do
 		local n = indice(c.X, c.Y, c.Z)
@@ -386,6 +442,18 @@ local function retirer(mine, boite: CFrame, taille: Vector3)
 	return premier
 end
 
+-- « Pioche trop faible » : le client (CoucheMine.client) affiche la pioche requise pour cette couche
+local avisMine = Instance.new("RemoteEvent")
+avisMine.Name = "AvisMine"
+avisMine.Parent = game:GetService("ReplicatedStorage")
+local derniersAvis = {}
+local function avertir(joueur, couche)
+	local t = os.clock()
+	if t - (derniersAvis[joueur] or 0) < 1.5 then return end
+	derniersAvis[joueur] = t
+	avisMine:FireClient(joueur, "pioche", couche)
+end
+
 -- Coup de pioche du joueur dans SA mine (serveur autoritaire). Zone ≈ taille du joueur
 -- (ZONE_COUP : largeur × hauteur × profondeur), orientée selon son regard ; essaie devant,
 -- puis devant-bas (boîte inclinée en descente), puis sous ses pieds.
@@ -394,10 +462,13 @@ function MinePrivee.creuser(joueur, racine: BasePart, vise: Vector3?, origine: V
 	local mine = mines[joueur]
 	if not mine or not mine.modele.Parent then return nil end
 	local l = mine.base:PointToObjectSpace(racine.Position)
-	if math.abs(l.X) > LARGEUR_MASSIF / 2 + 4 or l.Y < Y_BAS - 6 or l.Y > HAUTEUR + 6 or l.Z > Z_MUR + 8 or l.Z < Z_FOND - 6 then return nil end
+	if math.abs(l.X) > LARGEUR_MASSIF / 2 + 4 or l.Y < Y_BAS - 6 or l.Y > Y_HAUT + 6 or l.Z > Z_AVANT + 6 or l.Z < Z_FOND - 6 then return nil end
 	local regard = mine.base:VectorToObjectSpace(racine.CFrame.LookVector) * Vector3.new(1, 0, 1)
 	regard = if regard.Magnitude > 1e-3 then regard.Unit else Vector3.new(0, 0, -1)
 	local Z = MinePrivee.ZONE_COUP
+	local pioche = Pioches.get(joueur:GetAttribute("Pioche")) or Pioches.get(Pioches.DEPART)
+	local puissance = if pioche then pioche.puissance else 1
+	local bloquee = nil
 	-- Viseur (distance déjà validée) : le serveur refait le rayon tête → point dans SA mine ; on ne garde
 	-- que le premier bloc réellement touché (impossible de creuser à travers la roche)
 	if vise and origine then
@@ -417,8 +488,9 @@ function MinePrivee.creuser(joueur, racine: BasePart, vise: Vector3?, origine: V
 			dir = dir.Unit
 			local haut = if math.abs(dir.Y) > 0.95 then regard else Vector3.yAxis
 			local centre = b + dir * (Z.Z / 2 - 0.5) -- la zone mord dans la roche derrière le point visé
-			local bloc = retirer(mine, CFrame.lookAt(centre, centre + dir, haut), Z)
+			local bloc, b2 = retirer(mine, CFrame.lookAt(centre, centre + dir, haut), Z, puissance)
 			if bloc then return bloc end
+			bloquee = b2
 		end
 	end
 	local face = CFrame.lookAt(l, l + regard) -- -Z = regard, Y = haut
@@ -428,9 +500,11 @@ function MinePrivee.creuser(joueur, racine: BasePart, vise: Vector3?, origine: V
 		{face * CFrame.new(0, -3 - Z.Z / 2, 0), Vector3.new(Z.X, Z.Z, Z.X)},
 	}
 	for _, essai in essais do
-		local bloc = retirer(mine, essai[1], essai[2])
+		local bloc, b2 = retirer(mine, essai[1], essai[2], puissance)
 		if bloc then return bloc end
+		bloquee = bloquee or b2
 	end
+	if bloquee then avertir(joueur, bloquee) end
 	return nil
 end
 
@@ -446,6 +520,7 @@ local function construire(joueur, index)
 	m.Name = "MinePrivee_" .. joueur.UserId
 	m:SetAttribute("Proprietaire", joueur.UserId)
 	m:SetAttribute("Emplacement", index)
+	m:SetAttribute("Base", base) -- repère local (CoucheMine.client : profondeur et couche)
 	O.atomique(m) -- arrive en entier chez le joueur : pas de sol manquant à l'arrivée
 	coque(m, base)
 	moellons(m, base, rng)
@@ -490,6 +565,7 @@ end
 
 -- Départ du joueur : la mine est détruite et l'emplacement libéré
 function MinePrivee.liberer(joueur)
+	derniersAvis[joueur] = nil
 	local mine = mines[joueur]
 	if not mine then return end
 	mines[joueur] = nil

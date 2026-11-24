@@ -35,6 +35,20 @@ Forge.MINERAIS = {
 	Gold = {id = "Gold", rang = 4, nom = "Or", mat = "or", couleur = Color3.fromRGB(255, 196, 48), force = 11},
 } :: {[string]: Minerai}
 
+-- Nouveaux minerais de la mine privée (Partage › MineraisPropositions) : au sac et vendables chez Gaspard,
+-- mais PAS encore forgeables (forgeable = false, refusés par Forge.calculer ; absents de ORDRE_MINERAIS).
+-- ORDRE_SAC = tous les minerais du sac (sac, comptoir de Gaspard), du plus commun au plus rare.
+Forge.ORDRE_SAC = table.clone(Forge.ORDRE_MINERAIS)
+do
+	local Propositions = require(script.Parent:WaitForChild("MineraisPropositions"))
+	for i, id in Propositions.ORDRE do
+		local v = Propositions.VISUEL[id]
+		local nom = Propositions.NOMS[id] or id
+		Forge.MINERAIS[id] = {id = id, rang = 4 + i, nom = nom, mat = string.lower(nom), couleur = v.cristal, force = 0, forgeable = false} :: any
+		table.insert(Forge.ORDRE_SAC, id)
+	end
+end
+
 Forge.ORDRE_TYPES = {"Epee", "Casque", "Plastron", "Jambieres"}
 Forge.TYPES = {
 	Epee = {id = "Epee", nom = "Épée", icone = "🗡️", stat = "Dégâts", mult = 2, min = 2, max = 12, frais = 20},
@@ -223,6 +237,8 @@ function Forge.calculer(typeId: any, composition: any): (Resultat?, string?)
 		local id, q = e[1], e[2]
 		if type(id) ~= "string" or not Forge.MINERAIS[id] then
 			return nil, "Minerai inconnu"
+		elseif (Forge.MINERAIS[id] :: any).forgeable == false then
+			return nil, "Ce minerai ne se forge pas encore"
 		elseif vus[id] then
 			return nil, "Même minerai deux fois"
 		elseif type(q) ~= "number" or q ~= q or q < 1 or q > Forge.QTE_MAX or q % 1 ~= 0 then

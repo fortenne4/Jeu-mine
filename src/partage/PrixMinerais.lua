@@ -12,6 +12,19 @@ PrixMinerais.PRIX = {
 	Bronze = 3,
 	Fer = 8,
 	Gold = 25,
+	-- Nouveaux minerais de la mine privée (mêmes prix que l'atelier previews/minerais)
+	Soufre = 2,
+	Quartz = 4,
+	Argent = 12,
+	Obsidienne = 18,
+	Givrite = 22,
+	Emeraude = 40,
+	Rubis = 45,
+	Lunarite = 75,
+	Magmaite = 90,
+	Diamant = 150,
+	Orichalque = 200,
+	Neantite = 250,
 } :: {[string]: number}
 
 -- Prix unitaire d'un minerai (nil si inconnu)

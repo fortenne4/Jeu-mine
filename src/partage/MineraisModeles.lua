@@ -36,6 +36,13 @@ MineraisModeles.VISUEL = {
 		cristaux = 8, amas = 3, veines = 6, veine = Color3.fromRGB(255, 245, 190)},
 } :: {[string]: Visuel}
 
+-- Les nouveaux minerais de la mine privée (Partage › MineraisPropositions) : mêmes rochers, icônes et raretés.
+-- ORDRE reste les 4 de départ (apparition dans la mine publique, Minerais.server).
+local Propositions = require(script.Parent:WaitForChild("MineraisPropositions"))
+for _, id in Propositions.ORDRE do
+	MineraisModeles.VISUEL[id] = (Propositions.VISUEL[id] :: any) :: Visuel
+end
+
 local function piece(parent: Instance, nom: string, taille: Vector3, cf: CFrame, couleur: Color3, materiau: Enum.Material): Part
 	local p = Instance.new("Part")
 	p.Name = nom

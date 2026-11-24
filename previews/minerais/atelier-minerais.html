@@ -61,7 +61,7 @@
 <div id="app">
   <aside id="liste">
     <h1>Atelier des minerais</h1>
-    <p class="sous">15 propositions, construites avec la même recette que <code>MineraisModeles.lua</code>
+    <p class="sous">12 propositions, construites avec la même recette que <code>MineraisModeles.lua</code>
       (cœur + facettes + cristaux + amas + veines néon). Pas encore dans le jeu.</p>
   </aside>
   <main id="scene">
@@ -107,7 +107,7 @@ const MINERAIS = [
    materiau: "Foil", reflet: .2, cristal: [255,226,120], cristalMat: "Neon", cristaux: 8, amas: 3, veines: 6, veine: [255,245,190],
    desc: "Id « Gold » dans le code."},
 
-  // --- 15 propositions ---
+  // --- 12 propositions ---
   {id: "Soufre", nom: "Soufre", prix: 2, palier: "Galeries humides (−50 m)", rarete: "Commun", taille: 1, couleur: [214,190,70], couleur2: [176,150,52],
    materiau: "Sandstone", reflet: .05, cristal: [255,236,90], cristalMat: "Glass", cristaux: 5, amas: 1, veines: 2, veine: [255,250,170],
    desc: "Roche jaune et friable qui sent l'œuf pourri. Le deuxième minerai qu'on croise, juste après le charbon.",
@@ -124,10 +124,6 @@ const MINERAIS = [
    materiau: "Glass", reflet: .45, cristal: [120,60,200], cristalMat: "Glass", cristaux: 6, amas: 2, veines: 4, veine: [170,90,255],
    desc: "Verre volcanique noir et lisse, traversé de fines lueurs violettes.",
    usage: "Forge : lames tranchantes mais fragiles."},
-  {id: "Amethyste", nom: "Améthyste", prix: 20, palier: "Cavernes oubliées → Abîme de fer", rarete: "Rare", taille: 1.1, couleur: [70,58,80], couleur2: [92,74,104],
-   materiau: "Slate", reflet: .1, cristal: [176,100,255], cristalMat: "Glass", cristaux: 6, amas: 3, veines: 2, veine: [210,160,255],
-   desc: "Géode sombre d'où sortent de gros amas de cristaux violets.",
-   usage: "Forge : gemme à sertir dans un casque."},
   {id: "Givrite", nom: "Givrite", prix: 22, palier: "Abîme de fer (−200 m)", rarete: "Rare", taille: 1.1, couleur: [120,190,230], couleur2: [90,155,205],
    materiau: "Ice", reflet: .3, cristal: [150,235,255], cristalMat: "Neon", cristaux: 7, amas: 2, veines: 4, veine: [220,250,255],
    desc: "Bloc de glace qui ne fond jamais, avec des pointes qui brillent d'un bleu froid.",
@@ -142,16 +138,6 @@ const MINERAIS = [
    desc: "Basalte brun-rouge serti de cristaux rouge sang.",
    usage: "Forge : gemme de force (plus de dégâts).",
    speciaux: {geant: 1, etincelles: {n: 16, mode: "scintille"}}},
-  {id: "Saphir", nom: "Saphir", prix: 45, palier: "Profondeurs ardentes (−350 m)", rarete: "Épique", taille: 1.15, couleur: [44,50,72], couleur2: [32,38,58],
-   materiau: "Slate", reflet: .1, cristal: [40,90,255], cristalMat: "Glass", cristaux: 7, amas: 3, veines: 3, veine: [110,160,255],
-   desc: "Roche bleu nuit avec des cristaux d'un bleu profond.",
-   usage: "Forge : gemme de défense pour les armures.",
-   speciaux: {geant: 1, etincelles: {n: 16, mode: "scintille"}}},
-  {id: "Mithril", nom: "Mithril", prix: 80, palier: "Profondeurs ardentes → Cœur maudit", rarete: "Légendaire", taille: 1.2, couleur: [170,200,220], couleur2: [130,165,190],
-   materiau: "Foil", reflet: .3, cristal: [120,230,255], cristalMat: "Neon", cristaux: 8, amas: 3, veines: 7, veine: [200,250,255],
-   desc: "Métal légendaire argent-bleu, plus léger et plus solide que tout autre.",
-   usage: "Forge : armures légères de haut niveau.",
-   speciaux: {geant: 1, eclats: 5, lueur: 1.4, etincelles: {n: 22, mode: "monte"}}},
   {id: "Lunarite", nom: "Lunarite", prix: 75, palier: "Cœur maudit (−500 m)", rarete: "Légendaire", taille: 1.2, couleur: [225,225,235], couleur2: [195,195,212],
    materiau: "Marble", reflet: .2, cristal: [190,205,255], cristalMat: "Neon", cristaux: 6, amas: 3, veines: 6, veine: [235,240,255],
    desc: "Pierre nacrée tombée de la lune, d'où sort une douce lumière pâle.",

@@ -138,7 +138,7 @@ action.OnServerInvoke = function(joueur: Player, demande: any): Reponse
 		return reponse(p, true, string.format("%d %s vendu%s : +%d pièces", q, nomMinerai(id), if q > 1 then "s" else "", gain), gain)
 	elseif demande.action == "toutVendre" then
 		local total, nombre = 0, 0
-		for _, id in Forge.ORDRE_MINERAIS do
+		for _, id in Forge.ORDRE_SAC do
 			local q = p.minerais[id] or 0
 			if q > 0 then
 				local gain = encaisser(joueur, p, pieces, id, q)

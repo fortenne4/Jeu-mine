@@ -1,6 +1,7 @@
--- Minerais EN PROJET (ReplicatedStorage › Partage › MineraisPropositions).
--- Pas minables, pas vendables : seulement exposés dans la vitrine de la plaine des mobs (VitrineMinerais.client).
--- Même format que MineraisModeles.VISUEL + « speciaux » (effets en plus, à partir de la rareté Épique).
+-- Nouveaux minerais (ReplicatedStorage › Partage › MineraisPropositions).
+-- Minables dans la mine privée seulement (couches de Partage › CouchesMine), vendables chez Gaspard (PrixMinerais),
+-- pas encore forgeables (Forge.MINERAIS : forgeable = false). Exposés aussi dans la vitrine de la plaine des mobs.
+-- Même format que MineraisModeles.VISUEL (qui les reprend) + « speciaux » (effets en plus, à partir de la rareté Épique).
 -- Aperçu de travail : previews/minerais/atelier-minerais.html (mêmes valeurs).
 
 local rgb = Color3.fromRGB
@@ -9,15 +10,15 @@ local M = Enum.Material
 local Propositions = {}
 
 Propositions.ORDRE = {
-	"Soufre", "Quartz", "Argent", "Obsidienne", "Amethyste", "Givrite", "Emeraude", "Rubis", "Saphir",
-	"Mithril", "Lunarite", "Magmaite", "Diamant", "Orichalque", "Neantite",
+	"Soufre", "Quartz", "Argent", "Obsidienne", "Givrite", "Emeraude", "Rubis",
+	"Lunarite", "Magmaite", "Diamant", "Orichalque", "Neantite",
 }
 
--- Noms affichés (y compris les 4 minerais déjà en jeu, pour la vitrine)
+-- Noms affichés (y compris les 4 minerais de départ, pour la vitrine)
 Propositions.NOMS = {
 	Charbon = "Charbon", Bronze = "Cuivre", Fer = "Fer", Gold = "Or",
-	Soufre = "Soufre", Quartz = "Quartz", Argent = "Argent", Obsidienne = "Obsidienne", Amethyste = "Améthyste",
-	Givrite = "Givrite", Emeraude = "Émeraude", Rubis = "Rubis", Saphir = "Saphir", Mithril = "Mithril",
+	Soufre = "Soufre", Quartz = "Quartz", Argent = "Argent", Obsidienne = "Obsidienne",
+	Givrite = "Givrite", Emeraude = "Émeraude", Rubis = "Rubis",
 	Lunarite = "Lunarite", Magmaite = "Magmaïte", Diamant = "Diamant", Orichalque = "Orichalque", Neantite = "Néantite",
 }
 
@@ -46,9 +47,6 @@ Propositions.VISUEL = {
 	Obsidienne = {rarete = "Rare", taille = 1.1, couleur = rgb(24, 20, 32), couleur2 = rgb(40, 30, 52),
 		materiau = M.Glass, reflet = 0.45, cristal = rgb(120, 60, 200), cristalMat = M.Glass,
 		cristaux = 6, amas = 2, veines = 4, veine = rgb(170, 90, 255)},
-	Amethyste = {rarete = "Rare", taille = 1.1, couleur = rgb(70, 58, 80), couleur2 = rgb(92, 74, 104),
-		materiau = M.Slate, reflet = 0.1, cristal = rgb(176, 100, 255), cristalMat = M.Glass,
-		cristaux = 6, amas = 3, veines = 2, veine = rgb(210, 160, 255)},
 	Givrite = {rarete = "Rare", taille = 1.1, couleur = rgb(120, 190, 230), couleur2 = rgb(90, 155, 205),
 		materiau = M.Ice, reflet = 0.3, cristal = rgb(150, 235, 255), cristalMat = M.Neon,
 		cristaux = 7, amas = 2, veines = 4, veine = rgb(220, 250, 255)},
@@ -60,14 +58,6 @@ Propositions.VISUEL = {
 		materiau = M.Basalt, reflet = 0.1, cristal = rgb(235, 30, 60), cristalMat = M.Glass,
 		cristaux = 7, amas = 3, veines = 3, veine = rgb(255, 90, 110),
 		speciaux = {geant = 1, etincelles = {n = 16, mode = "scintille"}}},
-	Saphir = {rarete = "Épique", taille = 1.15, couleur = rgb(44, 50, 72), couleur2 = rgb(32, 38, 58),
-		materiau = M.Slate, reflet = 0.1, cristal = rgb(40, 90, 255), cristalMat = M.Glass,
-		cristaux = 7, amas = 3, veines = 3, veine = rgb(110, 160, 255),
-		speciaux = {geant = 1, etincelles = {n = 16, mode = "scintille"}}},
-	Mithril = {rarete = "Légendaire", taille = 1.2, couleur = rgb(170, 200, 220), couleur2 = rgb(130, 165, 190),
-		materiau = M.Foil, reflet = 0.3, cristal = rgb(120, 230, 255), cristalMat = M.Neon,
-		cristaux = 8, amas = 3, veines = 7, veine = rgb(200, 250, 255),
-		speciaux = {geant = 1, eclats = 5, lueur = 1.4, etincelles = {n = 22, mode = "monte"}}},
 	Lunarite = {rarete = "Légendaire", taille = 1.2, couleur = rgb(225, 225, 235), couleur2 = rgb(195, 195, 212),
 		materiau = M.Marble, reflet = 0.2, cristal = rgb(190, 205, 255), cristalMat = M.Neon,
 		cristaux = 6, amas = 3, veines = 6, veine = rgb(235, 240, 255),

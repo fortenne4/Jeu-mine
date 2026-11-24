@@ -9,12 +9,14 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local MinePrivee = require(ServerStorage:WaitForChild("Monde"):WaitForChild("MinePrivee"))
 
--- Repères de la mine (repère local de mine.base, voir MinePrivee.lua : galerie au sol y = 0, massif de z = -20
--- à -220, fond à y = -160, largeur 20)
+-- Repères de la mine (repère local de mine.base, voir MinePrivee.LIMITES : galerie au sol y = 0, massif de 80 de
+-- large, 800 de long, fond à y = -676). Profondeur affichée en mètres : 1 bloc de 2 studs = 1 m (Partage › CouchesMine).
+local CouchesMine = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("CouchesMine"))
 local SEUIL = 3 -- studs sous le sol de la galerie à partir desquels on a « commencé à descendre »
-local DEMI_LARGEUR = 14
-local Z_MIN, Z_MAX = -230, 10
-local Y_MIN = -175
+local DEMI_LARGEUR = MinePrivee.LIMITES.demiLargeur
+local Z_MIN, Z_MAX = MinePrivee.LIMITES.zMin, MinePrivee.LIMITES.zMax
+local Y_MIN = MinePrivee.LIMITES.yMin
+local BLOC = MinePrivee.TAILLE_BLOC
 local ATTENTE = 2 -- secondes entre deux remontées
 
 local evenement = Instance.new("RemoteEvent")
@@ -29,16 +31,22 @@ local function vivant(joueur: Player)
 	return nil
 end
 
--- Profondeur (studs sous la galerie) du joueur dans sa propre mine, ou nil s'il n'y est pas descendu
-local function profondeur(joueur: Player): number?
+-- Profondeur (studs sous la galerie) du joueur dans sa propre mine (négative en haut, dans la galerie), ou nil
+-- s'il n'est pas dans sa mine
+local function position(joueur: Player): number?
 	local mine = MinePrivee.trouver(joueur)
 	if not mine or not mine.modele or not mine.modele.Parent then return nil end
 	local _, racine = vivant(joueur)
 	if not racine then return nil end
 	local rel = mine.base:PointToObjectSpace(racine.Position)
 	if math.abs(rel.X) > DEMI_LARGEUR or rel.Z < Z_MIN or rel.Z > Z_MAX or rel.Y < Y_MIN then return nil end
-	local bas = -(rel.Y - 3) -- le centre du corps est ~3 studs au-dessus des pieds
-	return if bas > SEUIL then bas else nil
+	return -(rel.Y - 3) -- le centre du corps est ~3 studs au-dessus des pieds
+end
+
+-- Profondeur (studs) seulement si le joueur est descendu sous la galerie
+local function profondeur(joueur: Player): number?
+	local bas = position(joueur)
+	return if bas and bas > SEUIL then bas else nil
 end
 
 local derniere: {[Player]: number} = {}
@@ -61,13 +69,18 @@ Players.PlayerRemoving:Connect(function(joueur)
 	derniere[joueur] = nil
 end)
 
--- Attribut « ProfondeurMine » (en mètres entiers, 1 m = 1 stud) tenu à jour pour le bouton
+-- Attributs tenus à jour : « ProfondeurMine » (mètres entiers, 1 m = 1 bloc, seulement sous la galerie) pour le
+-- bouton, et « CoucheMine » (index dans CouchesMine.LISTE, dès qu'on est dans sa mine) pour le bandeau des couches
 while true do
 	for _, joueur in Players:GetPlayers() do
-		local p = profondeur(joueur)
-		local valeur = if p then math.floor(p + 0.5) else nil
+		local bas = position(joueur)
+		local valeur = if bas and bas > SEUIL then math.floor(bas / BLOC + 0.5) else nil
 		if joueur:GetAttribute("ProfondeurMine") ~= valeur then
 			joueur:SetAttribute("ProfondeurMine", valeur)
+		end
+		local couche = if bas then CouchesMine.index(bas / BLOC) else nil
+		if joueur:GetAttribute("CoucheMine") ~= couche then
+			joueur:SetAttribute("CoucheMine", couche)
 		end
 	end
 	task.wait(0.3)

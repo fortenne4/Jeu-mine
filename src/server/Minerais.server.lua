@@ -46,6 +46,8 @@ local MINERAIS = {
 	Gold = {couleurRarete = Color3.fromRGB(179, 92, 255), chance = 3, pv = 8, valeur = PrixMinerais.PRIX.Gold, lumiere = Color3.fromRGB(255, 200, 60)},
 }
 for nom, v in MineraisModeles.VISUEL do
+	-- nouveaux minerais (mine privée seulement) : récompense au sac, jamais d'apparition ici (absents de ORDRE)
+	MINERAIS[nom] = MINERAIS[nom] or {couleurRarete = v.cristal, chance = 0, pv = 2, valeur = PrixMinerais.PRIX[nom] or 0, lumiere = nil}
 	for cle, valeur in v do
 		MINERAIS[nom][cle] = valeur
 	end

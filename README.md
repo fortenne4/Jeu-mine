@@ -252,6 +252,9 @@ puis on achète de meilleures pioches chez Liesel. On peut aussi garder ses mine
 Pour revenir à l'ancien système (Pièces au minage) : `CONFIG.GAIN_DIRECT = true` dans `src/server/Minerais.server.lua`.
 
 Prix de vente (un seul endroit : `src/partage/PrixMinerais.lua`) : Charbon **1**, Bronze **3**, Fer **8**, Or **25** Pièces.
+Nouveaux minerais de la mine privée : Soufre **2**, Quartz **4**, Argent **12**, Obsidienne **18**, Givrite **22**, Émeraude **40**,
+Rubis **45**, Lunarite **75**, Magmaïte **90**, Diamant **150**, Orichalque **200**, Néantite **250**. Ils vont au sac et se vendent
+chez Gaspard, mais **ne se forgent pas encore** (`forgeable = false` dans `Forge.MINERAIS`, hors de `Forge.ORDRE_MINERAIS`).
 
 Le comptoir : touche **E** (manette X, mobile : toucher l'invite) près de Gaspard. À gauche, les minerais du sac
 (modèle 3D, rareté, stock, prix à l'unité, valeur totale) ; à droite, le minerai choisi avec le choix de la quantité
@@ -379,17 +382,51 @@ Une brume blanche et une lumière douce sont ajoutées côté client autour de c
 Le centre de l'anneau reste dégagé. Les planches du parvis se rejoignent au niveau du seuil.
 
 La mine privée est construite côté serveur pour ce joueur seul (au premier passage), sur une grille d'emplacements
-loin de la carte (`D.MINES_PRIVEES_*` dans `Disposition.lua`, x ≥ 1400, écart 400). Elle est détruite quand le joueur
-prend la Sortie ou quitte le jeu (moins de pièces répliquées). C'est une galerie étayée de 28 studs en Parts (torches,
-rail et petit wagonnet, caisses, pioche plantée, toiles) qui débouche sur un très grand **massif de roche** à creuser
-en descendant : blocs de 2 studs, 10 × 86 × 100 cases (20 de large, 172 de haut, 200 de long ; fond à 160 studs sous
-la galerie), face de départ en pente (35°, 16 premiers studs ouverts). Grille virtuelle côté serveur : le massif est
-plein par défaut, seules les cases creusées sont mémorisées, et seuls les blocs exposés à l'air existent en Parts
-(tag `BlocMine`, attributs `Colonne`, `Ligne` = 1 en bas, `Couche` = 1 côté galerie, dans `MurDeBlocs`). Les bords et
-le fond sont indestructibles. **Minerais** : la roche ne rapporte rien. Table `MinePrivee.MINERAIS` par profondeur
-(charbon près de la surface pour l'instant) : le massif est découpé en paquets de 3 × 3 × 3 cases, chacun abrite au
-plus un **nœud de minerai enfoui** (tirage nouveau à chaque visite : pas de farm des mêmes nœuds). C'est le même rocher 3D que dans la mine publique
-(`Partage › MineraisModeles.construire`, réduit à 80 %), créé seulement quand une case voisine est creusée. On le
+loin de la carte et en hauteur (`D.MINES_PRIVEES_*` dans `Disposition.lua` : x ≥ 1400, y = 700, écart 400 en X et 1000
+en Z). Elle est détruite quand le joueur prend la Sortie ou quitte le jeu (moins de pièces répliquées). C'est une galerie
+étayée de 28 studs en Parts (torches, rail et petit wagonnet, caisses, pioche plantée, toiles) **creusée dans** un très
+grand **massif de roche** à creuser en descendant : blocs de 2 studs, 40 × 348 × 418 cases (80 de large, 696 de haut,
+836 de long ; fond à 676 studs, soit **338 m**, sous la galerie : 1 bloc = 1 m). Au bout de la galerie, une descente déjà
+ouverte en pente (35°, 16 studs, 24 de large). Le massif entoure la galerie et la descente : au moins 3 blocs de roche
+minable sur les côtés, au-dessus et derrière la galerie (`MARGE`), dans la couleur de la couche (terre battue en haut).
+Grille virtuelle côté serveur : le massif est plein par défaut, seules les cases creusées sont mémorisées, et seuls les
+blocs exposés à l'air existent en Parts (tag `BlocMine`, attributs `Colonne`, `Ligne` = 1 en bas, `Couche` = 1 à l'avant,
+derrière la galerie, dans `MurDeBlocs`) ; les cases de la galerie ne font pas partie du massif. Sur les 6 faces du massif,
+une couche de **roche-mère inminable** de 4 studs : pavés presque noirs (`RocheMere*`, attribut `Inminable`),
+reconnaissables au premier coup d'œil puisqu'aucune couche de minage n'a cet aspect ; la pioche n'y retire rien.
+
+**Couches de minage** (`src/partage/CouchesMine.lua`, source unique) : 8 couches selon la profondeur, chacune avec sa
+couleur et sa matière de roche (limites légèrement ondulées), ses minerais et sa pioche requise.
+
+| # | Couche | Profondeur | Minerais (du plus fréquent au plus rare) |
+|---|---|---|---|
+| 1 | Terre battue | 0–40 m | Charbon, Soufre, Quartz |
+| 2 | Grès | 40–85 m | Charbon, Soufre, Quartz, Argent |
+| 3 | Roche grise | 85–130 m | Quartz, Argent, Obsidienne |
+| 4 | Basalte | 130–170 m | Obsidienne, Givrite, Argent |
+| 5 | Glacier | 170–215 m | Givrite, Émeraude, Rubis |
+| 6 | Cristaux | 215–255 m | Émeraude, Rubis, Lunarite |
+| 7 | Magma | 255–300 m | Magmaïte, Lunarite, Diamant |
+| 8 | Néant | 300–338 m | Diamant, Orichalque, Néantite |
+
+**Pioche requise** : la `puissance` de chaque couche est la puissance de pioche minimale (`Partage › Pioches`) pour
+creuser sa roche. Le serveur refuse les blocs trop durs (`MinePrivee.creuser`) et prévient le joueur (RemoteEvent
+`AvisMine` → « Pioche trop faible… il faut la … »). **Pour l'instant toutes les couches sont à 1 (toutes les pioches) :
+la pioche de chaque couche reste à choisir.**
+
+**À l'écran** (`src/client/CoucheMine.client.lua`) : dès qu'on est dans sa mine, un bandeau en haut affiche
+« COUCHE 4 · BASALTE · −142 m », la barre de profondeur découpée en couches avec un repère, et les minerais de la couche
+(silhouette « ? » tant qu'on n'en a jamais miné). En descendant dans une couche plus profonde : grande annonce
+« Nouvelle couche ! ». Le serveur tient les attributs joueur `CoucheMine` (index) et `ProfondeurMine` (m) dans
+`RemonterMine.server.lua`.
+
+**Minerais** : la roche ne rapporte rien. Le massif est découpé en paquets de 3 × 3 × 3 cases, chacun abrite au plus un
+**nœud de minerai enfoui**, tiré dans les minerais de sa couche (tirage nouveau à chaque visite : pas de farm des mêmes
+nœuds ; les 12 nouveaux minerais de `Partage › MineraisPropositions` n'existent que dans la mine privée). C'est le même
+rocher 3D que dans la mine publique (`Partage › MineraisModeles.construire`, réduit à 80 %), créé seulement quand une case
+voisine est creusée. Les minerais Épique et plus (Émeraude, Rubis, Lunarite, Magmaïte, Diamant, Orichalque, Néantite)
+ont leurs **effets spéciaux** comme dans la vitrine (cristaux géants, halo, éclats, anneau de runes, lune, étincelles),
+ajoutés en local par `src/client/EffetsMinesPrivees.client.lua` (module `src/client/EffetsMinerais.lua`). On le
 frappe en le visant (rayon serveur tête → point visé ; tag `Minerai`, `PV` ; seul le propriétaire de la mine peut le casser) ; cassé, il va
 au sac (`MineraiCasse` → `Minerais.server` → `Donnees.ajouterMinerai`) et sa case reste creusée.
 

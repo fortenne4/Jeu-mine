@@ -18,6 +18,7 @@ local Partage = ReplicatedStorage:WaitForChild("Partage")
 local Forge = require(Partage:WaitForChild("Forge"))
 local Pioches = require(Partage:WaitForChild("Pioches"))
 local MineraisModeles = require(Partage:WaitForChild("MineraisModeles"))
+local PrixMinerais = require(Partage:WaitForChild("PrixMinerais"))
 local ArmesVoxels = require(Partage:WaitForChild("ArmesVoxels"))
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
 local Curseur = require(script.Parent:WaitForChild("Curseur"))
@@ -570,7 +571,7 @@ end
 local function rafraichirGrille()
 	local vus: {[string]: boolean} = {}
 	local n = 0
-	for i, id in Forge.ORDRE_MINERAIS do
+	for i, id in Forge.ORDRE_SAC do
 		local q = etat.minerais[id] or 0
 		if q > 0 then
 			n += 1
@@ -750,9 +751,15 @@ local function rafraichirDetail()
 		nomRarete, couleurR, niveau = rareteMinerai(id)
 		nomDetail.Text = m.nom
 		infoDetail.Text = string.format("Minerai · %s · ×%d", nomRarete, etat.minerais[id] or 0)
-		statDetail.Text = "Force " .. tostring(m.force)
-		definirBarre(m.force / FORCE_MAX, couleurR)
-		definirCompo(nil, "À mélanger chez Brom le forgeron")
+		if (m :: any).forgeable == false then -- nouveaux minerais de la mine privée : vente seulement pour l'instant
+			statDetail.Text = "Prix " .. tostring(PrixMinerais.get(id) or 0)
+			definirBarre(1, couleurR)
+			definirCompo(nil, "À vendre à Gaspard (pas encore forgeable)")
+		else
+			statDetail.Text = "Force " .. tostring(m.force)
+			definirBarre(m.force / FORCE_MAX, couleurR)
+			definirCompo(nil, "À mélanger chez Brom le forgeron")
+		end
 	else
 		local o = objetParId(cle:sub(3))
 		if not o then

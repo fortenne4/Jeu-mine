@@ -56,7 +56,7 @@ local SONS = {
 	ECLAT = "rbxassetid://9118587701", -- Rock Drop On Concrete Breaks 4 : le minerai éclate
 }
 -- Minerais qui sonnent comme du métal à l'impact (les autres sonnent comme de la pierre)
-local MINERAIS_METAL = {Bronze = true, Fer = true, Gold = true}
+local MINERAIS_METAL = {Bronze = true, Fer = true, Gold = true, Argent = true, Orichalque = true}
 -- Éclat de tout minerai cassé : « Cloche d'or » + « Pièce légère » (banc d'écoute V7).
 -- {id, volume, hauteur, délai en secondes}
 local ECLAT_MINERAI = {

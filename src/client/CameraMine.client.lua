@@ -12,8 +12,9 @@ local joueur = Players.LocalPlayer
 
 type Boite = {min: Vector3, max: Vector3}
 local ZONES_MINE: {Boite} = {
-	-- tunnels privés (mines privées) : D.MINES_PRIVEES_ORIGINE (1400, 40, -1200), écart 400, 6 colonnes (x de 1400 à 3400)
-	{min = Vector3.new(1150, -400, -5000), max = Vector3.new(3650, 400, -950)},
+	-- tunnels privés (mines privées) : D.MINES_PRIVEES_ORIGINE (1400, 700, -1200), écart 400 en X (6 colonnes, x de 1400
+	-- à 3400) et 1000 en Z ; massif de 690 studs de haut (fond vers y = 20) et 800 de long
+	{min = Vector3.new(1150, -100, -8000), max = Vector3.new(3650, 900, -950)},
 }
 local RECUL_SORTIE = 12 -- studs : distance de la caméra en ressortant de la mine
 local INTERVALLE = 0.2 -- secondes entre deux vérifications de la position

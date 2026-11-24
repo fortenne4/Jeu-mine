@@ -49,8 +49,9 @@ end
 D.CRISTAL_CAVERNE = Vector3.new(-68, -60, -398)
 
 -- Mines privées : une par joueur, sur une grille loin de la carte (hors terrain, hors plaine des mobs x 4700..5300)
-D.MINES_PRIVEES_ORIGINE = Vector3.new(1400, 40, -1200)
-D.MINES_PRIVEES_ECART = 400
+D.MINES_PRIVEES_ORIGINE = Vector3.new(1400, 700, -1200) -- en hauteur : le massif descend de 690 studs (fond vers y = 20)
+D.MINES_PRIVEES_ECART = 400 -- entre deux colonnes (X) ; massif de 80 de large
+D.MINES_PRIVEES_ECART_Z = 1000 -- entre deux rangées (Z) ; massif de 800 de long
 D.MINES_PRIVEES_COLONNES = 6 -- x de 1400 à 3400
 
 -- Grottes profondes (expéditions) : une par groupe, grille au sud-ouest, loin de tout (carte x/z ±600,
