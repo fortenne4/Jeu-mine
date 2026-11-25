@@ -1,5 +1,5 @@
 -- Grottes profondes · SCRIPT SERVEUR
--- Trois cercles indépendants devant l'entrée de la caverne.
+-- Deux grands cercles indépendants (un groupe de 1 à 2 joueurs chacun) devant l'entrée de la caverne.
 -- Le premier joueur qui entre dans le cercle devient le chef : il choisit la profondeur (InterfaceGrottes.client)
 -- et peut inviter un joueur (amis en premier côté client). Un 2e joueur peut aussi simplement entrer dans le cercle.
 -- Au départ, une grotte aléatoire est générée (Monde › GrotteGenerateur), peuplée de mobs (MobsGrotte), et le
@@ -35,10 +35,10 @@ local RECHARGE = 3          -- délai avant de pouvoir réactiver le cercle apr�
 local FLUX_LIMITE = 3
 local ANCRAGE_ARRIVEE = 1.2 -- s : joueur figé à l'arrivée dans la grotte, le temps que le sol se charge
 local INVITATION_DUREE = 25
-local RAYON = Grottes.RAYON_CERCLE * 0.8
+local RAYON = Grottes.RAYON_CERCLE * 1.15 -- grands cercles (halo animé : HalosGrottes.client)
 -- Dans la grande salle, entre le Tunnel VI et le pilier est de la passerelle.
 local ENTREE = Vector3.new(50, D.CAVERNE_SOL + 2, -416)
-local ECART_CERCLES = 15
+local ECART_CERCLES = 2 * RAYON + 3.5
 local AVANCE_CERCLES_LATERAUX = 2.5
 
 -- ================= Remotes =================
@@ -86,14 +86,14 @@ Donnees.surChangement(function(joueur) task.spawn(majStats, joueur) end)
 
 -- ================= Entrée dans la caverne =================
 -- Portail des profondeurs : arche de pierre sombre en voussoirs, vide violet où s'enfoncent les rails,
--- cristaux, braseros, lanternes suspendues, wagonnet abandonné et 5 gemmes (une par palier) sur le pilier.
+-- cristaux, braseros, lanternes suspendues, éboulis et 5 gemmes (une par palier) sur le pilier.
 local PIERRE = Color3.fromRGB(58, 53, 64)
 local PIERRE_CLAIRE = Color3.fromRGB(88, 82, 96)
 local VIOLET = Color3.fromRGB(186, 96, 255)
 local BRAISE = Color3.fromRGB(255, 150, 70)
 
 local entree
-local teleporteurs = { {}, {}, {} }
+local teleporteurs = { {}, {} }
 
 local function construireEntree()
 	local f = workspace:FindFirstChild("EntreeGrottes")
@@ -105,8 +105,8 @@ local function construireEntree()
 	local function pierre(k) return PIERRE:Lerp(PIERRE_CLAIRE, k) end
 	local ecartLateral = math.sqrt(ECART_CERCLES ^ 2 - AVANCE_CERCLES_LATERAUX ^ 2)
 	local function cadreCercle(i)
-		local cote = i - 2
-		return L(cote * ecartLateral, 0, -0.5 + math.abs(cote) * AVANCE_CERCLES_LATERAUX)
+		local cote = i - (#teleporteurs + 1) / 2
+		return L(cote * ecartLateral, 0, -2.5 + math.abs(cote) * AVANCE_CERCLES_LATERAUX)
 	end
 
 	-- Raccord rocheux derrière le portail, prolongé côté passerelle jusqu'à la paroi naturelle.
@@ -119,13 +119,13 @@ local function construireEntree()
 	local dessusDalle = 0.4
 	local epaisseurDalle = 0.85
 	local debutMarches = A - 4.9
-	local largeurDalle = 2 * (ecartLateral + RAYON + 1)
-	O.bloc(f, Vector3.new(largeurDalle, epaisseurDalle, 18), L(0, dessusDalle - epaisseurDalle / 2, debutMarches - 9),
+	local largeurDalle = 2 * (ecartLateral * (#teleporteurs - 1) / 2 + RAYON + 1.5)
+	O.bloc(f, Vector3.new(largeurDalle, epaisseurDalle, 21), L(0, dessusDalle - epaisseurDalle / 2, debutMarches - 10.5),
 		pierre(0.2), M.Ardoise, "Dalle")
 	for i = 1, #teleporteurs do
 		local cadre = cadreCercle(i)
-		for k = 0, 3 do
-			local a = (k + 0.5) * math.pi / 2
+		for k = 0, 7 do
+			local a = (k + 0.5) * math.pi / 4
 			local x, z = math.cos(a) * (RAYON + 1.1), math.sin(a) * (RAYON + 1.1)
 			O.decor(O.bloc(f, Vector3.new(0.5, 0.06, 1.6), cadre * CFrame.new(x, dessusDalle + 0.045, z)
 				* CFrame.Angles(0, -a, 0), VIOLET, M.Neon, "RuneDalle"))
@@ -254,21 +254,28 @@ local function construireEntree()
 		O.lumiere(braises, BRAISE, 1.8, 18, true)
 	end
 
-	-- Wagonnet abandonné, renversé à moitié, et quelques pierres éboulées
-	local wagon = B.wagonnet(f, L(-19, 0, 10) * CFrame.Angles(0, math.rad(70), 0) * CFrame.Angles(0, 0, math.rad(12)), Color3.fromRGB(150, 80, 220), rng)
-	wagon:ScaleTo(0.7)
-	wagon:PivotTo(wagon:GetPivot() - Vector3.new(0, 3.1 * 0.3, 0))
-	O.decorModele(wagon)
+	-- Quelques pierres éboulées
+	-- (le wagonnet de minerai violet, qui cachait le bassin et le coin pêche, est retiré ; même tirage pour les éboulis)
+	for _ = 1, 15 do rng:NextNumber() end
+	local filtreSol = RaycastParams.new()
+	filtreSol.FilterType = Enum.RaycastFilterType.Include
+	filtreSol.FilterDescendantsInstances = {workspace.Terrain}
+	filtreSol.IgnoreWater = true
 	for _ = 1, 9 do
 		local cote = if rng:NextNumber() < 0.5 then -1 else 1
 		local t = rng:NextNumber(0.8, 2)
-		O.bloc(f, Vector3.new(t, t * 0.8, t), L(cote * rng:NextNumber(10, 16), t * 0.3, A + rng:NextNumber(-4, 3)) * CFrame.Angles(rng:NextNumber(0, 1), rng:NextNumber(0, 3), rng:NextNumber(0, 1)),
+		local pos = L(cote * rng:NextNumber(10, 16), 0, A + rng:NextNumber(-4, 3)).Position
+		-- posé sur le sol réel (terrain), pas à une hauteur fixe
+		local sol = workspace:Raycast(pos + Vector3.new(0, 6, 0), Vector3.new(0, -16, 0), filtreSol)
+		local y = if sol then sol.Position.Y else pos.Y - 2
+		O.bloc(f, Vector3.new(t, t * 0.8, t), CFrame.new(pos.X, y + t * 0.3, pos.Z) * base.Rotation * CFrame.Angles(rng:NextNumber(0, 1), rng:NextNumber(0, 3), rng:NextNumber(0, 1)),
 			pierre(rng:NextNumber(0, 0.4)), M.Ardoise, "Eboulis")
 	end
 
 	for i, teleporteur in teleporteurs do
 		local cf = cadreCercle(i)
-		teleporteur.cercle = Cercle.construire(f, cf, "Teleporteur_Grottes_" .. i, {rayon = RAYON, texte = "0/2"})
+		teleporteur.cercle = Cercle.construire(f, cf, "Teleporteur_Grottes_" .. i, {rayon = RAYON, texte = "0/2", grand = true, segments = 64})
+		O.tag(teleporteur.cercle, "CercleGrotte")
 		local centre = teleporteur.cercle:GetAttribute("Centre")
 		teleporteur.centre = centre
 		teleporteur.retour = (cf.Rotation + centre) * CFrame.new(0, 0, -(RAYON + 3))
@@ -398,6 +405,7 @@ local function quitterExpedition(joueur: Player)
 	local exp = expeditions[joueur]
 	if not exp then return end
 	expeditions[joueur] = nil
+	joueur:SetAttribute("GrotteDepart", nil) -- écran de chargement (ChargementGrotte.client.lua)
 	local i = table.find(exp.joueurs, joueur)
 	if i then table.remove(exp.joueurs, i) end
 	pcall(MobsGrotte.retirerJoueur, exp.mobs, joueur)
@@ -474,6 +482,7 @@ local function lancer(teleporteur, niveau)
 		expeditions[j] = exp
 		table.insert(exp.joueurs, j)
 		derniers[j] = os.clock()
+		j:SetAttribute("GrotteDepart", niveau.id) -- le client affiche l'écran de chargement de ce palier
 		task.spawn(function()
 			local cible = grotte.apparitions[i] or grotte.apparitions[1]
 			if not streamerPuisPoser(j, cible) then quitterExpedition(j) end

@@ -13,7 +13,7 @@ local OCCUPE = Color3.fromRGB(255, 232, 176)
 local SEGMENTS = 36
 local ETINCELLE = "rbxasset://textures/particles/sparkles_main.dds"
 local FONDU = TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local COLORES = {Anneau = true, Lueur = true, Colonne = true}
+local COLORES = {Anneau = true, Lueur = true, Colonne = true, Halo = true}
 
 local function emetteur(parent, nom, props)
 	local e: any = Instance.new("ParticleEmitter")
@@ -56,18 +56,32 @@ function Cercle.construire(parent, cf, nom, opts)
 	local m = O.modele(parent, nom or "Cercle")
 	cf = auSol(cf, m) + Vector3.new(0, 0.1, 0)
 	-- Anneau blanc, creux au centre (opts.segments : plus de segments pour un grand cercle)
+	-- opts.grand : anneau épais, liseré intérieur et lueur au sol (halo animé côté client : HalosGrottes.client)
+	local grand = opts.grand == true
 	local n = opts.segments or SEGMENTS
 	local longueur = 2 * math.pi * R / n * 1.1
+	local largeur, epaisseur = if grand then 0.95 else 0.45, if grand then 0.24 else 0.18
 	for k = 1, n do
 		local a = k * 2 * math.pi / n
-		O.decor(O.bloc(m, Vector3.new(0.45, 0.18, longueur), cf * CFrame.Angles(0, a, 0) * CFrame.new(R, 0.05, 0), LIBRE, M.Neon, "Anneau"))
+		O.decor(O.bloc(m, Vector3.new(largeur, epaisseur, longueur), cf * CFrame.Angles(0, a, 0) * CFrame.new(R, 0.05, 0), LIBRE, M.Neon, "Anneau"))
+	end
+	if grand then
+		local ni = math.floor(n * 0.6)
+		local li = 2 * math.pi * (R - 1.5) / ni * 1.1
+		for k = 1, ni do
+			local a = (k + 0.5) * 2 * math.pi / ni
+			O.decor(O.bloc(m, Vector3.new(0.18, 0.12, li), cf * CFrame.Angles(0, a, 0) * CFrame.new(R - 1.5, 0.02, 0), LIBRE, M.Neon, "Anneau"))
+		end
+		local halo = O.decor(O.cylindre(m, 0.05, R * 2 + 0.4, cf * CFrame.new(0, -0.02, 0), LIBRE, M.Neon, "Halo"))
+		halo.Transparency = 0.86
+		halo.CastShadow = false
 	end
 	local lueur = O.decor(O.bloc(m, Vector3.new(0.2, 0.2, 0.2), cf * CFrame.new(0, 0.6, 0), LIBRE, M.Lisse, "Lueur"))
 	lueur.Transparency = 1
 	local colonne = O.decor(O.cylindre(m, 9, R * 2, cf * CFrame.new(0, 4.6, 0), LIBRE, M.Neon, "Colonne"))
 	colonne.Transparency = 1
 	colonne.CastShadow = false
-	O.lumiere(lueur, LIBRE, 1.4, 18)
+	O.lumiere(lueur, LIBRE, 1.4, if grand then 26 else 18)
 
 	local zone = O.decor(O.bloc(m, Vector3.new(R * 1.4, 0.2, R * 1.4), cf * CFrame.new(0, 0.8, 0), Color3.new(1, 1, 1), M.Lisse, "Zone"))
 	zone.Transparency = 1
@@ -88,8 +102,8 @@ function Cercle.construire(parent, cf, nom, opts)
 
 	local b = Instance.new("BillboardGui")
 	b.Name = "Compteur"
-	b.Size = UDim2.new(4, 0, 1.6, 0)
-	b.StudsOffset = Vector3.new(0, 5.6, 0)
+	b.Size = if grand then UDim2.new(5.5, 0, 2.2, 0) else UDim2.new(4, 0, 1.6, 0)
+	b.StudsOffset = Vector3.new(0, if grand then 6.4 else 5.6, 0)
 	b.MaxDistance = 70
 	b.LightInfluence = 0
 	b.Parent = zone
@@ -106,6 +120,7 @@ function Cercle.construire(parent, cf, nom, opts)
 	t.Parent = b
 
 	m:SetAttribute("Centre", cf.Position)
+	m:SetAttribute("Rayon", R)
 	if opts.texte then m:SetAttribute("Texte", opts.texte) end
 	return m
 end
