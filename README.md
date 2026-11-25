@@ -35,6 +35,26 @@ Le build de test contient le contenu géré par Rojo. Pour vérifier les modèle
 
 Pour l'analyse Luau, l'[extension officielle de luau-lsp](https://github.com/JohnnyMorganz/luau-lsp#installation) charge les types Roblox et peut utiliser ce `sourcemap.json`. Avec le CLI, utiliser `luau-lsp analyze --platform=roblox --definitions:@roblox=.luau-lsp/globalTypes.d.luau --sourcemap=sourcemap.json src` après avoir téléchargé les [définitions Roblox de la version 1.70.1](https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/1.70.1/scripts/globalTypes.d.luau) dans `.luau-lsp/`.
 
+### Écran de chargement à la connexion
+
+`src/premier/ChargementJeu.client.lua` (ReplicatedFirst › ChargementJeu) s'affiche dès la connexion, avant le reste du jeu,
+et remplace l'écran Roblox par défaut. Sa durée suit le vrai chargement : il reste tant que ces étapes ne sont pas finies
+(chacune a un délai maximal) : jeu téléchargé (`game.Loaded`), carte construite (attribut workspace `MondeConstruit`),
+personnage apparu avec le sol chargé sous ses pieds, sauvegarde chargée (attribut joueur `DonneesChargees`), puis
+textures et sons en attente (`ContentProvider.RequestQueueSize`). Minimum 3 s, maximum 60 s (`DUREE_MIN`, `DUREE_MAX`).
+Pendant le chargement, le chat et la liste des joueurs sont masqués et les contrôles coupés ; l'écran s'efface en fondu.
+
+Titre provisoire « LA GRANDE MINE » (constante `TITRE`). Décor « la paroi », tout en Frames (aucune image importée) :
+galerie étayée (poteaux, linteau, ferrures boulonnées, jambes de force, stalactites), deux lanternes qui se balancent
+avec leur cône de lumière et un vacillement global, mur de roche en blocs voxel en relief avec fissures et minerais en
+cristaux qui scintillent, pioche appuyée au poteau, caisse et tonneau, gros rochers sombres au premier plan, chauves-souris,
+cailloux qui tombent, braises et poussière. Le titre doré en relief tombe lettre par lettre (poussière, secousse du mur),
+puis ondule avec un reflet qui court de lettre en lettre. Deux jauges : une veine d'or qui s'illumine dans la roche, et un
+wagonnet chargé de minerais, pourcentage peint sur le flanc, qui avance sur le rail (étincelles, cahots) puis file hors
+de l'écran ; éclair doré et fondu à la fin.
+
+En Studio l'écran dure ~10 s, car le serveur retente 4 fois la sauvegarde (DataStore non accessible en Studio).
+
 ### Départ du wagonnet
 
 Le village comprend des chemins pavés, un décor fleuri autour de la fontaine et des accessoires miniers. Le style et la palette sont décrits dans `DIRECTION_ARTISTIQUE.md`.

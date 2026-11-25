@@ -17,6 +17,13 @@
       }
     },
 
+    "ReplicatedFirst": {
+      "$ignoreUnknownInstances": true,
+      "ChargementJeu": {
+        "$path": "src/premier/ChargementJeu.client.lua"
+      }
+    },
+
     "ServerStorage": {
       "$ignoreUnknownInstances": true,
       "Monde": {

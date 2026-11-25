@@ -95,6 +95,7 @@ C'est un fichier binaire : deux personnes qui le modifient en même temps = un d
 | `src/server` | ServerScriptService › Jeu (logique serveur, sauvegarde, boutique, minage) |
 | `src/client` | StarterPlayerScripts › Jeu (HUD, effets, animations client) |
 | `src/partage` | ReplicatedStorage › Partage (catalogues, réglages partagés client/serveur) |
+| `src/premier` | ReplicatedFirst (écran de chargement à la connexion, lancé avant le reste du jeu) |
 | `src/monde` | ServerStorage › Monde (générateur de carte ; coordonnées dans `Disposition.lua`) |
 | `default.project.json` | Mapping Rojo (ne pas changer sans raison) |
 | `rokit.toml` | Version de Rojo (**7.4.4**, ne pas changer : choix de toute l'équipe) — installer avec `rokit install` |
