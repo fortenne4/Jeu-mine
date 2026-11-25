@@ -21,9 +21,9 @@ local MUSIQUES = {
 -- Cris de douleur : {id, volume, vitesse de lecture}
 local CRIS = {
 	TitanCristal = { -- grognements de géant, très graves, avec un craquement de roche
-		{"rbxassetid://9114629203", 0.9, 0.7},
-		{"rbxassetid://9114628357", 0.9, 0.7},
-		{"rbxassetid://9114628321", 0.9, 0.65},
+		{"rbxassetid://9114629203", 0.45, 0.7},
+		{"rbxassetid://9114628357", 0.45, 0.7},
+		{"rbxassetid://9114628321", 0.45, 0.65},
 		{"rbxassetid://9119037874", 0.7, 0.8},
 	},
 	ReineAraignee = { -- crissements d'araignée
@@ -32,8 +32,8 @@ local CRIS = {
 		{"rbxassetid://9125478014", 0.7, 0.95},
 	},
 	SeigneurBraise = { -- rugissements de bête, graves et rauques
-		{"rbxassetid://9116311708", 0.85, 0.75},
-		{"rbxassetid://9116311525", 0.85, 0.7},
+		{"rbxassetid://9116311708", 0.425, 0.75},
+		{"rbxassetid://9116311525", 0.425, 0.7},
 		{"rbxassetid://9113980480", 0.8, 0.85},
 	},
 }
