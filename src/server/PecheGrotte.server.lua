@@ -14,8 +14,9 @@ local Peche = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("Pe
 local CarteNaine = require(script.Parent:WaitForChild("CarteNaine"))
 local Donnees = require(script.Parent:WaitForChild("Donnees"))
 
-local CHANCE_COFFRET = {berge = 0.03, ilot = 0.06}
+local CHANCE_COFFRET = {berge = 0.03, ilot = 0.06} -- « caverne » (coin pêche public) : jamais de fragment
 local RECHARGE = 2 -- s entre deux parties
+local PIECES_LIBRE = 1 -- coin pêche public de la caverne : 1 pièce par prise (le carnet compte quand même)
 
 local remote = ReplicatedStorage:FindFirstChild(Peche.REMOTE)
 if not remote then
@@ -25,7 +26,7 @@ if not remote then
 end
 
 local rng = Random.new()
-local parties: {[Player]: {poisson: any, debut: number, attente: number, genre: string, bout: BasePart}} = {}
+local parties: {[Player]: {poisson: any, debut: number, attente: number, genre: string, bout: BasePart, libre: boolean}} = {}
 local derniere: {[Player]: number} = {}
 
 local function grotteDe(objet: Instance): Model?
@@ -62,12 +63,15 @@ ProximityPromptService.PromptTriggered:Connect(function(invite: ProximityPrompt,
 	end
 	local bout = invite.Parent
 	local grotte = bout and grotteDe(bout)
+	-- coin pêche public de la carte (caverne, CaverneDecor) : ouvert à tous, attribut posé par le serveur
+	local carte = workspace:FindFirstChild("Carte")
+	local libre = bout ~= nil and carte ~= nil and bout:GetAttribute("PecheLibre") == true and bout:IsDescendantOf(carte)
 	local perso = joueur.Character
 	local r = perso and perso:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not (bout and bout:IsA("BasePart") and grotte and r) then
+	if not (bout and bout:IsA("BasePart") and (grotte or libre) and r) then
 		return
 	end
-	if joueur.UserId ~= grotte:GetAttribute("Proprietaire") and joueur.UserId ~= grotte:GetAttribute("Invite") then
+	if grotte and joueur.UserId ~= grotte:GetAttribute("Proprietaire") and joueur.UserId ~= grotte:GetAttribute("Invite") then
 		return
 	end
 	if (r.Position - bout.Position).Magnitude > invite.MaxActivationDistance + 4 then
@@ -86,7 +90,7 @@ ProximityPromptService.PromptTriggered:Connect(function(invite: ProximityPrompt,
 	end
 	local poisson = tirer(genre)
 	local attente = rng:NextNumber(Peche.ATTENTE[1], Peche.ATTENTE[2])
-	parties[joueur] = {poisson = poisson, debut = os.clock(), attente = attente, genre = genre, bout = bout}
+	parties[joueur] = {poisson = poisson, debut = os.clock(), attente = attente, genre = genre, bout = bout, libre = grotte == nil}
 	-- le client ne connaît que la difficulté (le poisson reste une surprise jusqu'à la prise)
 	remote:FireClient(joueur, "Debut", {eau = eau, bout = bout.Position, attente = attente, touches = poisson.touches,
 		zone = poisson.zone, vitesse = poisson.vitesse, rarete = poisson.rarete})
@@ -115,9 +119,10 @@ remote.OnServerEvent:Connect(function(joueur: Player, genre, d)
 		remote:FireClient(joueur, "Rate", {})
 		return
 	end
-	CarteNaine.crediter(joueur, p.pieces)
+	local pieces = if partie.libre then PIECES_LIBRE else p.pieces
+	CarteNaine.crediter(joueur, pieces)
 	local n = Donnees.ajouterPoisson(joueur, p.id)
-	remote:FireClient(joueur, "Prise", {id = p.id, pieces = p.pieces, nouveau = n == 1, n = n})
+	remote:FireClient(joueur, "Prise", {id = p.id, pieces = pieces, nouveau = n == 1, n = n})
 	if rng:NextNumber() < (CHANCE_COFFRET[partie.genre] or 0) then
 		task.delay(2.5, CarteNaine.donnerFragment, joueur, "peche")
 	end

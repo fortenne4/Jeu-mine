@@ -3,13 +3,16 @@
 --    échelle, treuil, lanternes) ;
 --  • une faille dans la voûte d'où tombent des rayons de lumière et de la poussière au centre ;
 --  • une frise de runes gravée au-dessus des portes des tunnels privés ;
---  • un bassin et une cascade souterraine (terrain Water) dans le lobe est ;
+--  • sous une voûte creusée dans le lobe est : un point d'eau rond en Parts (rayon 12, hauteur mesurée au raycast,
+--    bord de pierres), une cascade en Parts contre la paroi (écume, brume, son) et un petit ponton de bois avec une canne
+--    (1 invite « Pêcher » de PecheGrotte.server.lua, ouverte à tous, 1 pièce par prise) ; paroi sud-est reculée ;
+--  • « TUNNELS PRIVÉS » en lettres flottantes (tag « TexteFlottant », animé par AmbianceCaverne.client.lua) ;
 --  • autour du grand cristal : cercle de runes, menhirs, halo de pierres et éclats qui flottent en tournant
 --    (tag « Flottant », animé côté client par Animations.client.lua) ;
 --  • champignons lumineux, racines qui pendent, stalagmites, vieux rails et wagonnets renversés, torches vers les grottes.
 -- Lumières douces : PointLight ≤ 1,5 et néons assombris (pas d'éblouissement en entrant sous terre).
 -- Tout est dans Mine › DecorCaverne (attribut Version) : construit avec la carte, ou ajouté une seule fois à une
--- carte figée (Mine.preparerVoie). Décor sans collision, sauf les piliers, les menhirs et le parcours en hauteur :
+-- carte figée (Mine.preparerVoie). Décor sans collision, sauf les piliers, les menhirs, le wagonnet et le parcours en hauteur :
 -- échelle grimpable (TrussPart invisible) → plateforme du pilier ouest → pont suspendu → plateforme du pilier est.
 local CollectionService = game:GetService("CollectionService")
 local D = require(script.Parent.Disposition)
@@ -18,9 +21,15 @@ local B = require(script.Parent.Batiments)
 local M, C = O.M, O.C
 
 local CaverneDecor = {}
+local reculerParoi, texteTunnels, presDuLac -- définies plus bas
+local PANNEAU_TUNNELS = Vector3.new(0, D.CAVERNE_SOL, -470) -- ancien panneau des tunnels privés (Mine.lua)
 local terrain = workspace.Terrain
 
-local VERSION = 3 -- 2 : pont et échelle praticables, rose / poteau / torches retirés ; 3 : quai dégagé (stalagmite retirée)
+local VERSION = 9 -- 2 : pont et échelle praticables, rose / poteau / torches retirés ; 3 : quai dégagé (stalagmite retirée) ;
+-- 4 : fontaine de cristal et coin pêche ; 5 : bassin profond sans fontaine, paroi reculée, texte flottant ;
+-- 6 : grand bassin organique (rayon ~23), 3 pontons surélevés, décor posé au raycast
+-- 8 : l'eau Terrain (invisible) est retirée : point d'eau et cascade en Parts, un seul petit ponton ;
+-- 9 : cascade avancée dans l'eau, corniche solide, Beams qui défilent, vue dégagée depuis le ponton
 local LUMIERE_MAX = 1.5
 
 local ROCHE = Color3.fromRGB(112, 104, 98) -- teinte du matériau Rock (cf. ROCHE_PAROI de Mine.lua)
@@ -33,8 +42,7 @@ local NOIR = Color3.new()
 
 local PILIERS = {Vector3.new(-32, 0, -386), Vector3.new(32, 0, -386)}
 local HAUTEUR_PONT = 28
-local BASSIN = Vector3.new(62, 0, -377)
-local CASCADE = Vector3.new(66, 0, -366)
+local BASSIN = Vector3.new(70, 0, -368) -- centre du grand bassin (lobe est, élargi vers l'est)
 local RAILS = {Vector3.new(10, 0, -374), Vector3.new(18, 0, -368), Vector3.new(28, 0, -366), Vector3.new(38, 0, -370),
 	Vector3.new(45, 0, -379), Vector3.new(47, 0, -389)}
 local DEMI_PLATEFORME = 7
@@ -71,7 +79,7 @@ end
 -- Zones à garder dégagées (passages, portes, entrée des grottes, décors importants)
 local LIBRES = {
 	{0, -365, 18}, {0, -392, 24}, {0, -425, 16}, {28, -425, 14}, {52, -425, 20}, {0, -470, 10},
-	{D.CRISTAL_CAVERNE.X, D.CRISTAL_CAVERNE.Z, 23}, {BASSIN.X, BASSIN.Z, 15}, {-44, -404, 6}, {24, -396, 6}, {16, -410, 7},
+	{D.CRISTAL_CAVERNE.X, D.CRISTAL_CAVERNE.Z, 23}, {BASSIN.X, BASSIN.Z, 31}, {-44, -404, 6}, {24, -396, 6}, {16, -410, 7},
 	{-32, -386, 11}, {32, -386, 11}, {-32, -378, 6}, {42, -396, 6},
 	{-12, -385, 22}, {-12, -368, 12}, -- quai des profondeurs et son enseigne : aucun rocher devant
 }
@@ -165,15 +173,17 @@ local function pilier(m, x, z, rng)
 		if rng:NextNumber() < 0.7 then
 			local a = rng:NextNumber(0, math.pi * 2)
 			local s = w * rng:NextNumber(0.35, 0.55)
-			O.decor(O.bloc(g, Vector3.new(s, h * 0.8, s), CFrame.new(x + math.cos(a) * w * 0.45, y0 + t * H, z + math.sin(a) * w * 0.45)
-				* CFrame.Angles(rng:NextNumber(-0.3, 0.3), a, rng:NextNumber(-0.3, 0.3)), ROCHE:Lerp(C.Roche, rng:NextNumber()), M.Roche, "Bosse"))
+			local bosse = O.bloc(g, Vector3.new(s, h * 0.8, s), CFrame.new(x + math.cos(a) * w * 0.45, y0 + t * H, z + math.sin(a) * w * 0.45)
+				* CFrame.Angles(rng:NextNumber(-0.3, 0.3), a, rng:NextNumber(-0.3, 0.3)), ROCHE:Lerp(C.Roche, rng:NextNumber()), M.Roche, "Bosse")
+			bosse.CanCollide = roche.CanCollide -- solide (on peut grimper), sauf à hauteur de plateforme
+			bosse.CanTouch = false
 		end
 	end
 	-- éboulis au pied
 	for _ = 1, 6 do
 		local a = rng:NextNumber(0, math.pi * 2)
 		local s = rng:NextNumber(1.2, 2.6)
-		O.decor(O.bloc(g, Vector3.new(s, s * 0.7, s), CFrame.new(x + math.cos(a) * 7.5, y0 + s * 0.2, z + math.sin(a) * 7.5)
+		O.decor(O.bloc(g, Vector3.new(s, s * 0.7, s), CFrame.new(x + math.cos(a) * 7.5, sol(x + math.cos(a) * 7.5, z + math.sin(a) * 7.5) + s * 0.2, z + math.sin(a) * 7.5)
 			* CFrame.Angles(rng:NextNumber(0, 1), rng:NextNumber(0, 3), rng:NextNumber(0, 1)), ROCHE:Lerp(C.PierreFoncee, rng:NextNumber()), M.Roche, "Eboulis"))
 	end
 	return y0
@@ -431,46 +441,291 @@ local function frise(m)
 	end
 end
 
--- ================= Bassin et cascade =================
+-- ================= Voûte, point d'eau, cascade et coin pêche =================
 
-local function bassin(m, rng)
-	local y0 = sol(BASSIN.X, BASSIN.Z)
-	local centre = Vector3.new(BASSIN.X, y0, BASSIN.Z)
-	local pied = Vector3.new(CASCADE.X, y0, CASCADE.Z)
-	local cfC = CFrame.lookAt(pied, centre) -- -Z vers le bassin
-	local H = math.min((plafond(CASCADE.X, CASCADE.Z, y0) or (y0 + 36)) - y0, 50) + 4
-	terrain:FillCylinder(CFrame.new(centre - Vector3.new(0, 4, 0)), 8, 10.5, Enum.Material.Water)
-	terrain:FillBlock(cfC * CFrame.new(0, H / 2 - 6, 4.5), Vector3.new(14, H + 4, 6), Enum.Material.Rock) -- paroi derrière la chute
-	terrain:FillBlock(cfC * CFrame.new(0, H / 2 - 6, 0), Vector3.new(8, H + 4, 4), Enum.Material.Water)
+local R_LAC = 23        -- rayon de la voûte creusée (sol de roche à plat sous la voûte)
+local Y_LAC = D.CAVERNE_SOL -- sol sous la voûte
+local PAS_LAC = 4       -- taille des voxels du terrain
+local AVANCEES = {{0.9, 6}, {2.7, 5}, {4.5, 7}} -- avancées de roche : angle (rad), longueur (studs)
+local ANCIEN_BASSIN = Vector3.new(62, 0, -377) -- petit bassin des versions 1 à 5 (rebouché)
+local R_POINT = 12      -- rayon du point d'eau
+local A_CASCADE = 0.15  -- direction de la cascade depuis le centre de la voûte (paroi est)
+local EAU = Color3.fromRGB(70, 200, 205)
+local EAU_FOND = Color3.fromRGB(12, 58, 70)
+local MOUILLE = Color3.fromRGB(62, 48, 38)
+local centrePoint = nil -- centre du point d'eau, une fois construit (champignons)
 
-	local g = O.modele(m, "Cascade")
-	local versCascade = (pied - centre).Unit
-	for k = 0, 17 do
-		local a = k * math.pi * 2 / 18
-		local d = Vector3.new(math.cos(a), 0, math.sin(a))
-		if d:Dot(versCascade) < 0.8 then
-			local s = rng:NextNumber(1.4, 2.8)
-			O.decor(O.bloc(g, Vector3.new(s * 1.3, s * 0.6, s), CFrame.new(centre + d * 11 + Vector3.new(0, s * 0.15, 0))
-				* CFrame.Angles(rng:NextNumber(-0.2, 0.2), -a, rng:NextNumber(-0.2, 0.2)), ROCHE:Lerp(C.PierreFoncee, rng:NextNumber(0.2, 0.8)), M.Roche, "Margelle"))
+local function rayonLac(a)
+	local r = R_LAC * (1 + 0.1 * math.sin(3 * a + 0.7) + 0.06 * math.sin(5 * a + 2.1))
+	for _, av in AVANCEES do
+		local d = math.abs((a - av[1] + math.pi) % (2 * math.pi) - math.pi)
+		if d < 0.32 then r -= av[2] * (1 - d / 0.32) end
+	end
+	return r
+end
+
+-- Passages, rails, pilier, portail des grottes et ses braseros : jamais creusés
+local function protege(x, z)
+	if z < -392 then return true end -- dalle, cercles et braseros de l'entrée des grottes
+	for _, l in LIBRES do
+		if l[1] ~= BASSIN.X or l[2] ~= BASSIN.Z then
+			local dx, dz = x - l[1], z - l[2]
+			local r = l[3] + 3
+			if dx * dx + dz * dz < r * r then return true end
 		end
 	end
-	-- écume qui tombe du haut, éclaboussures et brume au pied
-	local haut = ancre(g, cfC * CFrame.new(0, H - 9, -2.6), Vector3.new(6, 1, 1), "Ecume")
-	emetteur(haut, {
-		Name = "Chute", Texture = "rbxasset://textures/particles/smoke_main.dds", Color = ColorSequence.new(Color3.fromRGB(210, 232, 236)),
-		Size = NumberSequence.new(1.4, 3.2), Transparency = NumberSequence.new(0.62, 1), Lifetime = NumberRange.new(1.3, 1.7),
-		Rate = 22, Speed = NumberRange.new(0.5, 1.5), SpreadAngle = Vector2.new(6, 6), Acceleration = Vector3.new(0, -36, 0),
+	return false
+end
+
+local function dansLac(x, z)
+	local dx, dz = x - BASSIN.X, z - BASSIN.Z
+	return math.sqrt(dx * dx + dz * dz) < rayonLac(math.atan2(dz, dx)) and not protege(x, z)
+end
+
+-- Pas de champignons dans le point d'eau ni sur son bord
+presDuLac = function(x, z)
+	return centrePoint ~= nil and Vector2.new(x - centrePoint.X, z - centrePoint.Z).Magnitude < R_POINT + 4
+end
+
+-- Distance jusqu'où la voûte est creusée dans une direction
+local function rayonBerge(a)
+	local u = Vector3.new(math.cos(a), 0, math.sin(a))
+	local r = 0
+	while r < R_LAC * 1.3 and dansLac(BASSIN.X + u.X * (r + 1), BASSIN.Z + u.Z * (r + 1)) do r += 1 end
+	return r
+end
+
+-- Voûte d'air et sol de roche à plat (colonnes de 4 studs), avancées de roche. L'eau n'est plus en terrain :
+-- on retire toute l'eau Terrain des versions 6 et 7 (cachée dans la roche) et l'ancien bloc d'eau de la cascade.
+local function creuserVoute()
+	terrain:FillCylinder(CFrame.new(ANCIEN_BASSIN.X, Y_LAC - 11, ANCIEN_BASSIN.Z), 22, 16, Enum.Material.Rock)
+	local etendue = R_LAC * 1.2 + 6
+	for x = BASSIN.X - etendue, BASSIN.X + etendue, PAS_LAC do
+		for z = BASSIN.Z - etendue, BASSIN.Z + etendue, PAS_LAC do
+			local dx, dz = x - BASSIN.X, z - BASSIN.Z
+			local d = math.sqrt(dx * dx + dz * dz)
+			local r = rayonLac(math.atan2(dz, dx))
+			if d < r + 6 and not protege(x, z) then
+				local h = 6 + 22 * math.sqrt(math.max(0, 1 - (d / (r + 6)) ^ 2))
+				terrain:FillBlock(CFrame.new(x, Y_LAC + h / 2, z), Vector3.new(PAS_LAC, h, PAS_LAC), Enum.Material.Air)
+				terrain:FillCylinder(CFrame.new(x, Y_LAC - 12, z), 24, PAS_LAC * 0.73, Enum.Material.Rock)
+			end
+		end
+		task.wait()
+	end
+	for _, av in AVANCEES do
+		local r = rayonLac(av[1])
+		local p = BASSIN + Vector3.new(math.cos(av[1]) * r, Y_LAC + 1, math.sin(av[1]) * r)
+		if not protege(p.X, p.Z) then
+			terrain:FillBall(p, 3.4, Enum.Material.Rock)
+			terrain:FillBall(p - Vector3.new(math.cos(av[1]), 0, math.sin(av[1])) * 3, 2.4, Enum.Material.Rock)
+		end
+	end
+	local bord = Vector3.new(etendue + 8, 0, etendue + 8)
+	local zone = Region3.new(Vector3.new(BASSIN.X, Y_LAC - 40, BASSIN.Z) - bord, Vector3.new(BASSIN.X, Y_LAC + 60, BASSIN.Z) + bord)
+	pcall(function() terrain:ReplaceMaterial(zone:ExpandToGrid(4), 4, Enum.Material.Water, Enum.Material.Air) end)
+end
+
+-- Hauteur du sol réel (terrain) sous un point ; nil si rien trouvé
+local function solReel(x, z, depuis)
+	local r = workspace:Raycast(Vector3.new(x, depuis, z), Vector3.new(0, -30, 0), params)
+	return r and r.Position.Y
+end
+
+-- Point d'eau en Parts (ne dépend pas de l'eau Terrain), cuvette creusée, bord de pierres, cascade, ponton, canne
+local function bassin(m, rng)
+	creuserVoute()
+	local u = Vector3.new(math.cos(A_CASCADE), 0, math.sin(A_CASCADE))
+	local pied = BASSIN + u * (rayonBerge(A_CASCADE) + 1.5)
+	pied = Vector3.new(pied.X, Y_LAC, pied.Z)
+	local centre = pied - u * (R_POINT - 1) -- centre du point d'eau : la cascade tombe sur son bord
+	centrePoint = centre
+	-- cuvette : 4 studs au bord, 7 au centre
+	terrain:FillCylinder(CFrame.new(centre.X, Y_LAC - 2, centre.Z), 4, R_POINT + 0.5, Enum.Material.Air)
+	terrain:FillCylinder(CFrame.new(centre.X, Y_LAC - 5.5, centre.Z), 3, R_POINT - 4, Enum.Material.Air)
+
+	-- hauteurs mesurées sur le terrain réel : bord (médiane autour) et fond
+	local bords = {}
+	for k = 0, 7 do
+		local a = k * math.pi / 4
+		table.insert(bords, solReel(centre.X + math.cos(a) * (R_POINT + 2.5), centre.Z + math.sin(a) * (R_POINT + 2.5), Y_LAC + 6) or Y_LAC)
+	end
+	table.sort(bords)
+	local yBord = (bords[4] + bords[5]) / 2
+	local yFond = solReel(centre.X, centre.Z, Y_LAC + 6) or (yBord - 6)
+	local yEau = math.max(yFond + 1, yBord - 0.6) -- surface de l'eau
+
+	local g = O.modele(m, "PointEau")
+	local surface = O.decor(O.cylindre(g, 0.2, R_POINT * 2 + 0.6, CFrame.new(centre.X, yEau - 0.1, centre.Z), EAU, M.Verre, "Eau"))
+	surface.Transparency = 0.35
+	surface.Reflectance = 0.15
+	surface.CastShadow = false
+	local profond = O.decor(O.cylindre(g, 0.2, R_POINT * 2 - 1, CFrame.new(centre.X, math.max(yFond + 0.2, yEau - 2.2), centre.Z), EAU_FOND, M.Lisse, "EauProfonde"))
+	profond.Transparency = 0.1
+	profond.CastShadow = false
+
+	-- Bord de pierres (posées sur le sol réel), ouvert devant la cascade et pour le ponton
+	local versPonton = -u
+	for k = 0, 23 do
+		local a = k * math.pi / 12 + rng:NextNumber(-0.05, 0.05)
+		local d = Vector3.new(math.cos(a), 0, math.sin(a))
+		local s = rng:NextNumber(1.4, 2.4)
+		if d:Dot(u) < 0.85 and d:Dot(versPonton) < 0.93 then
+			local p = centre + d * (R_POINT + 0.9)
+			local y = solReel(p.X, p.Z, Y_LAC + 6) or yBord
+			O.bloc(g, Vector3.new(s * 1.3, s * 0.65, s), CFrame.new(p.X, y + s * 0.12, p.Z) * CFrame.Angles(rng:NextNumber(-0.15, 0.15), -a, rng:NextNumber(-0.15, 0.15)),
+				ROCHE:Lerp(C.PierreFoncee, rng:NextNumber(0.2, 0.7)), M.Roche, "PierreBord").CanTouch = false
+		end
+	end
+
+	O.lumiere(ancre(g, CFrame.new(centre.X, yEau + 5, centre.Z), nil, "LueurPoint"), TURQUOISE, 1, 26)
+
+	-- Petit ponton en bois face à la cascade : plancher 1,5 stud au-dessus de l'eau, pilotis jusqu'au fond, une canne
+	local origine = centre - u * R_POINT -- bord de l'eau côté caverne
+	local P = CFrame.lookAt(Vector3.new(origine.X, yEau, origine.Z), Vector3.new(centre.X, yEau, centre.Z)) -- -Z au-dessus de l'eau
+	local function a(x, y, z) return P * CFrame.new(x, y, z) end
+	local pont = O.modele(g, "PontonPeche")
+	local HAUT = 1.5
+	local debut = a(0, 0, 3.2).Position
+	local ySol = solReel(debut.X, debut.Z, Y_LAC + 6) or yBord
+	local montee = math.max(0.3, yEau + HAUT - ySol)
+	local rampe = O.coin(pont, Vector3.new(3.4, montee, 2.4), a(0, ySol - yEau + montee / 2, 2.4) * CFrame.Angles(0, math.pi, 0), C.BoisClair, M.Planches, "Rampe")
+	rampe.CanQuery, rampe.CanTouch = false, false
+	local planches = {Color3.fromRGB(134, 98, 64), Color3.fromRGB(118, 86, 56), Color3.fromRGB(146, 108, 72)}
+	local bout = 1.2
+	for i = 0, 7 do
+		bout = 1.2 - i * 0.93
+		local p = O.bloc(pont, Vector3.new(3.4 + rng:NextNumber(-0.08, 0.08), 0.3, 0.9), a(0, HAUT - 0.15, bout) * CFrame.Angles(0, math.rad(rng:NextNumber(-1.5, 1.5)), 0),
+			planches[i % 3 + 1], M.Planches, "Planche")
+		p.CanQuery, p.CanTouch = false, false
+	end
+	for _, x in {-1.3, 1.3} do
+		O.decor(O.bloc(pont, Vector3.new(0.4, 0.4, 1.2 - bout + 0.9), a(x, HAUT - 0.5, (1.2 + bout) / 2), MOUILLE, M.Bois, "Longeron"))
+		for _, z in {-1, bout + 0.3} do
+			local h = a(x, HAUT - 0.3, z).Position
+			local b = (solReel(h.X, h.Z, yEau - 0.3) or yFond) - 0.5
+			O.decor(O.cylindre(pont, h.Y - b, 0.5, CFrame.new(h.X, (h.Y + b) / 2, h.Z), MOUILLE, M.Bois, "Pieu"))
+		end
+		O.decor(O.bloc(pont, Vector3.new(0.25, 1.3, 0.25), a(x * 1.25, HAUT + 0.65, bout + 0.3), MOUILLE, M.Bois, "Poteau"))
+	end
+	-- canne posée dans son support, ligne et bouchon sur l'eau
+	local talon = a(1.1, HAUT + 0.35, bout + 1.4).Position
+	local scion = a(2.6, HAUT + 3, bout - 2.2).Position
+	O.decor(O.bloc(pont, Vector3.new(0.3, 0.7, 0.3), CFrame.new(talon - Vector3.new(0, 0.1, 0)), C.Fer, M.Metal, "Support"))
+	segment(pont, talon, scion, 0.12, Color3.fromRGB(92, 64, 40), M.Bois, "Canne")
+	O.decor(O.cylindre(pont, 0.25, 0.4, CFrame.lookAt(talon:Lerp(scion, 0.15), scion) * CFrame.Angles(math.pi / 2, 0, 0), C.Fer, M.Metal, "Moulinet"))
+	local flotte = Vector3.new(scion.X, yEau + 0.08, scion.Z)
+	segment(pont, scion, flotte, 0.03, Color3.fromRGB(235, 235, 235), M.Lisse, "Ligne")
+	O.decor(O.ellipsoide(pont, Vector3.new(0.3, 0.22, 0.3), CFrame.new(flotte + Vector3.new(0, 0.05, 0)), Color3.fromRGB(220, 50, 40), M.Lisse, "Bouchon"))
+	O.decor(O.ellipsoide(pont, Vector3.new(0.22, 0.16, 0.22), CFrame.new(flotte + Vector3.new(0, 0.2, 0)), Color3.new(1, 1, 1), M.Lisse, "Bouchon"))
+
+	-- Une seule invite « Pêcher » (attributs de PecheGrotte : Peche, Eau ; PecheLibre = ouverte à tous, 1 pièce)
+	local place = ancre(pont, a(0, HAUT + 1.5, bout + 0.6), Vector3.new(1, 1, 1), "BoutPonton")
+	local eau = a(-0.8, 0, bout - 4.5).Position
+	place:SetAttribute("Peche", "caverne")
+	place:SetAttribute("PecheLibre", true)
+	place:SetAttribute("Eau", Vector3.new(eau.X, yEau, eau.Z))
+	local invite = Instance.new("ProximityPrompt")
+	invite.ActionText = "Pêcher"
+	invite.ObjectText = "Coin pêche de la caverne"
+	invite.HoldDuration, invite.MaxActivationDistance, invite.RequiresLineOfSight = 0, 7, false
+	invite:SetAttribute("Peche", "caverne")
+	invite.Parent = place
+	-- Cascade bien visible : en avant de la paroi, 2 studs à l'intérieur de l'eau côté est, qui tombe d'une corniche de
+	-- roche solide (Parts). Hauteur 18 studs, plafonnée par un raycast vers le haut (jamais dans la voûte).
+	local base = centre + u * (R_POINT - 2)
+	local cfK = CFrame.lookAt(Vector3.new(base.X, yEau, base.Z), Vector3.new(base.X - u.X, yEau, base.Z - u.Z)) -- -Z vers le ponton, y = 0 à la surface
+	local toit = workspace:Raycast(Vector3.new(base.X, yEau + 1, base.Z), Vector3.new(0, 40, 0), params)
+	local haut = math.max(8, math.min(18, if toit then toit.Position.Y - yEau - 3 else 18))
+	terrain:FillBlock(cfK * CFrame.new(0, haut / 2, 6.5), Vector3.new(14, haut + 6, 5), Enum.Material.Rock) -- paroi loin derrière
+	local cascade = O.modele(g, "Cascade")
+	local fonce = ROCHE:Lerp(C.PierreFoncee, 0.5)
+	O.bloc(cascade, Vector3.new(8, haut + 1.5, 2.5), cfK * CFrame.new(0, (haut + 1.5) / 2 - 1, 2.6), fonce, M.Roche, "RocheArriere").CanTouch = false
+	O.bloc(cascade, Vector3.new(8.5, 1.6, 4.6), cfK * CFrame.new(0, haut + 0.8, 0.6), ROCHE, M.Roche, "Corniche").CanTouch = false
+	O.bloc(cascade, Vector3.new(6, 1, 3), cfK * CFrame.new(0.4, haut + 2, 1.4) * CFrame.Angles(0, 0.2, 0.06), fonce, M.Roche, "Corniche").CanTouch = false
+	O.decor(O.ellipsoide(cascade, Vector3.new(9.5, 1.3, 2), cfK * CFrame.new(0, haut + 0.1, -1.3), MOUILLE, M.Roche, "Levre"))
+	-- nappes de largeurs différentes (verre turquoise clair + filet néon léger au centre)
+	for _, v in {{0, 4.6, 0.22, -0.3, M.Verre, Color3.fromRGB(125, 225, 230)}, {-2.6, 1.3, 0.3, -0.15, M.Lisse, Color3.fromRGB(150, 232, 235)},
+		{2.5, 1.1, 0.3, -0.15, M.Lisse, Color3.fromRGB(150, 232, 235)}, {0.3, 1.6, 0.55, -0.5, M.Neon, Color3.fromRGB(170, 245, 245)}} do
+		local nappe = O.decor(O.bloc(cascade, Vector3.new(v[2], haut + 0.2, 0.25), cfK * CFrame.new(v[1], haut / 2 - 0.1, v[4]), v[6], v[5], "Nappe"))
+		nappe.Transparency = v[3]
+		nappe.CastShadow = false
+	end
+	-- eau qui défile : Beams texturés face caméra
+	local hautK = ancre(cascade, cfK * CFrame.new(0, haut - 0.2, -0.8), Vector3.new(4.5, 1, 0.6), "Ecume")
+	local basK = ancre(cascade, cfK * CFrame.new(0, 0.2, -0.8), Vector3.new(6, 1, 2.5), "Remous")
+	local a0, a1 = Instance.new("Attachment"), Instance.new("Attachment")
+	a0.Parent, a1.Parent = hautK, basK
+	for _, v in {{4.6, 5.4, 1.6, 0.15}, {2.2, 2.8, 2.6, 0.3}} do
+		local beam = Instance.new("Beam")
+		beam.Attachment0, beam.Attachment1 = a0, a1
+		beam.FaceCamera = true
+		beam.Segments = 1
+		beam.Width0, beam.Width1 = v[1], v[2]
+		beam.Texture = "rbxasset://textures/particles/smoke_main.dds"
+		beam.TextureMode = Enum.TextureMode.Wrap
+		beam.TextureLength = 3
+		beam.TextureSpeed = v[3]
+		beam.Color = ColorSequence.new(Color3.fromRGB(205, 248, 250), Color3.fromRGB(140, 230, 235))
+		beam.Transparency = NumberSequence.new(v[4], v[4] + 0.3)
+		beam.LightEmission = 0.35
+		beam.LightInfluence = 0.5
+		beam.Parent = hautK
+	end
+	emetteur(hautK, {
+		Name = "Chute", Texture = "rbxasset://textures/particles/smoke_main.dds", Color = ColorSequence.new(Color3.fromRGB(215, 240, 242)),
+		Size = NumberSequence.new(1, 2.6), Transparency = NumberSequence.new(0.5, 1), Lifetime = NumberRange.new(0.9, 1.2),
+		Rate = 22, Speed = NumberRange.new(0.5, 1.5), SpreadAngle = Vector2.new(5, 5), Acceleration = Vector3.new(0, -36, 0),
 		EmissionDirection = Enum.NormalId.Bottom, Shape = Enum.ParticleEmitterShape.Box, LightInfluence = 0.6,
 	})
-	local bas = ancre(g, cfC * CFrame.new(0, 0.8, -3), Vector3.new(7, 1, 3), "Remous")
-	O.brume(bas, Color3.fromRGB(170, 205, 210), 4)
-	O.etincelles(bas, Color3.fromRGB(190, 230, 235), 10).LightEmission = 0.4
-	O.lumiere(ancre(g, CFrame.new(centre + Vector3.new(0, 4, 0)), nil, "LueurBassin"), TURQUOISE, 1, 30)
+	-- pied : écume, éclaboussures, brume, son
+	local ecume = O.decor(O.ellipsoide(cascade, Vector3.new(7.5, 0.3, 4.5), cfK * CFrame.new(0, 0.05, -1.4), Color3.fromRGB(228, 246, 246), M.Lisse, "EcumePied"))
+	ecume.Transparency = 0.3
+	ecume.CastShadow = false
+	emetteur(basK, {
+		Name = "Eclaboussures", Texture = "rbxasset://textures/particles/sparkles_main.dds", Color = ColorSequence.new(Color3.fromRGB(220, 248, 250)),
+		Size = NumberSequence.new(0.45, 0.1), Transparency = NumberSequence.new(0.1, 1), Lifetime = NumberRange.new(0.5, 0.9),
+		Rate = 40, Speed = NumberRange.new(5, 9), SpreadAngle = Vector2.new(40, 40), Acceleration = Vector3.new(0, -30, 0),
+		EmissionDirection = Enum.NormalId.Top, LightEmission = 0.3,
+	})
+	O.brume(basK, Color3.fromRGB(175, 215, 220), 5)
+	O.etincelles(basK, Color3.fromRGB(190, 230, 235), 12).LightEmission = 0.4
+	local son = Instance.new("Sound")
+	son.Name = "Cascade"
+	son.SoundId = "rbxassetid://9120550180" -- boucle d'eau (déjà utilisée par la cascade du Lac des Lueurs)
+	son.Looped = true
+	son.Volume = 0.5
+	son.RollOffMinDistance = 10
+	son.RollOffMaxDistance = 90
+	son.Parent = basK
+	son:Play()
+	O.lumiere(ancre(cascade, cfK * CFrame.new(0, haut / 2, -3), nil, "LueurCascade"), TURQUOISE, 1.2, 24)
+	-- rien de solide entre le ponton et la cascade : raycasts horizontaux, la roche qui masque est creusée
+	local vue = RaycastParams.new()
+	vue.FilterType = Enum.RaycastFilterType.Exclude
+	vue.FilterDescendantsInstances = {cascade, pont}
+	vue.IgnoreWater = true
+	local oeil = a(0, HAUT + 3, bout + 0.6).Position
+	for _, y in {haut * 0.4, haut * 0.75} do
+		local cible = (cfK * CFrame.new(0, y, -0.6)).Position
+		for _ = 1, 4 do
+			local r = workspace:Raycast(oeil, (cible - oeil) * 0.97, vue)
+			if not r then break end
+			if r.Instance == terrain and r.Position.Y > yEau + 1 then
+				terrain:FillBall(r.Position, 3.5, Enum.Material.Air)
+			else
+				warn("[CaverneDecor] cascade masquée par", r.Instance:GetFullName())
+				break
+			end
+		end
+	end
+	O.tag(pont, "PontonPeche")
 end
 
 -- ================= Champignons, racines, stalagmites =================
 
 local function champignons(m, x, z, rng, couleur)
+	if presDuLac(x, z) then return end -- le point d'eau a pris sa place
 	local y = sol(x, z)
 	local g = O.modele(m, "Champignons")
 	local premier
@@ -566,14 +821,13 @@ local function railsAbandonnes(m, rng)
 	O.decorModele(B.butoir(g, CFrame.lookAt(fin, fin - dir)))
 	-- wagonnet oublié sur la voie, chargé d'éclats de cristal
 	local a, b = pts[3], pts[4]
-	local wagon = O.decorModele(B.wagonnet(g, CFrame.lookAt((a + b) / 2, b) * CFrame.Angles(0, 0, math.rad(4))))
+	local wagon = B.wagonnet(g, CFrame.lookAt((a + b) / 2, b) * CFrame.Angles(0, 0, math.rad(4))) -- solide : on peut sauter dessus
 	for k = 1, 4 do
 		eclat(wagon, CFrame.lookAt((a + b) / 2, b) * CFrame.new(rng:NextNumber(-1.5, 1.5), 4.6, rng:NextNumber(-2, 2)) * CFrame.Angles(rng:NextNumber(-0.4, 0.4), 0, rng:NextNumber(-0.4, 0.4)),
 			rng:NextNumber(1.4, 2.4), if k % 2 == 0 then BLEU else VIOLET)
 	end
-	-- wagonnet renversé au bout de la voie, éclats répandus
+	-- éclats répandus au bout de la voie (le wagonnet renversé, qui cachait le bassin, est retiré)
 	local pos = Vector3.new(42, sol(42, -396), -396)
-	O.decorModele(B.wagonnet(g, CFrame.new(pos + Vector3.new(0, 3.1, 0)) * CFrame.Angles(0, 0.7, math.rad(84)) * CFrame.new(0, -3.1, 0)))
 	for k = 1, 5 do
 		local q = pos + Vector3.new(rng:NextNumber(-5, 0), 0, rng:NextNumber(-1, 4))
 		eclat(g, CFrame.new(Vector3.new(q.X, sol(q.X, q.Z) - 0.2, q.Z)) * CFrame.Angles(rng:NextNumber(-0.6, 0.6), rng:NextNumber(0, 3), rng:NextNumber(-0.6, 0.6)),
@@ -627,6 +881,53 @@ local function sanctuaire(m, rng)
 	O.tag(O.atomique(orbite), "Flottant")
 end
 
+-- ================= Paroi sud-est reculée =================
+
+-- Élargit la salle derrière le pilier est (rails abandonnés, wagonnet qui était dans le mur) : roche creusée en
+-- boules d'air, sol refait à plat au niveau de la caverne. Avant le bassin, qui reprend sa berge ensuite.
+local CREUSES = {{Vector3.new(30, D.CAVERNE_SOL + 13, -358), 17}, {Vector3.new(45, D.CAVERNE_SOL + 13, -358), 15}}
+reculerParoi = function()
+	for _, c in CREUSES do
+		terrain:FillBall(c[1], c[2], Enum.Material.Air)
+	end
+	terrain:FillBlock(CFrame.new(36, D.CAVERNE_SOL - 4, -358), Vector3.new(52, 8, 38), Enum.Material.Rock)
+end
+
+-- ================= Texte flottant « TUNNELS PRIVÉS » =================
+
+-- Remplace l'ancien panneau sur poteaux (Mine.lua) : lettres dorées sur une part invisible, lueur ambre,
+-- flottement animé côté client (tag « TexteFlottant »).
+texteTunnels = function(m)
+	local cf = CFrame.lookAt(PANNEAU_TUNNELS + Vector3.new(0, 8.5, 0), Vector3.new(0, PANNEAU_TUNNELS.Y + 8.5, -400))
+	local p = ancre(m, cf, Vector3.new(14, 3, 0.2), "TexteTunnels")
+	local g = Instance.new("SurfaceGui")
+	g.Name = "Texte"
+	g.Face = Enum.NormalId.Front
+	g.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	g.PixelsPerStud = 40
+	g.LightInfluence = 0
+	g.Brightness = 1.6
+	g.Parent = p
+	local t = Instance.new("TextLabel")
+	t.BackgroundTransparency = 1
+	t.Size = UDim2.fromScale(1, 1)
+	t.Font = Enum.Font.Antique -- même police que « Tunnel VI » (O.texte)
+	t.Text = "TUNNELS PRIVÉS"
+	t.TextScaled = true
+	t.TextColor3 = C.Or
+	t.TextStrokeColor3 = Color3.fromRGB(24, 14, 8)
+	t.TextStrokeTransparency = 0.3
+	t.Parent = g
+	local halo = Instance.new("UIStroke")
+	halo.Color = AMBRE
+	halo.Thickness = 3
+	halo.Transparency = 0.55
+	halo.Parent = t
+	O.lumiere(p, AMBRE, 1, 16)
+	O.etincelles(p, Color3.fromRGB(255, 214, 140), 3).LightEmission = 0.6
+	O.tag(p, "TexteFlottant")
+end
+
 -- ================= Construction =================
 
 -- Caverne : aucun minerai (anciens wagonnets chargés) et lumières plafonnées à LUMIERE_MAX (hors lanternes animées)
@@ -636,6 +937,12 @@ local function adoucir(caverne)
 		if objet:IsA("Model") and objet.Name == "Wagonnet" and not objet:GetAttribute("WagonRetour") then
 			local p = objet:GetPivot().Position
 			if Vector3.new(p.X - ANCIEN_WAGON.X, 0, p.Z - ANCIEN_WAGON.Z).Magnitude < 4 then objet:Destroy() end
+		end
+	end
+	for _, d in caverne:GetChildren() do -- ancien panneau « TUNNELS PRIVÉS » (remplacé par le texte flottant)
+		if d:IsA("BasePart") and (d.Name == "Fronton" or d.Name == "Poteau") then
+			local ecart = d.Position - PANNEAU_TUNNELS
+			if math.abs(ecart.X) < 7 and math.abs(ecart.Z) < 2 and ecart.Y > -1 and ecart.Y < 12 then d:Destroy() end
 		end
 	end
 	for _, d in caverne:GetDescendants() do
@@ -650,7 +957,9 @@ end
 local function construire(mine)
 	local m = O.modele(mine, "DecorCaverne")
 	local rng = Random.new(1717)
+	reculerParoi()
 	piliersEtPont(m, rng)
+	texteTunnels(m)
 	task.wait()
 	faille(m)
 	frise(m)
@@ -658,7 +967,7 @@ local function construire(mine)
 	bassin(m, rng)
 	for _, c in {
 		{-40, -378, TURQUOISE}, {-23, -371, BLEU}, {19, -380, TURQUOISE}, {25, -377, VIOLET},
-		{52, -369, TURQUOISE}, {73, -386, BLEU}, {56, -391, TURQUOISE}, {-88, -392, VIOLET}, {-82, -418, BLEU},
+		{48, -365, TURQUOISE}, {73, -386, BLEU}, {56, -391, TURQUOISE}, {-88, -392, VIOLET}, {-82, -418, BLEU},
 	} do
 		champignons(m, c[1], c[2], rng, c[3])
 	end

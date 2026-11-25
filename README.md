@@ -495,8 +495,8 @@ Le cercle « Sortie » derrière le point d'apparition ramène le joueur devant 
 
 ## Grottes profondes (expéditions à 1 ou 2)
 
-Dans la grande salle de la caverne, à droite du Tunnel VI, se trouvent le panneau « Grottes profondes » et **trois cercles lumineux « 0/2 »**
-disposés en arc devant l'arche, à 15 studs d'intervalle. Le premier joueur qui entre dans un cercle devient le **chef** de ce groupe :
+Dans la grande salle de la caverne, à droite du Tunnel VI, se trouvent le panneau « Grottes profondes » et **deux grands cercles lumineux « 0/2 »**
+côte à côte devant l'arche (anneau épais, liseré, lueur au sol ; halo animé côté client par `src/client/HalosGrottes.client.lua` : couronne qui respire, ondes, orbes qui tournent, étincelles, doré dès qu'un joueur attend). Le premier joueur qui entre dans un cercle devient le **chef** de ce groupe :
 l'interface de choix de profondeur s'ouvre. Très peu de texte : seulement les niveaux (−50 m … −500 m) et une
 **barre de difficulté** calculée selon SON équipement (pioche, épée, défense casque + plastron + jambières), et à droite
 les **minerais du palier** : petites pastilles 3D (les vrais modèles de minerai) qui se chevauchent, générées depuis
@@ -504,10 +504,10 @@ les **minerais du palier** : petites pastilles 3D (les vrais modèles de minerai
 **jamais miné** reste une **silhouette noire** avec un « ? » (infobulle « ??? ») ; dès qu'il en casse un (mine publique,
 tunnel privé ou grotte), il apparaît en couleurs avec son nom (Charbon, Cuivre, Fer, Or) et sa fréquence. Au survol,
 le niveau s'agrandit, la pile s'écarte et les rochers tournent. Le chef peut **inviter** un joueur (amis en premier dans la liste) ; un 2e joueur peut aussi
-simplement entrer dans le même cercle (« 2/2 »). Un joueur peut appartenir à un seul groupe à la fois. Quand un chef choisit un niveau, le serveur génère une **grotte aléatoire** réservée à son équipe. Les trois équipes peuvent se former en parallèle et partir vers des grottes distinctes. Le cercle « Sortie » de la grotte ramène devant le cercle de départ. La grotte est détruite
+simplement entrer dans le même cercle (« 2/2 »). Un joueur peut appartenir à un seul groupe à la fois. Quand un chef choisit un niveau, le serveur génère une **grotte aléatoire** réservée à son équipe. Les deux équipes peuvent se former en parallèle et partir vers des grottes distinctes. Le cercle « Sortie » de la grotte ramène devant le cercle de départ. La grotte est détruite
 quand plus personne n'est dedans (sortie, mort ou départ du jeu).
 
-La plateforme d'entrée est générée au démarrage dans `Workspace.EntreeGrottes`. Une dalle commune porte les trois cercles et trois marches jointives mènent au seuil. Les rails, traverses et runes sont décoratifs.
+La plateforme d'entrée est générée au démarrage dans `Workspace.EntreeGrottes`. Une dalle commune porte les deux cercles et trois marches jointives mènent au seuil. Les rails, traverses et runes sont décoratifs.
 
 5 paliers (réglages dans `src/partage/Grottes.lua`) : plus on descend, plus les minerais sont **rares et résistants**
 (du charbon à −50 m jusqu'à surtout de l'or à −500 m) et plus les **mobs** sont dangereux (chauves-souris, zombies,
@@ -658,6 +658,14 @@ gisements ni à l'arrivée) :
   fois selon le poisson (2 ratés = il s'échappe). 7 poissons du Commun au Légendaire (3 à 80 pièces), bien plus
   de rares sur l'îlot ; carnet de pêche sauvegardé (profil `poissons`, attribut « CarnetPeche ») ; parfois un
   vieux coffret avec un fragment de carte. Le serveur tire le poisson et refuse une prise trop rapide.
+  Animation (client, tout local, bras posés par `RigIK`) : le perso se tourne vers l'eau, range son outil, arme la
+  canne au-dessus de l'épaule et lance ; la ligne (Beam courbé) part en arc avec un sifflement, « plouf » (gouttes,
+  ronds dans l'eau). Le bouchon flotte, la ligne se tend et se détend ; quand ça mord il plonge par saccades avec
+  un « ! », la canne plie en rythme, la ligne vibre, le poisson se débat. Prise : le poisson voxel (couleurs de
+  l'espèce) jaillit, frétille jusqu'au joueur avec une traînée de gouttes. Raté : la ligne casse (ou se détend) et
+  le bouchon remonte. Pose relâchée à la fin ou si le joueur s'éloigne.
+  Hors des grottes, le **coin pêche de la caverne** (petit ponton de bois du point d'eau du lobe est, `CaverneDecor.lua`, une seule invite) utilise la même invite,
+  ouverte à tous (attribut `PecheLibre`, genre « caverne » : mêmes poissons et carnet, **1 pièce par prise**, jamais de fragment de carte).
 - **Arène du temple** (`src/server/ArenaTemple.lua` + `src/client/ArenaTemple.client.lua`) : un gong (posé par
   GrotteLueurs sur le côté du temple) s'éveille quand le coffre du sanctuaire est ouvert. Le frapper lance 8
   vagues de plus en plus dures (crabes, golems, spectres, chauves-souris ; PV +14 % par vague) qui gardent le
@@ -680,6 +688,7 @@ pose ses zones d'ambiance (musique de `SonsGrotte` par alias) et le dossier `Gui
 | −350 m | `GrotteLave.lua` « Les Rivières de lave » | Avant-poste de basalte, **lac de lave** qui brûle (ponts de basalte, îlot à l'obélisque d'obsidienne), chutes de lave, **forêt de basalte** (orgues hexagonales), **geysers de feu** à intervalles, pics d'obsidienne, cendres, **Trône de magma** du **Roi déchu** (voir plus bas). Toute la roche passe en basalte sombre (la lave craquelée seulement en berges) |
 | −500 m | `GrotteCoeur.lua` « Le Cœur maudit » | Dernier camp d'une expédition, **le Vide suspendu** (gouffre sans fond, dalles runiques, rochers qui flottent), failles du vide qui aspirent la lumière, cristaux corrompus, runes maudites, esprits errants, ossements, **Arène du Cœur** (cœur de cristal géant enchaîné à la voûte au-dessus du combat du boss, piliers d'obsidienne aux flammes violettes, cercle de runes) |
 
+- **Écran de chargement** (`src/client/ChargementGrotte.client.lua` + `src/client/ChargementGrotteThemes.lua`) : au départ, le serveur pose l'attribut joueur `GrotteDepart` (id du palier, effacé à la sortie de la grotte) ; l'écran reste tant que la grotte n'est pas prête chez le joueur (arrivée dans la boîte de la grotte, streaming et sol autour de l'arrivée, modèle stable, textures et particules préchargées, ambiance de `AmbianceGrotte` appliquée ; entre 1,5 s et 20 s), contrôles coupés et personnage ancré. Un fond d'écran dessiné par palier (lac et champignons lumineux, galeries boisées et améthyste, engrenages et creuset, trône et rivière de lave, cœur de cristal enchaîné), avec parallaxe et particules ; nom, profondeur et astuce du palier ; la barre est une veine de roche qu'une pioche mine en rythme (éclats, étincelles, son).
 - **Dangers** (`src/server/DangersGrotte.server.lua`) : on tombe dans un gouffre → ramené au bord (−15 PV) ;
   la lave (tag « Lave ») brûle (−10 PV / 0,4 s) ; les geysers (tag « Geyser ») jaillissent toutes les 6 à 9 s
   (fumée d'avertissement, puis −18 PV et projection).
@@ -732,12 +741,13 @@ pose ses zones d'ambiance (musique de `SonsGrotte` par alias) et le dossier `Gui
 | Fichier | Rôle |
 |---|---|
 | `src/partage/Grottes.lua` | Paliers, équipement conseillé, calcul du danger, noms des RemoteEvents. |
-| `src/server/Grottes.server.lua` | Entrée (panneau + cercle 0/2), groupe, invitations, lancement, sortie, nettoyage ; stats d'équipement (`StatPioche`, `StatEpee`, `StatDefense`). |
+| `src/server/Grottes.server.lua` | Entrée (panneau + 2 grands cercles 0/2), groupe, invitations, lancement, sortie, nettoyage ; stats d'équipement (`StatPioche`, `StatEpee`, `StatDefense`). |
 | `src/monde/GrotteGenerateur.lua` | Grotte aléatoire en terrain (galeries, salles, décor, minerais, cercle de sortie). |
 | `src/monde/GrotteLueurs.lua` + `blender/grotte_lueurs.py` | Thème du palier 1 « Le Lac des Lueurs » (lacs, cascade, forêt de champignons, ruines naines, statues, temple). |
 | `src/monde/GrotteDecor.lua` + `blender/grotte_decor.py` | Décor des grottes (modèles 3D, eau, mousse, restes de mine, salle du boss). |
 | `src/client/VieGrotte.client.lua` | Faune et animations des grottes (méduses, poissons, néons, papillons, gouttes). |
 | `src/client/AmbianceGrotte.client.lua` | Éclairage souterrain, couleurs et teintes de zone quand le joueur est dans une grotte. |
+| `src/client/ChargementGrotte.client.lua` + `ChargementGrotteThemes.lua` | Écran de chargement des grottes (un décor par palier, pioche qui mine la barre). |
 | `src/client/FeuxFollets.client.lua` | Feux follets guides, lucioles, pas lumineux et lueur des méduses (palier 1). |
 | `src/server/Sanctuaire.lua` + `src/client/Sanctuaire.client.lua` | Éveil du sanctuaire (cinématique), vague de gardiens, coffre du temple (palier 1). |
 | `src/partage/CarteNaine.lua` + `src/server/CarteNaine.lua` + `src/client/CarteNaine.client.lua` | Fragments de la carte naine : cachettes, récompenses, sauvegarde, parchemin. |
@@ -940,7 +950,7 @@ Sans import, le petit château en blocs de `HorizonMine.lua` reste affiché : ri
 - Les toits du village et les auvents des échoppes sont solides et font rebondir le joueur une fois à la réception d’un saut, y compris sur les bords. Depuis le sol, sauter vers un auvent proche donne l’élan pour monter dessus.
 - Avenue nord : gare des wagonnets et voie ferrée vieillie jusqu'à la caverne, avec butoirs rouges et blancs. Le joueur peut monter dans le wagonnet vide avec E et en sortir en sautant.
 - Mine : tunnel étayé, descente de 60 studs, grande caverne de cristal (grand cristal violet dans le lobe ouest) avec les 6 portes de tunnels privés encastrées dans la paroi.
-- Caverne de cristal (`src/monde/CaverneDecor.lua`, modèle `Mine › DecorCaverne`, attribut `Version`) : deux piliers de roche qui encadrent l'arrivée, reliés par un pont suspendu (plateformes, échafaudage avec échelle, treuil, lanternes) ; faille dans la voûte d'où tombent des rayons de lumière et de la poussière sur une le centre ; frise de runes au-dessus des portes des tunnels ; bassin et cascade souterraine dans le lobe est ; cercle de runes, menhirs, halo de pierres et éclats en orbite autour du grand cristal ; champignons lumineux, racines, stalagmites, vieux rails et wagonnets renversés (éclats de cristal, aucun minerai). Parcours en hauteur praticable : échelle (TrussPart invisible) contre le pilier ouest → plateforme → pont suspendu fixe (sol et garde-corps invisibles) → plateforme du pilier est. Lumières douces (PointLight ≤ 1,5, néons assombris). Sur une carte figée, le décor est ajouté par `Mine.preparerVoie` ; changer `VERSION` le reconstruit.
+- Caverne de cristal (`src/monde/CaverneDecor.lua`, modèle `Mine › DecorCaverne`, attribut `Version`) : deux piliers de roche qui encadrent l'arrivée, reliés par un pont suspendu (plateformes, échafaudage avec échelle, treuil, lanternes) ; faille dans la voûte d'où tombent des rayons de lumière et de la poussière sur une le centre ; frise de runes au-dessus des portes des tunnels ; **point d'eau et cascade** dans le lobe est, sous une voûte creusée dans la roche (jamais sur les passages, les rails, le pilier ni l'entrée des grottes) : eau ronde de rayon 12 en Parts (surface turquoise translucide + fond sombre, hauteur mesurée au raycast sur la cuvette réelle, aucune eau Terrain), bord de pierres, cascade de 14 à 20 studs (plafonnée au raycast) qui tombe d'une corniche de roche solide, 2 studs dans l'eau côté est : nappes turquoise de largeurs différentes, Beams texturés qui défilent, écume, éclaboussures, brume et bruit d'eau, vue dégagée depuis le ponton (raycasts, la roche qui masque est creusée) ; **petit ponton de bois** (plancher 1,5 stud au-dessus de l'eau, rampe, pilotis jusqu'au fond) avec une canne, sa ligne et son bouchon : **1 invite « Pêcher »** ; paroi sud-est reculée derrière le pilier est (rails abandonnés et wagonnet dégagés du mur) ; « TUNNELS PRIVÉS » en lettres dorées qui flottent (tag `TexteFlottant`) à la place de l'ancien panneau sur poteaux ; `src/client/AmbianceCaverne.client.lua` anime le texte (et règle l'eau Terrain sous terre) ; cercle de runes, menhirs, halo de pierres et éclats en orbite autour du grand cristal ; champignons lumineux, racines, stalagmites, vieux rails et wagonnet chargé d'éclats (solide, on peut sauter dessus ; aucun minerai), piliers et leurs bosses solides. Parcours en hauteur praticable : échelle (TrussPart invisible) contre le pilier ouest → plateforme → pont suspendu fixe (sol et garde-corps invisibles) → plateforme du pilier est. Lumières douces (PointLight ≤ 1,5, néons assombris). Sur une carte figée, le décor est ajouté par `Mine.preparerVoie` ; changer `VERSION` le reconstruit.
 - Sud : rivière, pont de pierre, moulin à eau en blocs sur la rive sud (`B.moulin` : pierre, colombages, potence à sacs) relié à sa roue par un mécanisme qui tourne (arbre sur pile-palier, rouet denté dans une fosse, lanterne, arbre vertical jusqu'au coffre des meules), son puits, rue du sud et ses maisons. L'allée du moulin (style des sentiers) part de la rue du sud ; la maison qui la bouchait (Maison9) est déplacée en face du moulin, l'auvent de la Maison11 est retiré, et deux bancs à jardinières bordent l'allée côté rivière avec un tonneau entre eux (`Village.preparerCheminMoulin`).
 - Rive nord, à l'est du pont : coin des pêcheurs. Ponton sur pilotis accroché à la berge avec la cabane du pêcheur (colombages, toit rouge, cheminée qui fume), filets qui sèchent, tabouret, canne et caisse de poissons (`B.pontonPeche`) ; sur la berge, un petit fumoir à poissons (`B.fumoir`) et un séchoir (`B.sechoirPoissons`). Les deux mineurs figurants (`MineursDecor`) et le lampadaire de l'allée du pont ont été retirés. Un second pin (copie de celui du puits du pont) se dresse à côté du fumoir.
 - Enseigne « LA GRANDE MINE » au-dessus du portail (`preparerEnseigne`, `src/monde/Mine.lua`) : lettres en barres de cristal brut facettées, dégradé bleu → violet, légèrement enfoncées dans la roche de la montagne (basalte et grès), grappes de cristaux autour. Sur un échafaudage à droite du dernier E, un nain mineur (`B.nainPiocheur`) lève et abat sa pioche en boucle avec des étincelles (`PiocheurEnseigne.client.lua`).

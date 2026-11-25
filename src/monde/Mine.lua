@@ -606,12 +606,7 @@ local function caverne(f, rng)
 	B.brasero(m, CFrame.new(24, y, -396))
 	B.brasero(m, CFrame.new(-44, y, -404))
 
-	-- Panneau des tunnels privés
-	local cfP = vers(Vector3.new(0, y, -470), Vector3.new(0, y, -400))
-	for _, x in {-5.5, 5.5} do
-		O.bloc(m, Vector3.new(0.8, 9.5, 0.8), cfP * CFrame.new(x, 4.75, 0), C.BoisFonce, M.Bois, "Poteau")
-	end
-	B.fronton(m, cfP * CFrame.new(0, 8, 0), "TUNNELS PRIVÉS", 12)
+	-- « TUNNELS PRIVÉS » : texte flottant posé par CaverneDecor (l'ancien panneau sur poteaux est retiré)
 
 	-- Stalactites et cristaux dans les parois (on vise la roche avec des rayons)
 	task.wait()
