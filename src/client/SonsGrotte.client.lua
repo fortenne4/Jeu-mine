@@ -29,6 +29,9 @@ local ALIAS = {
 	Abime = "Abysse", Fonderie = "Drone", Rouages = "Mystere", Forge = "Drone",
 	LacLave = "Drone", Basalte = "Drone", Trone = "Drone",
 	Vide = "Abysse", Coeur = "Drone",
+	LacGele = "Lac", Aurore = "Mystere", Givre = "Drone", -- palier 6 (GrotteGlace)
+	Gouffre = "Abysse", Cite = "Mystere", Recif = "Lac", Leviathan = "Drone", -- palier 7 (GrotteAbysses)
+	Meteore = "Drone", Autel = "Drone", -- palier 8 (GrotteAstres) ; « Puits » est déjà relié à Abysse
 }
 local FEU = {id = "rbxassetid://2787093357", volume = 0.45} -- feu de camp (au camp seulement)
 local FONDU = TweenInfo.new(2.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)

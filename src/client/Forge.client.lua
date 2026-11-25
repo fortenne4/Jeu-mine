@@ -575,7 +575,7 @@ local function ouvrirChoix(i: number)
 	if i == 2 then
 		ligne(0, nil)
 	end
-	for ordre, id in Forge.ORDRE_MINERAIS do
+	for ordre, id in Forge.ORDRE_FORGE do
 		ligne(ordre, id)
 	end
 	panneauChoix.Visible = true
@@ -759,7 +759,7 @@ local function ouvrirForge(nouvelEtat: Etat, part: BasePart)
 	end
 	if not slots[1].id then
 		local meilleur, n = nil, 0
-		for _, id in Forge.ORDRE_MINERAIS do
+		for _, id in Forge.ORDRE_FORGE do
 			if possede(id) > n and slots[2].id ~= id then
 				meilleur, n = id, possede(id)
 			end

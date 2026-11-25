@@ -1,4 +1,4 @@
---[[ Boîte à outils commune aux thèmes de grottes (paliers 2 à 5 : GrotteMine, GrotteFonderie, GrotteLave,
+--[[ Boîte à outils commune aux thèmes de grottes (paliers 2 à 8 : GrotteMine, GrotteFonderie, GrotteLave,
 	GrotteCoeur). Reprend les outils mis au point pour « Le Lac des Lueurs » (GrotteLueurs) :
 	- rayons au sol / au plafond / vers les parois (terrain seul, l'eau ignorée)
 	- décor tenu hors du passage (points de toutes les galeries) et hors des gisements

@@ -55,9 +55,11 @@ local ARMURES = {Casque = true, Plastron = true, Jambieres = true}
 local CATEGORIE_TYPE = {Epee = "arme", Casque = "armure", Plastron = "armure", Jambieres = "armure"}
 
 -- Raretés : celles des pioches + « Épique » (nouveaux minerais de la mine privée)
-local NIVEAUX: {[string]: number} = {Commun = 1, ["Peu commun"] = 2, Rare = 3, ["Épique"] = 4, ["Légendaire"] = 5, Mythique = 6, Divin = 7}
+-- + « Céleste » : au-dessus de tout, réservée à l'Épée des astres (butin du Gardien des astres, palier 8)
+local NIVEAUX: {[string]: number} = {Commun = 1, ["Peu commun"] = 2, Rare = 3, ["Épique"] = 4, ["Légendaire"] = 5, Mythique = 6, Divin = 7, ["Céleste"] = 8}
 local COULEURS_RARETE: {[string]: Color3} = table.clone(Pioches.RARETES)
 COULEURS_RARETE["Épique"] = COULEURS_RARETE["Épique"] or Color3.fromRGB(236, 96, 200)
+COULEURS_RARETE["Céleste"] = Color3.fromRGB(120, 170, 255)
 local NIVEAU_LUEUR = 4 -- lueur animée à partir d'Épique
 
 -- Emplacements autour du mannequin : cote 0 = gauche, 1 = droite ; rang = ligne
@@ -118,6 +120,8 @@ local function rareteObjet(o: Objet): (string, Color3, number)
 	local palier = echelle and o.rang and echelle[o.rang]
 	if o.modele == "CasqueMagma" then -- casque de quête unique (Partage.CasqueMagma)
 		return rarete("Mythique")
+	elseif o.modele == "EpeeDesAstres" then -- épée unique du Gardien des astres
+		return rarete("Céleste")
 	end
 	if palier then
 		return rarete(palier.rarete)

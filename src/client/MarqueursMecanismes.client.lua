@@ -71,9 +71,15 @@ local REGLES = {
 	FragmentCarte = {texte = "Ramasse le fragment de carte", icone = "carte", portee = 12,
 		fait = function(i) local m = grandParent(i) return m ~= nil and contient(m:GetAttribute("PrisPar"), uid) end},
 	Peche = {texte = "Coin de pêche", icone = "poisson", uneFois = true, groupe = "Peche", portee = 20},
+	LevierGlace = {icone = "levier", portee = 30, hauteur = 6.5, texte = function(i, g)
+		if i:GetAttribute("LevierGlace") == "Gele" then
+			return "Levier gelé : maintiens pour briser la glace"
+		end
+		return ("Abaisse le levier (%d/%d)"):format(g:GetAttribute("LeviersGlace") or 0, g:GetAttribute("LeviersGlaceTotal") or 3)
+	end},
 }
 local ORDRE = {"CourseWagon", "AscenseurLevier", "FonderieRoyale", "ManivelleRouage", "CoffreAbime", "EnclumeMagma",
-	"CoffreSanctuaire", "Arene", "PierreRunique", "FragmentCarte", "Peche"}
+	"CoffreSanctuaire", "Arene", "PierreRunique", "FragmentCarte", "Peche", "LevierGlace"}
 local GENERIQUE = {icone = "exclam", texte = function(i) return i.ActionText end}
 
 -- mécanismes sans invite : fonction(instance) → règle ou nil
@@ -82,6 +88,13 @@ local SPECIAUX = {
 	function(i)
 		if i:IsA("BasePart") and i:GetAttribute("Propulsion") and CollectionService:HasTag(i, "Geyser") then
 			return {texte = "Saute dans la faille bleue", icone = "fleche", uneFois = true, faitPres = 6, hauteur = 4}
+		end
+	end,
+	function(i)
+		if i:IsA("Model") and i.Name == "PorteGlace" then
+			return {icone = "rune", portee = 45, hauteur = 9, texte = function(_, g)
+				return ("Porte scellée : %d/%d leviers gelés abaissés"):format(g:GetAttribute("LeviersGlace") or 0, g:GetAttribute("LeviersGlaceTotal") or 3)
+			end, dispo = function(_, g) return not g:GetAttribute("SalleGlaceOuverte") end}
 		end
 	end,
 	function(i)

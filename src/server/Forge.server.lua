@@ -127,7 +127,7 @@ end
 local function surJoueur(joueur: Player)
 	local p = Donnees.attendre(joueur)
 	if p and joueur.Parent and RunService:IsStudio() and CONFIG.TEST_STUDIO > 0 and not Donnees.estSauvegarde(joueur) then
-		for _, id in Forge.ORDRE_MINERAIS do
+		for _, id in Forge.ORDRE_FORGE do
 			Donnees.ajouterMinerai(joueur, id, CONFIG.TEST_STUDIO)
 		end
 		print(string.format("[Forge] Test Studio : %d de chaque minerai pour %s", CONFIG.TEST_STUDIO, joueur.Name))
@@ -222,7 +222,7 @@ if RunService:IsStudio() then
 	api.Name = "ForgeAPI"
 	api.OnInvoke = function(commande: string, joueur: Player, valeur: any)
 		if commande == "minerais" and not Donnees.estSauvegarde(joueur) then
-			for _, id in Forge.ORDRE_MINERAIS do
+			for _, id in Forge.ORDRE_FORGE do
 				Donnees.ajouterMinerai(joueur, id, tonumber(valeur) or 50)
 			end
 		end

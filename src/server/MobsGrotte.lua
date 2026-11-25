@@ -215,6 +215,19 @@ local function creerMob(h, def, point: Vector3, boss: boolean?, garde: Vector3?)
 	if echelle ~= 1 then
 		modele:ScaleTo(echelle)
 	end
+	-- variante recolorée (paliers 6 à 8) : pièces tirées vers def.teinte, néons passés en def.lueur ; nom affiché du boss
+	if def.teinte or def.lueur then
+		for _, p in modele:GetChildren() do
+			if p:IsA("BasePart") and p.Transparency < 1 then
+				if p.Material == Enum.Material.Neon then
+					if def.lueur then p.Color = def.lueur end
+				elseif def.teinte then
+					p.Color = p.Color:Lerp(def.teinte, def.teinteForce or 0.5)
+				end
+			end
+		end
+	end
+	if def.nom then modele:SetAttribute("Nom", def.nom) end
 	local taille = modele:GetExtentsSize()
 	modele.ModelStreamingMode = Enum.ModelStreamingMode.Atomic
 	modele:SetAttribute("MobId", def.id)

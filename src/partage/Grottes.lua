@@ -24,12 +24,15 @@ Grottes.DEFENSE_MOITIE = 60
 -- dominant = false : ce minerai ne fait jamais le type dominant d'un gisement (il n'apparaît que dans les 30 %
 -- de nœuds tirés au poids) → minerai « rare » du palier (ex. un peu de cuivre à −50 m).
 export type MineraiGrotte = {id: string, poids: number, pv: number, dominant: boolean?}
-export type MobGrotte = {id: string, poids: number, pv: number, degats: number, vitesse: number, portee: number, recharge: number, echelle: number?, vole: boolean?}
+-- Variantes recolorées (paliers 6 à 8) : teinte = couleur vers laquelle tirent les pièces (force 0 … 1, défaut 0,5),
+-- lueur = couleur des pièces en néon ; nom = nom affiché sur la barre du boss ; rayon / preparation : voir MobsGrotte.
+export type MobGrotte = {id: string, poids: number, pv: number, degats: number, vitesse: number, portee: number, recharge: number, echelle: number?, vole: boolean?,
+	nom: string?, teinte: Color3?, teinteForce: number?, lueur: Color3?, rayon: number?, preparation: number?}
 export type Niveau = {
 	id: number,
 	nom: string,
 	profondeur: number,            -- affiché « −N m »
-	difficulte: number,            -- 1 à 5 (barre de base)
+	difficulte: number,            -- 1 à 8 (barre de base)
 	conseil: {pioche: number, epee: number, defense: number},
 	minerais: {MineraiGrotte},
 	nombreMinerais: {number},      -- {min, max} nœuds par grotte (1 nœud = 1 minerai), regroupés en gisements
@@ -152,6 +155,91 @@ Grottes.NIVEAUX = {
 		boss = {id = "ExecuteurMaudit", poids = 1, pv = 9000, degats = 170, vitesse = 9, portee = 8, recharge = 2.2, echelle = 1.4},
 		ambiance = {roche = Color3.fromRGB(40, 30, 46), lumiere = Color3.fromRGB(200, 60, 255), brouillard = Color3.fromRGB(24, 8, 34), materiau = "Basalt"},
 	},
+	-- ===== Au-delà du Cœur maudit : minerais de la mine privée (Partage › CouchesMine), du moins rare au plus rare =====
+	-- Équipement conseillé au-dessus de la forge actuelle (épée max ≈ 310) : ces paliers attendent les pièces
+	-- forgées avec les nouveaux minerais. Mobs = modèles existants recolorés (teinte / lueur, MobsGrotte).
+	{
+		id = 6, nom = "Glacier éternel", profondeur = 700, difficulte = 6,
+		conseil = {pioche = 10, epee = 310, defense = 140},
+		-- Givrite, argent et obsidienne (≈ 34 / 30 / 30 %), un peu d'émeraude prise dans la glace (≈ 6 %)
+		minerais = {
+			{id = "Givrite", poids = 40, pv = 110},
+			{id = "Argent", poids = 25, pv = 95},
+			{id = "Obsidienne", poids = 25, pv = 120},
+			{id = "Emeraude", poids = 20, pv = 140, dominant = false},
+		},
+		nombreMinerais = {11, 13},
+		-- Mutants, lames et brutes gelés, chauves-souris de givre + boss (Titan de givre)
+		mobs = {
+			{id = "ZombieMutant", poids = 3, pv = 2400, degats = 120, vitesse = 11, portee = 5.5, recharge = 1.3, echelle = 1.2,
+				teinte = Color3.fromRGB(170, 215, 245), teinteForce = 0.5, lueur = Color3.fromRGB(120, 230, 255)},
+			{id = "ZombieLame", poids = 3, pv = 1900, degats = 105, vitesse = 13, portee = 5, recharge = 1.1, echelle = 1.15,
+				teinte = Color3.fromRGB(150, 200, 240), teinteForce = 0.5, lueur = Color3.fromRGB(120, 230, 255)},
+			{id = "BruteProfondeurs", poids = 2, pv = 3800, degats = 150, vitesse = 9, portee = 7, recharge = 1.8, echelle = 1.15,
+				teinte = Color3.fromRGB(190, 225, 250), teinteForce = 0.55, lueur = Color3.fromRGB(150, 240, 255)},
+			{id = "ChauveSourisCave", poids = 2, pv = 700, degats = 60, vitesse = 17, portee = 4, recharge = 1, echelle = 1.2,
+				teinte = Color3.fromRGB(210, 235, 255), teinteForce = 0.6, lueur = Color3.fromRGB(120, 230, 255)},
+		},
+		nombreMobs = {12, 14}, renfortSecondes = 24,
+		boss = {id = "TitanCristal", nom = "Titan de givre", poids = 1, pv = 15000, degats = 240, vitesse = 9, portee = 11, recharge = 2.4,
+			echelle = 0.8, rayon = 5, preparation = 0.8, teinte = Color3.fromRGB(205, 235, 255), teinteForce = 0.55, lueur = Color3.fromRGB(120, 230, 255)},
+		ambiance = {roche = Color3.fromRGB(150, 190, 215), lumiere = Color3.fromRGB(140, 220, 255), brouillard = Color3.fromRGB(18, 38, 58), materiau = "Glacier"},
+	},
+	{
+		id = 7, nom = "Abysses engloutis", profondeur = 900, difficulte = 7,
+		conseil = {pioche = 12, epee = 420, defense = 190},
+		-- Émeraude, rubis et lunarite (≈ 32 / 32 / 31 %), magmaïte des sources chaudes (≈ 5 %)
+		minerais = {
+			{id = "Emeraude", poids = 35, pv = 150},
+			{id = "Rubis", poids = 35, pv = 160},
+			{id = "Lunarite", poids = 30, pv = 180},
+			{id = "Magmaite", poids = 20, pv = 200, dominant = false},
+		},
+		nombreMinerais = {11, 13},
+		-- Crabes géants, noyés (spectres), rampants des récifs, mutants noyés + boss (Léviathan des abysses, BossProfondeurs)
+		mobs = {
+			{id = "CrabeLueur", poids = 3, pv = 3200, degats = 150, vitesse = 11, portee = 5.5, recharge = 1.3, echelle = 1.7,
+				teinte = Color3.fromRGB(40, 170, 170), teinteForce = 0.45, lueur = Color3.fromRGB(90, 255, 230)},
+			{id = "SpectreNain", poids = 2, pv = 2600, degats = 140, vitesse = 12, portee = 5, recharge = 1.5, echelle = 1.2, vole = true,
+				teinte = Color3.fromRGB(60, 200, 200), teinteForce = 0.55, lueur = Color3.fromRGB(110, 255, 220)},
+			{id = "RampantGaleries", poids = 2, pv = 3000, degats = 145, vitesse = 15, portee = 4.5, recharge = 1.1, echelle = 1.25,
+				teinte = Color3.fromRGB(30, 110, 120), teinteForce = 0.55, lueur = Color3.fromRGB(90, 255, 230)},
+			{id = "ZombieMutant", poids = 2, pv = 4200, degats = 170, vitesse = 11, portee = 5.5, recharge = 1.3, echelle = 1.25,
+				teinte = Color3.fromRGB(50, 130, 130), teinteForce = 0.5, lueur = Color3.fromRGB(90, 255, 230)},
+		},
+		nombreMobs = {12, 14}, renfortSecondes = 23,
+		-- boss : modèle provisoire MobsVoxels.LeviathanAbysses ; attaques spéciales et butin dans BossProfondeurs.lua
+		boss = {id = "LeviathanAbysses", nom = "Le Léviathan des abysses", poids = 1, pv = 24000, degats = 320, vitesse = 10, portee = 9,
+			recharge = 2.3, echelle = 1.15, rayon = 5, preparation = 0.8},
+		ambiance = {roche = Color3.fromRGB(56, 96, 104), lumiere = Color3.fromRGB(60, 230, 200), brouillard = Color3.fromRGB(4, 28, 38), materiau = "Limestone"},
+	},
+	{
+		id = 8, nom = "Néant étoilé", profondeur = 1200, difficulte = 8,
+		conseil = {pioche = 12, epee = 560, defense = 250},
+		-- Diamant et orichalque (≈ 47 / 45 %), néantite très rare (≈ 8 %)
+		minerais = {
+			{id = "Diamant", poids = 40, pv = 230},
+			{id = "Orichalque", poids = 35, pv = 250},
+			{id = "Neantite", poids = 25, pv = 290, dominant = false},
+		},
+		nombreMinerais = {11, 13},
+		-- Spectres astraux (volants), lames du néant, colosses stellaires, chauves-souris d'étoiles + boss (Gardien des astres, BossProfondeurs)
+		mobs = {
+			{id = "SpectreNain", poids = 2, pv = 4200, degats = 210, vitesse = 13, portee = 5, recharge = 1.4, echelle = 1.3, vole = true,
+				teinte = Color3.fromRGB(255, 215, 130), teinteForce = 0.55, lueur = Color3.fromRGB(255, 240, 180)},
+			{id = "ZombieLame", poids = 3, pv = 5200, degats = 230, vitesse = 14, portee = 5, recharge = 1.05, echelle = 1.2,
+				teinte = Color3.fromRGB(40, 40, 90), teinteForce = 0.6, lueur = Color3.fromRGB(120, 200, 255)},
+			{id = "BruteProfondeurs", poids = 2, pv = 8500, degats = 300, vitesse = 9, portee = 7, recharge = 1.7, echelle = 1.2,
+				teinte = Color3.fromRGB(30, 32, 72), teinteForce = 0.6, lueur = Color3.fromRGB(255, 215, 120)},
+			{id = "ChauveSourisCave", poids = 2, pv = 1600, degats = 130, vitesse = 18, portee = 4, recharge = 0.9, echelle = 1.25,
+				teinte = Color3.fromRGB(40, 40, 84), teinteForce = 0.6, lueur = Color3.fromRGB(255, 215, 120)},
+		},
+		nombreMobs = {13, 15}, renfortSecondes = 22,
+		-- boss : modèle provisoire MobsVoxels.GardienAstres ; attaques spéciales et Épée des astres dans BossProfondeurs.lua
+		boss = {id = "GardienAstres", nom = "Le Gardien des astres", poids = 1, pv = 36000, degats = 420, vitesse = 10, portee = 9,
+			recharge = 2.2, echelle = 1.1, rayon = 5, preparation = 0.8},
+		ambiance = {roche = Color3.fromRGB(34, 34, 60), lumiere = Color3.fromRGB(255, 210, 120), brouillard = Color3.fromRGB(6, 6, 18), materiau = "Asphalt"},
+	},
 } :: {Niveau}
 
 function Grottes.niveau(id: any): Niveau?
@@ -236,7 +324,9 @@ function Grottes.partsMinerais(niveau: Niveau): {{id: string, part: number}}
 end
 
 -- Nom des minerais pour le joueur (l'id « Bronze » s'affiche « Cuivre », « Gold » → « Or »)
-Grottes.NOMS_MINERAIS = {Charbon = "Charbon", Bronze = "Cuivre", Fer = "Fer", Gold = "Or"} :: {[string]: string}
+Grottes.NOMS_MINERAIS = {Charbon = "Charbon", Bronze = "Cuivre", Fer = "Fer", Gold = "Or",
+	Soufre = "Soufre", Quartz = "Quartz", Argent = "Argent", Obsidienne = "Obsidienne", Givrite = "Givrite", Emeraude = "Émeraude",
+	Rubis = "Rubis", Lunarite = "Lunarite", Magmaite = "Magmaïte", Diamant = "Diamant", Orichalque = "Orichalque", Neantite = "Néantite"} :: {[string]: string}
 
 -- Minerais déjà minés au moins une fois (n'importe où) : attribut joueur posé par le serveur (Donnees),
 -- ids séparés par des virgules, ex. "Charbon,Bronze". Le client n'en fait qu'un affichage (silhouettes).

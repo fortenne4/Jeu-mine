@@ -29,7 +29,8 @@ local MineraisModeles = require(Partage:WaitForChild("MineraisModeles"))
 
 local T, creer, coin, trait, texte = UI.T, UI.creer, UI.coin, UI.trait, UI.texte
 
-export type Recompense = {genre: string, n: number?, id: string?, nom: string?}
+-- genre = "pieces" | "minerai" (id = minerai) | "epee" (id = modèle ArmesVoxels ; rarete / couleur facultatives)
+export type Recompense = {genre: string, n: number?, id: string?, nom: string?, rarete: string?, couleur: Color3?}
 export type Options = {titre: string?, theme: string?, sousTitre: string?, recompenses: {Recompense}?}
 
 local PopupCoffre = {}
@@ -45,6 +46,12 @@ local THEMES: {[string]: Theme} = {
 		sous = "Les gardiens sont vaincus"},
 	Fonderie = {accent = Color3.fromRGB(255, 130, 40), lueur = Color3.fromRGB(255, 196, 96), fond = Color3.fromRGB(78, 24, 6),
 		sous = "Le creuset royal a parlé"},
+	Maudit = {accent = Color3.fromRGB(230, 90, 210), lueur = Color3.fromRGB(255, 212, 110), fond = Color3.fromRGB(46, 8, 34),
+		sous = "L'Exécuteur maudit est tombé"},
+	Abysses = {accent = Color3.fromRGB(60, 220, 230), lueur = Color3.fromRGB(190, 255, 245), fond = Color3.fromRGB(4, 34, 46),
+		sous = "Le Léviathan retourne aux abysses"},
+	Astres = {accent = Color3.fromRGB(130, 160, 255), lueur = Color3.fromRGB(255, 236, 170), fond = Color3.fromRGB(10, 10, 40),
+		sous = "Le Gardien des astres s'éteint"},
 	Defaut = {accent = T.Or, lueur = Color3.fromRGB(255, 220, 120), fond = Color3.fromRGB(56, 36, 10), sous = "Trésor découvert !"},
 }
 
@@ -83,6 +90,15 @@ local THEMES3D: {[string]: Theme3D} = {
 	Fonderie = {bois = Color3.fromRGB(86, 50, 34), boisMat = Enum.Material.WoodPlanks, fer = Color3.fromRGB(56, 54, 56), ferMat = Enum.Material.CorrodedMetal,
 		garn = Color3.fromRGB(206, 114, 62), garnMat = Enum.Material.Metal, gemme = Color3.fromRGB(255, 120, 40), lueur = Color3.fromRGB(255, 162, 60),
 		piece = Color3.fromRGB(248, 186, 70), ambiant = Color3.fromRGB(165, 110, 90), lumiere = Color3.fromRGB(255, 208, 165)},
+	Maudit = {bois = Color3.fromRGB(44, 30, 42), boisMat = Enum.Material.WoodPlanks, fer = Color3.fromRGB(34, 30, 40), ferMat = Enum.Material.Metal,
+		garn = Color3.fromRGB(240, 182, 62), garnMat = Enum.Material.Foil, gemme = Color3.fromRGB(220, 40, 90), lueur = Color3.fromRGB(255, 190, 90),
+		piece = Color3.fromRGB(246, 194, 72), ambiant = Color3.fromRGB(150, 105, 130), lumiere = Color3.fromRGB(255, 214, 190)},
+	Abysses = {bois = Color3.fromRGB(40, 66, 70), boisMat = Enum.Material.WoodPlanks, fer = Color3.fromRGB(40, 90, 96), ferMat = Enum.Material.CorrodedMetal,
+		garn = Color3.fromRGB(210, 220, 200), garnMat = Enum.Material.Metal, gemme = Color3.fromRGB(90, 255, 230), lueur = Color3.fromRGB(120, 255, 235),
+		piece = Color3.fromRGB(240, 206, 110), ambiant = Color3.fromRGB(100, 150, 160), lumiere = Color3.fromRGB(200, 250, 255)},
+	Astres = {bois = Color3.fromRGB(26, 28, 70), boisMat = Enum.Material.WoodPlanks, fer = Color3.fromRGB(30, 34, 80), ferMat = Enum.Material.Metal,
+		garn = Color3.fromRGB(236, 196, 96), garnMat = Enum.Material.Foil, gemme = Color3.fromRGB(170, 120, 255), lueur = Color3.fromRGB(255, 236, 170),
+		piece = Color3.fromRGB(246, 200, 90), ambiant = Color3.fromRGB(110, 110, 170), lumiere = Color3.fromRGB(230, 225, 255)},
 	Defaut = {bois = Color3.fromRGB(150, 96, 54), boisMat = Enum.Material.WoodPlanks, fer = Color3.fromRGB(70, 64, 60), ferMat = Enum.Material.Metal,
 		garn = Color3.fromRGB(240, 182, 62), garnMat = Enum.Material.Foil, gemme = Color3.fromRGB(235, 55, 70), lueur = Color3.fromRGB(255, 214, 110),
 		piece = Color3.fromRGB(246, 194, 72), ambiant = Color3.fromRGB(150, 120, 95), lumiere = Color3.fromRGB(255, 232, 195)},
@@ -526,10 +542,14 @@ local function creerCarte(e: Elements, r: Recompense, ordre: number): Carte
 		nom = r.nom or NOMS_MINERAIS[r.id] or r.id
 		rarete = if visuel then visuel.rarete else "Minerai"
 		couleur = (Pioches.RARETES :: any)[rarete] or T.Or
+	elseif genre == "epee" then
+		nom = r.nom or "Épée"
+		rarete = r.rarete or "Légendaire"
+		couleur = r.couleur or (Pioches.RARETES :: any)[rarete] or T.Or
 	elseif r.nom then
 		nom = r.nom
 	end
-	local niveau = UI.NIVEAUX[rarete] or 3
+	local niveau = if genre == "epee" then 6 else UI.NIVEAUX[rarete] or 3
 
 	local fente = creer("Frame", {Name = "Fente", LayoutOrder = ordre, Size = UDim2.fromScale(0.3, 1), BackgroundTransparency = 1,
 		Parent = e.rangee}, {creer("UIAspectRatioConstraint", {AspectRatio = 0.8})})
@@ -547,6 +567,9 @@ local function creerCarte(e: Elements, r: Recompense, ordre: number): Carte
 	local zone = creer("Frame", {Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Parent = medaillon})
 	if genre == "minerai" and r.id and visuel then
 		Icones.minerai(r.id, zone, {vitesse = 1.1, marge = 0.78})
+	elseif genre == "epee" and r.id then
+		local vp = Icones.creer(zone)
+		Icones.definir(vp, "epee", r.id, {vitesse = 1.1, marge = 0.8, hauteur = 0.1})
 	else
 		iconePieces(zone)
 	end

@@ -27,6 +27,8 @@ local NOMS = {
 	ReineAraignee = "Reine araignée",
 	SeigneurBraise = "Seigneur de braise",
 	RoiDechu = "Le Roi déchu",
+	LeviathanAbysses = "Le Léviathan des abysses",
+	GardienAstres = "Le Gardien des astres",
 }
 
 local rng = Random.new()

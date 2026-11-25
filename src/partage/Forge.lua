@@ -49,6 +49,19 @@ do
 	end
 end
 
+-- Minerais de la mine privée devenus forgeables (butin du Léviathan des abysses, palier 7 −900 m, et minés là-bas) :
+-- force = qualité par unité (Or = 11). ORDRE_FORGE = minerais proposés dans la forge de Brom (4 de départ + ceux-ci).
+-- Épée / Casque : seulement par leur échelle (rang « des marées » plus bas) ; Plastron / Jambières : alliages libres.
+Forge.FORGEABLES_PROFONDS = {Lunarite = 16, Magmaite = 19} :: {[string]: number}
+Forge.ORDRE_FORGE = table.clone(Forge.ORDRE_MINERAIS)
+for _, id in {"Lunarite", "Magmaite"} do
+	local m = Forge.MINERAIS[id] :: any
+	if m then
+		m.force, m.forgeable = Forge.FORGEABLES_PROFONDS[id], nil
+		table.insert(Forge.ORDRE_FORGE, id)
+	end
+end
+
 Forge.ORDRE_TYPES = {"Epee", "Casque", "Plastron", "Jambieres"}
 Forge.TYPES = {
 	Epee = {id = "Epee", nom = "Épée", icone = "🗡️", stat = "Dégâts", mult = 2, min = 2, max = 12, frais = 20},
@@ -75,6 +88,8 @@ Forge.ECHELLES = {
 		{rang = 8, minerais = {"Charbon", "Gold"}, modele = "CasqueCharbonOr", nom = "Casque de charbon et or", base = 75, cout = 260, rarete = "Légendaire"},
 		{rang = 9, minerais = {"Bronze", "Gold"}, modele = "CasqueBronzeOr", nom = "Casque de bronze et or", base = 102, cout = 330, rarete = "Mythique"},
 		{rang = 10, minerais = {"Fer", "Gold"}, modele = "CasqueFerOr", nom = "Casque de fer et or", base = 138, cout = 420, rarete = "Divin"},
+		-- butin du Léviathan des abysses (1 lunarite + 1 magmaïte = le minimum pour un casque)
+		{rang = 11, minerais = {"Lunarite", "Magmaite"}, modele = "CasqueMarees", nom = "Heaume des marées", base = 190, cout = 520, rarete = "Divin"},
 	},
 	-- Charbon + Bronze : deux modèles selon le minerai dominant (voir Forge.dominant)
 	Epee = {
@@ -89,6 +104,8 @@ Forge.ECHELLES = {
 		{rang = 9, minerais = {"Charbon", "Gold"}, modele = "EpeeCharbonOr", nom = "Épée de charbon et or", base = 124, cout = 300, rarete = "Légendaire"},
 		{rang = 10, minerais = {"Bronze", "Gold"}, modele = "EpeeBronzeOr", nom = "Épée de bronze et or", base = 169, cout = 380, rarete = "Mythique"},
 		{rang = 11, minerais = {"Fer", "Gold"}, modele = "EpeeFerOr", nom = "Épée de fer et or", base = 230, cout = 480, rarete = "Divin"},
+		-- butin du Léviathan des abysses (1 lunarite + 1 magmaïte = le minimum pour une épée)
+		{rang = 12, minerais = {"Lunarite", "Magmaite"}, modele = "EpeeMarees", nom = "Lame des marées", base = 315, cout = 600, rarete = "Divin"},
 	},
 } :: {[string]: {Palier}}
 

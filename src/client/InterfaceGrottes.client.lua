@@ -1,6 +1,6 @@
 --!strict
 -- Grottes profondes · INTERFACE (StarterPlayerScripts › Jeu)
--- 1. Choix de la profondeur (ouvert par le serveur quand le chef entre dans le cercle) : 5 paliers, une barre de
+-- 1. Choix de la profondeur (ouvert par le serveur quand le chef entre dans le cercle) : 8 paliers, une barre de
 --    danger chacun (selon l'équipement du joueur), les minerais du palier en pastilles 3D qui se chevauchent
 --    (générées depuis Grottes.NIVEAUX, du plus fréquent au plus rare ; silhouette noire « ??? » tant que le
 --    joueur n'a jamais miné ce minerai), agrandissement au survol, bloc « Groupe » avec invitation.
@@ -29,7 +29,9 @@ end
 local evOuvrir, evFermer, evChoisir, evQuitter = remote("Ouvrir"), remote("Fermer"), remote("Choisir"), remote("Quitter")
 local evInviter, evInvitation, evRepondre, evMessage = remote("Inviter"), remote("Invitation"), remote("Repondre"), remote("Message")
 
-local LARGEUR, HAUTEUR = 640, 500 -- taille de conception (mise à l'échelle par UIScale) ; le panneau « Groupe » est collé à droite
+local LARGEUR = 640 -- taille de conception (mise à l'échelle par UIScale) ; le panneau « Groupe » est collé à droite
+-- hauteur : 500 pour 5 paliers, + 72 par palier en plus (une carte de 64 + 8 d'écart)
+local HAUTEUR = 500 + (#Grottes.NIVEAUX - 5) * 72
 local CRISTAL = Color3.fromRGB(120, 210, 255)
 local BOUTON_BLEU = Color3.fromRGB(56, 140, 205)
 local DUREE_INVITATION = 20
@@ -504,7 +506,7 @@ local fermer = boutonFermer({Name = "Fermer", AnchorPoint = Vector2.new(1, 0), P
 local Y0, H_LIGNE, ECART, X_CARTE, L_CARTE = 98, 64, 8, 64, 538
 
 -- Puits : corde verticale + nœuds lumineux
-creer("Frame", {Name = "Puits", Position = UDim2.fromOffset(31, Y0 + 8), Size = UDim2.fromOffset(6, 5 * (H_LIGNE + ECART) - ECART - 16),
+creer("Frame", {Name = "Puits", Position = UDim2.fromOffset(31, Y0 + 8), Size = UDim2.fromOffset(6, #Grottes.NIVEAUX * (H_LIGNE + ECART) - ECART - 16),
 	BackgroundColor3 = Color3.fromRGB(120, 86, 52), BorderSizePixel = 0, ZIndex = 3, Parent = interieur},
 	{coin(0.5), trait(ENCRE, 1.5), creer("UIGradient", {Rotation = 0, Color = ColorSequence.new(Color3.fromRGB(255, 230, 190), Color3.fromRGB(110, 80, 60))})})
 
@@ -809,9 +811,9 @@ local function survoler(l: Ligne, actif: boolean)
 	end
 end
 
-local LIBELLES_NIVEAU = {"Facile", "Modéré", "Difficile", "Extrême", "Impossible"}
+local LIBELLES_NIVEAU = {"Facile", "Modéré", "Difficile", "Extrême", "Impossible", "Infernal", "Abyssal", "Cauchemar"}
 
--- Barres de difficulté : niveau N = N/5 de la jauge, du vert (1) au rouge (5) ; la ligne d'info du survol
+-- Barres de difficulté : niveau N = N / (nombre de paliers) de la jauge, du vert (1) au rouge (5) ; la ligne d'info du survol
 -- garde le danger selon l'équipement (recalculée quand l'équipement change)
 local function majBarres(depuisZero: boolean)
 	local s = stats()
@@ -821,7 +823,7 @@ local function majBarres(depuisZero: boolean)
 		if depuisZero then
 			l.plein.Size = UDim2.fromScale(0, 1)
 		end
-		local part = l.niveau.difficulte / 5
+		local part = l.niveau.difficulte / total
 		TweenService:Create(l.plein, TweenInfo.new(0.7, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, 0, false,
 			if depuisZero then 0.2 + i * 0.07 else 0), {Size = UDim2.fromScale(part, 1),
 			BackgroundColor3 = Grottes.couleurDanger((l.niveau.difficulte - 1) / math.max(total - 1, 1))}):Play()

@@ -99,7 +99,9 @@ local function plaque(modele: Model, cf: CFrame, nom: string)
 end
 
 local modeles = {{modele = "Casque", nom = "Armure de base", rarete = "Base", couleur = Color3.fromRGB(152, 158, 170)}}
+local ArmuresVoxels = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("ArmuresVoxels"))
 for _, palier in Forge.ECHELLES.Casque do
+	if not ArmuresVoxels.existe(palier.modele) then continue end -- casque sans modèle 3D (ex. Heaume des marées) : pas exposé
 	local minerai = Forge.MINERAIS[palier.dominant or palier.minerais[1]]
 	table.insert(modeles, {modele = palier.modele, nom = palier.nom, rarete = palier.rarete, couleur = minerai and minerai.couleur or Color3.fromRGB(152, 158, 170)})
 end

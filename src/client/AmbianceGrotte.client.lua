@@ -40,6 +40,33 @@ local THEMES = {
 			WaterWaveSpeed = 9},
 		ambiance = Color3.fromRGB(60, 150, 190),
 	},
+	[6] = { -- « Les Cavernes de glace éternelle » : glacier bleuté, lac de vraie glace, congères
+		materiaux = {
+			[Enum.Material.Glacier] = Color3.fromRGB(150, 200, 232),
+			[Enum.Material.Ice] = Color3.fromRGB(175, 220, 245),
+			[Enum.Material.Snow] = Color3.fromRGB(235, 243, 252),
+		},
+		eau = {},
+		ambiance = Color3.fromRGB(120, 200, 255),
+	},
+	[7] = { -- « La Cité engloutie » : calcaire verdi, flaques turquoise, algues
+		materiaux = {
+			[Enum.Material.Limestone] = Color3.fromRGB(72, 112, 114),
+			[Enum.Material.Mud] = Color3.fromRGB(40, 62, 58),
+			[Enum.Material.LeafyGrass] = Color3.fromRGB(30, 112, 92),
+			[Enum.Material.Basalt] = Color3.fromRGB(34, 54, 60),
+		},
+		eau = {WaterColor = Color3.fromRGB(20, 140, 150), WaterTransparency = 0.4, WaterReflectance = 0.1, WaterWaveSize = 0.1,
+			WaterWaveSpeed = 6},
+		ambiance = Color3.fromRGB(60, 200, 190),
+	},
+	[8] = { -- « L'Observatoire des astres » : roche couleur de nuit
+		materiaux = {
+			[Enum.Material.Asphalt] = Color3.fromRGB(30, 30, 56),
+		},
+		eau = {},
+		ambiance = Color3.fromRGB(120, 130, 220),
+	},
 }
 
 local sauvegarde = nil -- valeurs d'origine pendant qu'on est sous terre

@@ -8,6 +8,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+local GuiService = game:GetService("GuiService")
+local Debris = game:GetService("Debris")
 
 local UI = require(script.Parent:WaitForChild("InterfaceMine"))
 local PopupCoffre = require(script.Parent:WaitForChild("PopupCoffre"))
@@ -402,11 +404,11 @@ end
 
 -- éclats du Cœur : pièces locales projetées tout autour, qui retombent puis disparaissent
 local function eclats(centre: Vector3)
-	for k = 1, 26 do
+	for k = 1, 36 do
 		local p = Instance.new("Part")
 		p.Name = "EclatCoeur"
 		p.Size = Vector3.new(0.6, 1.6, 0.6) * (0.6 + math.random() * 0.9)
-		p.Material = Enum.Material.Neon
+		p.Material = if k % 4 == 0 then Enum.Material.Neon else Enum.Material.Glass -- peu de néon : lumière raisonnable
 		p.Color = if k % 3 == 0 then Color3.fromRGB(230, 60, 220) else Color3.fromRGB(220, 30, 50)
 		p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = false, false, false, false
 		p.CFrame = CFrame.new(centre) * CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6)
@@ -415,49 +417,360 @@ local function eclats(centre: Vector3)
 		p.AssemblyLinearVelocity = dir * (30 + math.random() * 35)
 		p.AssemblyAngularVelocity = Vector3.new(math.random() * 10, math.random() * 10, math.random() * 10)
 		TweenService:Create(p, TweenInfo.new(3.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 1}):Play()
-		game:GetService("Debris"):AddItem(p, 3.6)
+		Debris:AddItem(p, 3.6)
 	end
 end
 
-local function cinematiqueCoeur(centre: Vector3)
+-- ================= Mort de l'Exécuteur maudit : pluie d'or et butin =================
+local OR_PEPITE, OR_PIECE = Color3.fromRGB(246, 190, 64), Color3.fromRGB(236, 176, 56)
+
+-- pluie de pépites et de pièces d'or (pièces locales, physiques) sur l'arène pendant `duree` s
+local function pluieDOr(sol: Vector3, duree: number)
+	local dossier = Instance.new("Folder")
+	dossier.Name = "PluieDOr"
+	dossier.Parent = workspace
+	Debris:AddItem(dossier, duree + 8)
+	-- lueur dorée douce au-dessus de l'arène
+	local porteur = Instance.new("Part")
+	porteur.Anchored, porteur.Transparency = true, 1
+	porteur.CanCollide, porteur.CanQuery, porteur.CanTouch = false, false, false
+	porteur.Size = Vector3.one
+	porteur.CFrame = CFrame.new(sol + Vector3.new(0, 18, 0))
+	porteur.Parent = dossier
+	local lueur = Instance.new("PointLight")
+	lueur.Color, lueur.Range, lueur.Brightness, lueur.Shadows = Color3.fromRGB(255, 200, 110), 50, 0, false
+	lueur.Parent = porteur
+	TweenService:Create(lueur, TweenInfo.new(0.8), {Brightness = 1.4}):Play()
+	task.delay(duree + 1, function()
+		TweenService:Create(lueur, TweenInfo.new(2), {Brightness = 0}):Play()
+	end)
+	task.spawn(function()
+		local t0, n = os.clock(), 0
+		while os.clock() - t0 < duree and dossier.Parent do
+			for _ = 1, 2 do
+				n += 1
+				local a, r = math.random() * 2 * math.pi, math.sqrt(math.random()) * 34
+				local p = Instance.new("Part")
+				if n % 3 == 0 then
+					p.Name = "PieceOr"
+					p.Shape = Enum.PartType.Cylinder
+					p.Size = Vector3.new(0.22, 1.2, 1.2)
+					p.Color = OR_PIECE
+				else
+					p.Name = "PepiteOr"
+					p.Size = Vector3.new(0.6 + math.random() * 0.6, 0.45 + math.random() * 0.45, 0.6 + math.random() * 0.6)
+					p.Color = OR_PEPITE
+				end
+				p.Material = Enum.Material.Metal
+				p.Reflectance = 0.15
+				p.Massless = true
+				p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = true, false, false, false
+				p.CFrame = CFrame.new(sol + Vector3.new(math.cos(a) * r, 22 + math.random() * 8, math.sin(a) * r))
+					* CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6)
+				if n % 6 == 0 then
+					local e = Instance.new("ParticleEmitter")
+					e.Texture = TEX_ETINCELLE
+					e.Color = ColorSequence.new(Color3.fromRGB(255, 226, 140))
+					e.LightEmission, e.LightInfluence = 0.4, 0
+					e.Size = NumberSequence.new(0.35, 0)
+					e.Lifetime = NumberRange.new(0.4, 0.7)
+					e.Speed = NumberRange.new(0.5, 1.5)
+					e.SpreadAngle = Vector2.new(180, 180)
+					e.Rate = 8
+					e.Parent = p
+				end
+				p.Parent = dossier
+				p.AssemblyLinearVelocity = Vector3.new(math.random(-4, 4), -12 - math.random() * 10, math.random(-4, 4))
+				p.AssemblyAngularVelocity = Vector3.new(math.random() * 8, math.random() * 8, math.random() * 8)
+				task.delay(4.5, function()
+					if p.Parent then
+						TweenService:Create(p, TweenInfo.new(1.2), {Transparency = 1}):Play()
+					end
+				end)
+				Debris:AddItem(p, 5.8)
+			end
+			task.wait(0.08)
+		end
+	end)
+end
+
+-- pépites (2D) qui jaillissent au centre de l'écran puis volent jusqu'au sac (bouton SacHUD › Sac), avec le total
+local function pepitesVersSac(n: number)
+	local cam = workspace.CurrentCamera
+	local ecran = cam.ViewportSize
+	local hud = joueur.PlayerGui:FindFirstChild("SacHUD")
+	local socle = hud and hud:FindFirstChild("Sac")
+	local cible = Vector2.new(60, ecran.Y * 0.55)
+	if socle and socle:IsA("GuiObject") then
+		local inset = GuiService:GetGuiInset() -- SacHUD respecte la barre du haut, ce ScreenGui non
+		cible = socle.AbsolutePosition + socle.AbsoluteSize / 2 + inset
+	end
+	local centre = Vector2.new(ecran.X / 2, ecran.Y * 0.45)
+	local total = UI.texte({
+		Name = "TotalOr", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.36), Size = UDim2.fromScale(0.5, 0.1),
+		BackgroundTransparency = 1, Text = "+" .. n .. " OR", TextColor3 = Color3.fromRGB(255, 214, 90), Font = Enum.Font.FredokaOne,
+		ZIndex = 60, Parent = gui,
+	}, 64)
+	UI.creer("UIStroke", {Color = Color3.fromRGB(60, 30, 4), Thickness = 3, Parent = total})
+	UI.pop(total, 0.4)
+	UI.jouer("succes", 0.9)
+	local nombre = math.clamp(n, 8, 24)
+	for k = 1, nombre do
+		local s = 14 + math.random() * 12
+		local f = UI.creer("Frame", {
+			Name = "PepiteVol", AnchorPoint = Vector2.new(0.5, 0.5), Size = UDim2.fromOffset(s, s * 0.8), Position = UDim2.fromOffset(centre.X, centre.Y),
+			Rotation = math.random(0, 360), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, ZIndex = 61, Parent = gui,
+		}, {UI.coin(0.35), UI.trait(Color3.fromRGB(90, 52, 10), 1.5), UI.degrade(Color3.fromRGB(255, 238, 160), Color3.fromRGB(214, 140, 30), 45)})
+		local a, r = math.random() * 2 * math.pi, 50 + math.random() * 120
+		local eclat = centre + Vector2.new(math.cos(a) * r, math.sin(a) * r * 0.7)
+		TweenService:Create(f, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.fromOffset(eclat.X, eclat.Y)}):Play()
+		task.delay(0.4 + k * 0.04, function()
+			local t = TweenService:Create(f, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+				{Position = UDim2.fromOffset(cible.X, cible.Y), Size = UDim2.fromOffset(s * 0.5, s * 0.4), Rotation = f.Rotation + 180})
+			t:Play()
+			t.Completed:Connect(function()
+				f:Destroy()
+				if k % 3 == 0 then
+					UI.jouer("clic", 1.2 + math.random() * 0.3)
+				end
+				if socle and socle:IsA("GuiObject") then
+					UI.pop(socle, 1.12)
+				end
+			end)
+		end)
+	end
+	task.delay(1.6, function()
+		local t = TweenService:Create(total, TweenInfo.new(0.6), {TextTransparency = 1, Position = UDim2.fromScale(0.5, 0.3)})
+		t:Play()
+		t.Completed:Wait()
+		total:Destroy()
+	end)
+end
+
+-- butin de l'Exécuteur : pépites vers le sac puis pop-up de coffre (or + pièces)
+local function butinExecuteur(gold: number, pieces: number)
+	if gold <= 0 and pieces <= 0 then
+		return
+	end
+	if gold > 0 then
+		pepitesVersSac(gold)
+	end
+	task.delay(if gold > 0 then 1.3 else 0, function()
+		PopupCoffre.afficher({titre = "Butin de l'Exécuteur", theme = "Maudit",
+			sousTitre = if gold > 0 then "+" .. gold .. " Or dans ton sac !" else nil,
+			recompenses = {{genre = "minerai", id = "Gold", n = gold}, {genre = "pieces", n = pieces}}})
+	end)
+end
+
+-- Cinématique (≈ 10 s) : 1. l'Exécuteur s'effondre au ralenti (plan bas, de trois quarts) ; 2. la caméra lève les
+-- yeux vers le Cœur qui se fissure ; 3. le Cœur éclate (t = 4,3 s, calé sur le serveur) et une pluie d'or tombe sur
+-- l'arène, plan large qui tourne lentement ; 4. la caméra revient derrière le joueur puis rend la main.
+local T_FISSURE, T_EXPLOSION, T_RETOUR, T_FIN = 3.3, 4.3, 9.2, 10
+local enCinematique = false
+local function cinematiqueCoeur(d)
+	local centre: Vector3 = d.centre
+	local sol: Vector3 = if typeof(d.sol) == "Vector3" then d.sol else centre - Vector3.new(0, 24, 0)
+	local boss: Vector3 = if typeof(d.boss) == "Vector3" then d.boss else sol + Vector3.new(0, 5, 0)
+	local hauteur = if type(d.hauteur) == "number" then math.clamp(d.hauteur, 4, 30) else 10
+	local gold, pieces = tonumber(d.gold) or 0, tonumber(d.pieces) or 0
+	if enCinematique then
+		butinExecuteur(gold, pieces)
+		return
+	end
+	enCinematique = true
 	local cam = workspace.CurrentCamera
 	local perso = joueur.Character
 	local r = perso and perso:FindFirstChild("HumanoidRootPart") :: BasePart?
-	local depuis = if r then r.Position else centre + Vector3.new(30, -10, 0)
-	local horiz = Vector3.new(depuis.X - centre.X, 0, depuis.Z - centre.Z)
+	local depuis = if r then r.Position else boss + Vector3.new(30, 0, 0)
+	local horiz = Vector3.new(depuis.X - boss.X, 0, depuis.Z - boss.Z)
 	local dir = if horiz.Magnitude > 1 then horiz.Unit else Vector3.xAxis
-	local ancien = cam.CameraType
+	local cote = dir:Cross(Vector3.yAxis)
+	-- teinte légèrement désaturée pendant la chute, puis chaude avec l'or (aucun éclaircissement fort)
+	local teinte = Instance.new("ColorCorrectionEffect")
+	teinte.Name = "TeinteCoeur"
+	teinte.Parent = cam
+	TweenService:Create(teinte, TweenInfo.new(0.8), {Saturation = -0.3, Contrast = 0.08}):Play()
+
 	cam.CameraType = Enum.CameraType.Scriptable
+	local courant = cam.CFrame
 	local debut = os.clock()
-	local fini = false
-	RunService:BindToRenderStep("CinematiqueCoeur", Enum.RenderPriority.Camera.Value + 1, function()
+	RunService:BindToRenderStep("CinematiqueCoeur", Enum.RenderPriority.Camera.Value + 1, function(dt)
 		local t = os.clock() - debut
-		local a = t * 0.35
-		local d = 30 - math.min(t, 3) * 3
-		local pos = centre + (CFrame.Angles(0, a, 0) * dir) * d + Vector3.new(0, -6 + t * 1.2, 0)
-		cam.CFrame = CFrame.lookAt(pos, centre)
+		local pos, vise
+		if t < T_FISSURE then
+			local u = t / T_FISSURE
+			pos = boss + dir * (hauteur * 1.6 + 8 - u * 4) + cote * (hauteur * 0.6) + Vector3.new(0, 1.5 - hauteur * 0.2, 0)
+			vise = boss + Vector3.new(0, hauteur * (0.15 - u * 0.35), 0)
+		elseif t < T_EXPLOSION then
+			pos = sol + dir * 30 + cote * 6 + Vector3.new(0, 6, 0)
+			vise = centre
+		elseif t < T_RETOUR then
+			local a = (t - T_EXPLOSION) * 0.12
+			pos = sol + CFrame.Angles(0, a, 0) * (dir * 34 + cote * 6) + Vector3.new(0, 16, 0)
+			vise = sol + Vector3.new(0, 7, 0)
+		else
+			local p = joueur.Character
+			local rr = p and p:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if rr then
+				vise = rr.Position + Vector3.new(0, 1.5, 0)
+				pos = rr.Position - rr.CFrame.LookVector * 12 + Vector3.new(0, 4.5, 0)
+			else
+				pos, vise = courant.Position, courant.Position + courant.LookVector
+			end
+		end
+		courant = courant:Lerp(CFrame.lookAt(pos, vise), 1 - math.exp(-dt * (if t < T_RETOUR then 3.5 else 6)))
+		cam.CFrame = courant
 	end)
-	secouer(1.2, 2.2)
+
+	bandeau("L'EXÉCUTEUR MAUDIT EST TOMBÉ", Color3.fromRGB(255, 200, 90), 2.4)
 	UI.jouer("metal", 0.25)
-	task.delay(2.2, function()
-		flash(Color3.fromRGB(255, 80, 120), 0.85, 1.4)
-		secouer(3, 1.2)
+	task.delay(1.8, function()
+		secouer(1.4, 0.8) -- il touche le sol
+		UI.jouer("metal", 0.2)
+	end)
+	task.delay(T_FISSURE, function()
+		secouer(0.7, T_EXPLOSION - T_FISSURE) -- le Cœur se fissure
+		UI.jouer("metal", 0.3)
+	end)
+	task.delay(T_EXPLOSION, function()
+		flash(Color3.fromRGB(255, 190, 210), 0.4, 1)
+		secouer(2.2, 1)
 		eclats(centre)
 		UI.jouer("succes", 0.6)
-		bandeau("LE CŒUR MAUDIT EST BRISÉ", Color3.fromRGB(255, 120, 200), 4)
+		bandeau("LE CŒUR MAUDIT EST BRISÉ", Color3.fromRGB(255, 120, 200), 3.5)
+		TweenService:Create(teinte, TweenInfo.new(1), {Saturation = 0.1, Contrast = 0.05, TintColor = Color3.fromRGB(255, 244, 225)}):Play()
+	end)
+	task.delay(T_EXPLOSION + 0.3, function()
+		pluieDOr(sol, 3.8)
+	end)
+	task.delay(T_FIN, function()
+		RunService:UnbindFromRenderStep("CinematiqueCoeur")
+		local p = joueur.Character
+		local hum = p and p:FindFirstChildOfClass("Humanoid")
+		if hum then
+			cam.CameraSubject = hum
+		end
+		cam.CameraType = Enum.CameraType.Custom
+		local fin = TweenService:Create(teinte, TweenInfo.new(0.8), {Saturation = 0, Contrast = 0, TintColor = Color3.new(1, 1, 1)})
+		fin:Play()
+		fin.Completed:Connect(function()
+			teinte:Destroy()
+		end)
+		enCinematique = false
+		butinExecuteur(gold, pieces)
+	end)
+end
+
+-- ================= −700 m : leviers gelés et porte de glace de la salle scellée =================
+local GLACE, GIVRE = Color3.fromRGB(165, 220, 255), Color3.fromRGB(110, 230, 255)
+
+-- éclats de glace locaux projetés depuis centre (vers dir), qui retombent et s'effacent
+local function eclatsGlace(centre: Vector3, dir: Vector3, n: number, force: number)
+	for k = 1, n do
+		local p = Instance.new("Part")
+		p.Name = "EclatGlace"
+		p.Size = Vector3.new(0.5, 1.2, 0.5) * (0.5 + math.random() * 1.1)
+		p.Material = if k % 5 == 0 then Enum.Material.Neon else Enum.Material.Glass
+		p.Color = if k % 5 == 0 then GIVRE else GLACE
+		p.Transparency = 0.2
+		p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = false, false, false, false
+		p.CFrame = CFrame.new(centre + Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 3) * CFrame.Angles(math.random() * 6, math.random() * 6, 0)
+		p.Parent = workspace
+		local v = (dir + Vector3.new(math.random() - 0.5, math.random() * 0.9, math.random() - 0.5)).Unit
+		p.AssemblyLinearVelocity = v * force * (0.5 + math.random())
+		p.AssemblyAngularVelocity = Vector3.new(math.random() * 10, math.random() * 10, math.random() * 10)
+		TweenService:Create(p, TweenInfo.new(2.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Transparency = 1}):Play()
+		Debris:AddItem(p, 2.3)
+	end
+end
+
+-- La porte se fissure (traits lumineux qui grandissent sur la glace) puis éclate (t = 2,6 s, calé sur le serveur).
+-- Près de la porte : courte cinématique (la caméra se place face à la porte) ; ailleurs : bandeau seulement.
+local function salleGlace(d)
+	local porte: Vector3, normale: Vector3 = d.porte, d.normale
+	bandeau("LES TROIS RUNES BRILLENT… LA GLACE CÈDE !", GIVRE, 3)
+	secouer(0.6, 2.6)
+	UI.jouer("metal", 0.3)
+	local fissures = Instance.new("Folder")
+	fissures.Name = "FissuresGlace"
+	fissures.Parent = workspace
+	Debris:AddItem(fissures, 3)
+	local droite = normale:Cross(Vector3.yAxis)
+	for k = 1, 10 do
+		task.delay(k * 0.2, function()
+			local a = math.random() * 2 * math.pi
+			local L = 2 + math.random() * 5
+			local p = Instance.new("Part")
+			p.Name = "Fissure"
+			p.Material, p.Color = Enum.Material.Neon, Color3.fromRGB(225, 250, 255)
+			p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = true, false, false, false, false
+			p.Size = Vector3.new(0.15, 0.1, 0.15)
+			local base = CFrame.fromMatrix(porte + normale * 2.3, droite, Vector3.yAxis) * CFrame.Angles(0, 0, a)
+			p.CFrame = base
+			p.Parent = fissures
+			TweenService:Create(p, TweenInfo.new(0.25), {Size = Vector3.new(L, 0.12, 0.15), CFrame = base * CFrame.new(L / 2, 0, 0)}):Play()
+			UI.jouer("clic", 0.6 + math.random() * 0.3)
+		end)
+	end
+	local perso = joueur.Character
+	local r = perso and perso:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local proche = r ~= nil and (r.Position - porte).Magnitude < 90 and not enCinematique and not enCourse
+	local cam = workspace.CurrentCamera
+	if proche then
+		enCinematique = true
+		cam.CameraType = Enum.CameraType.Scriptable
+		local courant = cam.CFrame
+		local debut = os.clock()
+		RunService:BindToRenderStep("CinematiqueGlace", Enum.RenderPriority.Camera.Value + 1, function(dt)
+			local t = os.clock() - debut
+			local pos = porte + normale * (17 - math.min(t, 2.6) * 1.5) + droite * 4 + Vector3.new(0, 2, 0)
+			courant = courant:Lerp(CFrame.lookAt(pos, porte + Vector3.new(0, -1, 0)), 1 - math.exp(-dt * 4))
+			cam.CFrame = courant
+		end)
+	end
+	task.delay(2.6, function()
+		flash(Color3.fromRGB(220, 245, 255), 0.45, 0.8)
+		secouer(1.8, 0.9)
+		eclatsGlace(porte, normale, 40, 26)
+		UI.jouer("succes", 0.7)
+		bandeau("LA SALLE SCELLÉE EST OUVERTE !", Color3.fromRGB(200, 245, 255), 3.5)
 	end)
 	task.delay(5, function()
-		if fini then
-			return
+		if proche then
+			RunService:UnbindFromRenderStep("CinematiqueGlace")
+			local p = joueur.Character
+			local hum = p and p:FindFirstChildOfClass("Humanoid")
+			if hum then
+				cam.CameraSubject = hum
+			end
+			cam.CameraType = Enum.CameraType.Custom
+			enCinematique = false
 		end
-		fini = true
-		RunService:UnbindFromRenderStep("CinematiqueCoeur")
-		cam.CameraType = if ancien == Enum.CameraType.Scriptable then Enum.CameraType.Custom else ancien
+		toast("Des minerais très rares t'attendent derrière la porte de glace !", true)
 	end)
 end
 
 remote.OnClientEvent:Connect(function(genre, d)
 	if type(d) ~= "table" then
+		return
+	end
+	if genre == "LevierGlace" then
+		if d.etape == "glace" and typeof(d.pos) == "Vector3" then
+			eclatsGlace(d.pos + Vector3.new(0, 2.5, 0), Vector3.yAxis, 16, 14)
+			UI.jouer("clic", 0.7)
+			toast("La glace vole en éclats ! Abaisse le levier.", true)
+		elseif d.etape == "abaisse" then
+			local n, total = tonumber(d.n) or 1, tonumber(d.total) or 3
+			UI.jouer("metal", 0.4 + n * 0.1)
+			if n < total then
+				bandeau(("Levier %d / %d abaissé : une rune s'allume sur la porte de glace"):format(n, total), GIVRE, 3)
+			end
+		end
+		return
+	elseif genre == "SalleGlace" then
+		if typeof(d.porte) == "Vector3" and typeof(d.normale) == "Vector3" then
+			salleGlace(d)
+		end
 		return
 	end
 	if genre == "LaveMonte" then
@@ -477,8 +790,14 @@ remote.OnClientEvent:Connect(function(genre, d)
 		UI.jouer("metal", 0.35)
 		return
 	elseif genre == "CoeurBrise" then
-		if typeof(d.centre) == "Vector3" then
-			cinematiqueCoeur(d.centre)
+		if d.cinematique and typeof(d.centre) == "Vector3" then
+			cinematiqueCoeur(d)
+		else
+			-- hors de l'arène : simple annonce, puis le butin
+			bandeau("L'EXÉCUTEUR MAUDIT EST TOMBÉ ! Le Cœur se brise…", Color3.fromRGB(255, 200, 90), 3.5)
+			secouer(1, 1.5)
+			UI.jouer("succes", 0.6)
+			task.delay(1.5, butinExecuteur, tonumber(d.gold) or 0, tonumber(d.pieces) or 0)
 		end
 		return
 	end

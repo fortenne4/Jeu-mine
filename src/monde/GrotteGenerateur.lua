@@ -25,6 +25,9 @@ local THEMES = {
 	[3] = require(script.Parent.GrotteFonderie), -- −200 m « La Fonderie de l'Abîme »
 	[4] = require(script.Parent.GrotteLave), -- −350 m « Les Rivières de lave »
 	[5] = require(script.Parent.GrotteCoeur), -- −500 m « Le Cœur maudit »
+	[6] = require(script.Parent.GrotteGlace), -- −700 m « Les Cavernes de glace éternelle »
+	[7] = require(script.Parent.GrotteAbysses), -- −900 m « La Cité engloutie »
+	[8] = require(script.Parent.GrotteAstres), -- −1200 m « L'Observatoire des astres »
 }
 local M, C = O.M, O.C
 
@@ -531,6 +534,23 @@ local function gisements(ctx, sites, interdits, total)
 	return liste
 end
 
+-- Minerai posé par un thème (ex. salle scellée de −700 m) : même rocher et mêmes attributs que les gisements.
+-- Rayon origine → direction (sol ou paroi) ; valide(surface) peut refuser l'endroit. Renvoie la surface ou nil.
+local function mineraiTheme(ctx, def, origine, direction, echelle, valide)
+	local visuel = MineraisModeles.VISUEL[def.id]
+	local sol, surface = if visuel then appuiMinerai(ctx.rng, origine, direction, visuel.taille) else nil, nil
+	if not sol or (valide and not valide(surface)) then return nil end
+	local f = ctx.modele:FindFirstChild("Minerais")
+	if not f then
+		f = Instance.new("Folder")
+		f.Name = "Minerais"
+		f.Parent = ctx.modele
+	end
+	ctx.nTheme = (ctx.nTheme or 0) + 1
+	poserMinerai(ctx, f, def, sol, echelle or 1, ctx.graine + 90000 + ctx.nTheme)
+	return surface
+end
+
 -- ================= Construction =================
 
 function Generateur.construire(niveau, index, graine, proprietaire, invite, essai)
@@ -716,6 +736,7 @@ function Generateur.construire(niveau, index, graine, proprietaire, invite, essa
 		}, {
 			lancer = lancer, paroi = paroi, solSous = solSous, plat = plat, axeVers = axeVers,
 			lumiere = lumiere, torche = torche, pointe = pointe, cristaux = cristaux,
+			minerai = function(def, o, d, e, v) return mineraiTheme(ctx, def, o, d, e, v) end,
 		})
 		if not ok then warn("[Grottes] décor incomplet : " .. tostring(err)) end
 	end

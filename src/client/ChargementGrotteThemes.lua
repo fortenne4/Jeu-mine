@@ -1783,6 +1783,321 @@ local function decorCoeur(c, rng: Random): (number) -> ()
 	end
 end
 
+-- ================= Palier 6 : Les Cavernes de glace éternelle =================
+local GLACE, GLACE_CLAIRE, GLACE_PROFONDE = rgb(165, 220, 255), rgb(230, 246, 255), rgb(60, 120, 190)
+local AURORE = {rgb(90, 255, 170), rgb(110, 190, 255), rgb(200, 120, 255)}
+
+-- Nain figé dans un bloc de glace (pioche levée)
+local function nainGele(parent: Instance, x: number, yBas: number, h: number): Frame
+	local g = K.groupe(parent, x, yBas, h * 0.75, h, BAS)
+	local pierre, barbe, metal = rgb(110, 130, 150), rgb(220, 232, 240), rgb(84, 96, 112)
+	K.bloc(g, 0.5, 0.86, 0.36, 0.22, BLANC, {}, {K.degrade(nil, K.relief(pierre:Lerp(rgb(150, 116, 84), 0.3)), 0)})
+	K.bloc(g, 0.5, 0.62, 0.46, 0.3, BLANC, {}, {K.degrade(nil, K.relief(pierre), 0)})
+	K.bloc(g, 0.5, 0.74, 0.5, 0.05, rgb(92, 64, 44))
+	K.bloc(g, 0.5, 0.38, 0.3, 0.2, BLANC, {}, {K.degrade(nil, K.relief(rgb(170, 150, 140)), 0)})
+	K.bloc(g, 0.5, 0.5, 0.3, 0.2, barbe, {}, {coin(0.3)})
+	K.bloc(g, 0.5, 0.26, 0.38, 0.08, BLANC, {}, {K.degrade(nil, K.metal(metal), 90)})
+	K.feuille(g, 0.27, 0.2, 0.12, 0.04, -50, barbe)
+	K.feuille(g, 0.73, 0.2, 0.12, 0.04, 50, barbe)
+	K.seg(g, 0.72, 0.6, 0.86, 0.12, 0.035, rgb(92, 64, 44))
+	K.seg(g, 0.74, 0.1, 0.98, 0.2, 0.05, metal)
+	-- gangue de glace
+	K.bloc(g, 0.5, 0.52, 1, 1, GLACE, {BackgroundTransparency = 0.55, Rotation = 2}, {trait(GLACE_CLAIRE, 2, 0.2),
+		K.degrade(nil, K.seq({{0, GLACE_CLAIRE}, {1, GLACE_PROFONDE}}), 60, K.transp({{0, 0.3}, {1, 0.75}}))})
+	K.feuille(g, 0.2, 0.3, 0.3, 0.03, -70, BLANC, 0.4)
+	return g
+end
+
+local function decorGlace(c, rng: Random): (number) -> ()
+	local loin, milieu, proche = c.loin, c.milieu, c.proche
+	-- aurores : bandes verticales qui ondulent sous la voûte (vert, bleu, mauve)
+	local bandes = {}
+	for _, voile in {{0.12, 0.18, 0}, {0.3, 0.24, 2.1}} do
+		for i = 0, 34 do
+			local t = i / 34
+			local couleur = if t < 0.5 then AURORE[1]:Lerp(AURORE[2], t * 2) else AURORE[2]:Lerp(AURORE[3], (t - 0.5) * 2)
+			local f = creer("Frame", {AnchorPoint = BAS, Position = UDim2.fromScale(0.04 + t * 0.92, voile[1] + voile[2]), Size = UDim2.fromScale(0.03, voile[2]),
+				BackgroundColor3 = couleur, BorderSizePixel = 0, Parent = loin}, {K.degrade(nil, nil, 90, K.transp({{0, 1}, {0.7, 0.55}, {0.92, 0.25}, {1, 0.6}}))})
+			table.insert(bandes, {f, t, voile[1], voile[2], voile[3]})
+		end
+	end
+	-- glaciers lointains et colonnes de glace
+	for _, r in {{0.06, 0.68, 0.24, 0.16}, {0.5, 0.66, 0.2, 0.1}, {0.95, 0.68, 0.26, 0.18}} do
+		K.rocher(loin, r[1], r[2], r[3], r[4], rgb(70, 110, 150), rng, GLACE_CLAIRE)
+	end
+	for _, r in {{0.18, 0.67, 0.06, 0.34, false}, {0.28, 0.67, 0.05, 0.22, true}, {0.74, 0.67, 0.06, 0.3, true}, {0.86, 0.67, 0.06, 0.36, false}} do
+		K.colonne(loin, r[1], r[2], r[3], r[4], rgb(120, 170, 210), r[5], GLACE_CLAIRE)
+	end
+	K.rangee(loin, rng, 16, rgb(120, 180, 225), 0.07, 0.2, 0.03, 0.07, true, 0, nil, GLACE_CLAIRE)
+	-- lac gelé : glace brillante, reflet des aurores, fissures
+	creer("Frame", {Position = UDim2.fromScale(-0.02, 0.665), Size = UDim2.fromScale(1.04, 0.24), BackgroundColor3 = BLANC, BorderSizePixel = 0, Parent = milieu},
+		{K.degrade(nil, K.seq({{0, GLACE_CLAIRE}, {0.25, rgb(120, 190, 235)}, {1, rgb(30, 70, 120)}}), 90, K.transp({{0, 0.05}, {1, 0.4}}))})
+	local reflets = {}
+	for i = 0, 10 do
+		local f = K.bloc(milieu, 0.06 + i * 0.09, 0.7, 0.05, 0.06, AURORE[(i % 3) + 1], {AnchorPoint = HAUT, BackgroundTransparency = 0.6},
+			{K.degrade(nil, nil, 90, K.transp({{0, 0.3}, {1, 1}}))})
+		table.insert(reflets, {f, i})
+	end
+	local glaceG = K.groupe(milieu, 0.5, 0.9, 1.9, 0.24, BAS)
+	K.fissure(glaceG, 0.3, 0.3, 0.2, 0.9, 0.012, 1, rng, rgb(120, 230, 255))
+	K.fissure(glaceG, 0.7, 0.5, 2.9, 0.8, 0.01, 1, rng, rgb(120, 230, 255))
+	-- aiguilles de glace géantes et amas de cristaux
+	for _, p in {{0.33, 0.3}, {0.38, 0.18}, {0.64, 0.24}} do
+		K.pic(milieu, p[1], 0.72, 0.06, p[2], rgb(150, 210, 245), false, 6, nil, GLACE_CLAIRE)
+	end
+	local cr1 = K.amas(milieu, 0.52, 0.73, 0.12, rgb(170, 235, 255), rgb(60, 130, 200), rng, rgb(90, 130, 170))
+	nainGele(milieu, 0.8, 0.74, 0.22)
+	-- premier plan : neige, congères, stalactites de glace, feu du bivouac (seule chaleur)
+	K.sol(proche, rng, rgb(200, 222, 240), 0.93, nil, rgb(250, 252, 255))
+	for _, e in {{0.3, 0.95, 0.28}, {0.62, 0.96, 0.22}, {0.9, 0.95, 0.3}} do
+		K.ellipse(proche, e[1], e[2], e[3], 0.08, rgb(225, 238, 250), 0, {K.degrade(nil, K.seq({{0, BLANC}, {1, rgb(170, 200, 230)}}), 90)})
+	end
+	for _, p in {{0.03, 0.3}, {0.1, 0.18}, {0.9, 0.22}, {0.97, 0.34}} do
+		K.pic(proche, p[1], -0.01, 0.05, p[2], rgb(170, 220, 250), true, 6, nil, GLACE_CLAIRE)
+	end
+	local buches = K.groupe(proche, 0.14, 0.97, 0.16, 0.05, BAS)
+	for k = 0, 2 do
+		K.feuille(buches, 0.5, 0.7, 0.8, 0.25, -15 + k * 15, rgb(92, 64, 44), 0, nil, true)
+	end
+	local feu = K.feu(proche, 0.14, 0.95, 0.16, {coeur = rgb(255, 250, 220), jaune = rgb(255, 220, 110), orange = rgb(255, 150, 50), rouge = rgb(160, 40, 20)}, rng)
+	return function(t: number)
+		for _, b in bandes do
+			local o = math.sin(t * 0.7 + b[2] * 9 + b[5]) * 0.5 + math.sin(t * 0.33 + b[2] * 4) * 0.5
+			b[1].Position = UDim2.fromScale(0.04 + b[2] * 0.92, b[3] + b[4] + o * 0.035)
+			b[1].Size = UDim2.fromScale(0.03, b[4] * (1 + 0.35 * math.sin(t * 0.9 + b[2] * 6 + b[5])))
+			b[1].BackgroundTransparency = 0.15 + 0.2 * (0.5 + 0.5 * math.sin(t * 0.5 + b[2] * 3))
+		end
+		for _, r in reflets do
+			r[1].BackgroundTransparency = 0.55 + 0.25 * math.sin(t * 0.8 + r[2])
+		end
+		cr1.Scale = 1 + 0.08 * math.sin(t * 1.3)
+		feu(t)
+	end
+end
+
+-- ================= Palier 7 : La Cité engloutie =================
+local TURQUOISE, PIERRE_BLANCHE = rgb(60, 230, 200), rgb(190, 200, 186)
+local CORAUX = {rgb(255, 110, 160), rgb(255, 150, 70), rgb(170, 110, 255), rgb(60, 230, 200)}
+
+-- Méduse : ombrelle translucide, cœur, tentacules qui ondulent ; renvoie l'animation
+local function meduse(parent: Instance, x: number, y: number, h: number, couleur: Color3, rng: Random): (number) -> ()
+	local g = K.groupe(parent, x, y, h * 0.7, h, CENTRE)
+	local _, halo = K.lueur(g, 0.5, 0.25, 0.9, couleur, 0.82, nil, 4)
+	K.ellipse(g, 0.5, 0.22, 0.9, 0.36, couleur, 0.35, {K.degrade(nil, K.seq({{0, couleur:Lerp(BLANC, 0.5)}, {1, couleur}}), 90, K.transp({{0, 0.1}, {1, 0.6}}))})
+	K.ellipse(g, 0.5, 0.25, 0.4, 0.16, BLANC, 0.3)
+	local tentacules = {}
+	for k = 1, 6 do
+		local f = K.bloc(g, 0.18 + k * 0.11, 0.38, 0.025, rng:NextNumber(0.4, 0.6), couleur:Lerp(BLANC, 0.2), {AnchorPoint = HAUT, BackgroundTransparency = 0.35},
+			{K.degrade(nil, nil, 90, K.transp({{0, 0.1}, {1, 1}}))})
+		table.insert(tentacules, {f, k})
+	end
+	local ph = rng:NextNumber(0, 6.28)
+	return function(t: number)
+		g.Position = UDim2.fromScale(x + math.sin(t * 0.3 + ph) * 0.015, y + math.sin(t * 0.6 + ph) * 0.03)
+		halo.Scale = 1 + 0.1 * math.sin(t * 1.2 + ph)
+		for _, tt in tentacules do
+			tt[1].Rotation = math.sin(t * 1.5 + tt[2] + ph) * 10
+		end
+	end
+end
+
+-- Grande algue : feuilles empilées qui ondulent
+local function algue(parent: Instance, x: number, yBas: number, h: number, rng: Random): {Frame}
+	local feuilles = {}
+	local n = 7
+	for k = 1, n do
+		local f = K.feuille(parent, x, yBas - (k - 0.5) / n * h, h / n * 1.3, 0.014, 90 + rng:NextNumber(-12, 12),
+			if k % 2 == 0 then rgb(40, 140, 100) else rgb(90, 200, 130), 0.1)
+		table.insert(feuilles, f)
+	end
+	return feuilles
+end
+
+-- Corail branchu (dans un groupe) : branches et bouts lumineux
+local function corail(parent: Instance, x: number, yBas: number, h: number, couleur: Color3, rng: Random)
+	local g = K.groupe(parent, x, yBas, h, h, BAS)
+	local function branche(ax: number, ay: number, ang: number, l: number, ep: number, n: number)
+		local bx, by = ax + math.cos(ang) * l, ay - math.sin(ang) * l
+		K.seg(g, ax, ay, bx, by, ep, couleur:Lerp(NOIR, 0.15))
+		if n <= 0 then
+			K.disque(g, bx, by, ep * 1.8, couleur:Lerp(BLANC, 0.4), 0)
+			return
+		end
+		branche(bx, by, ang + rng:NextNumber(0.3, 0.6), l * 0.7, ep * 0.75, n - 1)
+		branche(bx, by, ang - rng:NextNumber(0.3, 0.6), l * 0.7, ep * 0.75, n - 1)
+	end
+	K.lueur(g, 0.5, 0.5, 1.2, couleur, 0.88, nil, 3)
+	branche(0.5, 1, math.pi / 2, 0.38, 0.07, 2)
+end
+
+local function decorAbysses(c, rng: Random): (number) -> ()
+	local loin, milieu, proche = c.loin, c.milieu, c.proche
+	-- rayons de lumière qui tombent d'une surface lointaine
+	local rayons = {}
+	for k = 1, 6 do
+		local f = creer("Frame", {AnchorPoint = HAUT, Position = UDim2.fromScale(0.1 + k * 0.14 + rng:NextNumber(-0.03, 0.03), -0.05), Size = UDim2.fromScale(0.05, 0.8),
+			Rotation = 12, BackgroundColor3 = rgb(160, 255, 235), BorderSizePixel = 0, Parent = loin}, {K.degrade(nil, nil, 90, K.transp({{0, 0.55}, {1, 1}}))})
+		table.insert(rayons, {f, rng:NextNumber(0, 6.28)})
+	end
+	-- cité engloutie : colonnes, arche, statue du dieu-poisson
+	for _, r in {{0.08, 0.68, 0.07, 0.34, false}, {0.16, 0.68, 0.06, 0.2, true}, {0.84, 0.68, 0.07, 0.3, true}, {0.93, 0.68, 0.07, 0.38, false}} do
+		K.colonne(loin, r[1], r[2], r[3], r[4], PIERRE_BLANCHE:Lerp(rgb(20, 80, 90), 0.45), r[5], rgb(40, 140, 100))
+	end
+	local arche = K.groupe(loin, 0.5, 0.68, 0.5, 0.42, BAS)
+	K.bloc(arche, 0.12, 1, 0.12, 0.85, BLANC, {AnchorPoint = BAS}, {K.degrade(nil, K.relief(rgb(90, 120, 120)), 0)})
+	K.bloc(arche, 0.88, 1, 0.12, 0.85, BLANC, {AnchorPoint = BAS}, {K.degrade(nil, K.relief(rgb(90, 120, 120)), 0)})
+	K.bloc(arche, 0.5, 0.12, 1, 0.12, BLANC, {}, {K.degrade(nil, K.relief(rgb(110, 140, 138)), 90)})
+	K.disque(arche, 0.5, 0.12, 0.07, TURQUOISE, 0)
+	local _, portail = K.lueur(arche, 0.5, 0.6, 0.8, TURQUOISE, 0.82, nil, 5)
+	local dieu = K.groupe(loin, 0.5, 0.68, 0.14, 0.32, BAS)
+	K.bloc(dieu, 0.5, 1, 0.5, 0.45, BLANC, {AnchorPoint = BAS}, {K.degrade(nil, K.relief(rgb(80, 110, 112)), 0)})
+	K.bloc(dieu, 0.5, 0.42, 0.4, 0.3, BLANC, {Rotation = 8}, {coin(0.3), K.degrade(nil, K.relief(rgb(70, 100, 104)), 0)})
+	local yeux = {K.disque(dieu, 0.42, 0.38, 0.04, TURQUOISE, 0), K.disque(dieu, 0.58, 0.38, 0.04, TURQUOISE, 0)}
+	K.seg(dieu, 0.92, 1, 0.92, 0.1, 0.02, rgb(80, 160, 130))
+	for _, dx in {-0.08, 0, 0.08} do
+		K.seg(dieu, 0.92 + dx, 0.18, 0.92 + dx, 0.02, 0.015, rgb(80, 160, 130))
+	end
+	-- méduses, algues, coraux
+	local anims = {}
+	for _, m in {{0.24, 0.3, 0.16, TURQUOISE}, {0.7, 0.22, 0.12, rgb(170, 110, 255)}, {0.42, 0.14, 0.08, rgb(255, 120, 170)}, {0.85, 0.42, 0.1, TURQUOISE}} do
+		table.insert(anims, meduse(milieu, m[1], m[2], m[3], m[4], rng))
+	end
+	local algues = {}
+	for _, a in {{0.05, 0.6}, {0.11, 0.42}, {0.63, 0.36}, {0.96, 0.5}} do
+		table.insert(algues, {algue(milieu, a[1], 0.92, a[2], rng), a[1]})
+	end
+	for k, x in {0.28, 0.38, 0.74, 0.84} do
+		corail(milieu, x, 0.9, rng:NextNumber(0.1, 0.16), CORAUX[k], rng)
+	end
+	-- fond marin, anémones, bénitier à la perle, bulles
+	K.sol(proche, rng, rgb(20, 60, 64), 0.92, nil, rgb(90, 220, 200))
+	local ben = K.groupe(proche, 0.58, 0.97, 0.2, 0.12, BAS)
+	K.ellipse(ben, 0.5, 0.75, 1, 0.5, BLANC, 0, {K.degrade(nil, K.relief(rgb(190, 180, 210)), 90)})
+	K.ellipse(ben, 0.5, 0.35, 0.95, 0.5, BLANC, 0, {K.degrade(nil, K.relief(rgb(170, 160, 200)), 90)})
+	local _, perleS = K.lueur(ben, 0.5, 0.55, 0.8, rgb(240, 236, 255), 0.7, nil, 4)
+	K.disque(ben, 0.5, 0.55, 0.32, rgb(245, 242, 255), 0)
+	for _, x in {0.18, 0.34, 0.8, 0.92} do
+		local g = K.groupe(proche, x, 0.95, 0.08, 0.08, BAS)
+		for k = 0, 6 do
+			K.feuille(g, 0.5 + (k - 3) * 0.08, 0.45, 0.5, 0.08, 90 + (k - 3) * 18, CORAUX[(k % 4) + 1]:Lerp(BLANC, 0.2), 0.1)
+		end
+	end
+	local bulles = {}
+	for _ = 1, 14 do
+		local f = K.disque(proche, 0.5, 0.9, rng:NextNumber(0.008, 0.02), BLANC, 1)
+		trait(rgb(200, 255, 250), 1.2, 0.2).Parent = f
+		table.insert(bulles, {f, rng:NextNumber(0, 1), rng:NextNumber(0.06, 0.12), rng:NextNumber(0.05, 0.95)})
+	end
+	return function(t: number)
+		for _, r in rayons do
+			r[1].BackgroundTransparency = 0.35 + 0.25 * math.sin(t * 0.6 + r[2])
+		end
+		portail.Scale = 1 + 0.08 * math.sin(t * 1.1)
+		for _, y in yeux do y.BackgroundTransparency = 0.3 + 0.3 * math.sin(t * 2) end
+		for _, a in anims do a(t) end
+		for _, a in algues do
+			for k, f in a[1] do
+				f.Rotation = 90 + math.sin(t * 1.2 + k * 0.5 + a[2] * 10) * (4 + k * 2)
+			end
+		end
+		perleS.Scale = 1 + 0.12 * math.sin(t * 1.6)
+		for _, b in bulles do
+			local ph = (b[2] + t * b[3]) % 1
+			b[1].Position = UDim2.fromScale(b[4] + math.sin(ph * 12 + b[2] * 6) * 0.01, 0.95 - ph * 1.05)
+		end
+	end
+end
+
+-- ================= Palier 8 : L'Observatoire des astres =================
+local OR, OR_PALE, NEBULEUSE, CIEL_BLEU = rgb(255, 210, 120), rgb(255, 238, 190), rgb(110, 90, 230), rgb(90, 130, 255)
+
+local function decorAstres(c, rng: Random): (number) -> ()
+	local loin, milieu, proche = c.loin, c.milieu, c.proche
+	-- ciel : nébuleuses qui respirent, étoiles qui scintillent, étoile filante
+	local nebs = {}
+	for _, n in {{0.25, 0.3, 0.7, NEBULEUSE}, {0.7, 0.22, 0.6, CIEL_BLEU}, {0.55, 0.45, 0.5, OR}} do
+		local _, s = K.lueur(loin, n[1], n[2], n[3], n[4], 0.88, nil, 6)
+		table.insert(nebs, s)
+	end
+	local etoiles = {}
+	for _ = 1, 70 do
+		local d = K.disque(loin, rng:NextNumber(0, 1), rng:NextNumber(0, 0.7), rng:NextNumber(0.003, 0.008), if rng:NextNumber() < 0.2 then OR_PALE else BLANC, 0.1)
+		table.insert(etoiles, {d, rng:NextNumber(0, 6.28), rng:NextNumber(1, 3)})
+	end
+	local filante = creer("Frame", {AnchorPoint = Vector2.new(1, 0.5), Size = UDim2.fromScale(0.12, 0.004), Rotation = 20, BackgroundColor3 = BLANC, BorderSizePixel = 0,
+		Parent = loin}, {K.degrade(nil, nil, 0, K.transp({{0, 1}, {1, 0}}))})
+	-- constellations (étoiles reliées)
+	for _, cst in {{0.12, 0.18}, {0.82, 0.12}, {0.6, 0.34}} do
+		local g = K.groupe(loin, cst[1], cst[2], 0.24, 0.16, CENTRE)
+		local px, py
+		for k = 1, 5 do
+			local x, y = 0.1 + (k - 1) * 0.2 + rng:NextNumber(-0.05, 0.05), rng:NextNumber(0.15, 0.85)
+			if px then K.seg(g, px, py, x, y, 0.015, OR_PALE, 0.5) end
+			K.disque(g, x, y, if k == 3 then 0.09 else 0.06, if k == 3 then OR else BLANC, 0)
+			px, py = x, y
+		end
+	end
+	-- planétaire : soleil d'or, orbites, planètes qui tournent
+	local _, soleilHalo = K.lueur(milieu, 0.5, 0.4, 0.4, OR, 0.7, nil, 6)
+	K.disque(milieu, 0.5, 0.4, 0.07, OR, 0)
+	K.disque(milieu, 0.49, 0.39, 0.035, OR_PALE, 0)
+	local orbites = {}
+	for k, p in {{0.14, rgb(120, 210, 255)}, {0.22, rgb(255, 140, 60)}, {0.3, NEBULEUSE}, {0.38, BLANC}} do
+		creer("Frame", {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.4), Size = UDim2.fromScale(p[1] * 2, p[1] * 0.7), SizeConstraint = YY,
+			BackgroundTransparency = 1, Parent = milieu}, {coin(0.5), trait(rgb(196, 150, 70), 1.5, 0.35)})
+		local pl = K.disque(milieu, 0.5, 0.4, 0.014 + k * 0.004, p[2], 0)
+		trait(p[2]:Lerp(NOIR, 0.4), 1).Parent = pl
+		table.insert(orbites, {pl, p[1], rng:NextNumber(0, 6.28), 0.5 / k})
+	end
+	-- rochers flottants aux bords dorés
+	local rochers = {}
+	for _, r in {{0.12, 0.5, 0.08}, {0.88, 0.46, 0.1}, {0.3, 0.62, 0.05}, {0.72, 0.6, 0.06}} do
+		local g = K.groupe(milieu, r[1], r[2], r[3] * 1.6, r[3], CENTRE)
+		K.bloc(g, 0.5, 0.45, 0.95, 0.35, BLANC, {}, {K.degrade(nil, K.relief(rgb(50, 52, 84)), 0), trait(rgb(10, 10, 20), 1)})
+		K.bloc(g, 0.5, 0.75, 0.6, 0.3, BLANC, {}, {K.degrade(nil, K.relief(rgb(36, 36, 64)), 0)})
+		K.bloc(g, 0.5, 0.28, 0.97, 0.04, OR, {BackgroundTransparency = 0.2})
+		K.lueur(g, 0.5, 0.95, 0.8, CIEL_BLEU, 0.88, nil, 3)
+		table.insert(rochers, {g, r[1], r[2], rng:NextNumber(0, 6.28)})
+	end
+	-- premier plan : obélisques gravés, cristaux du néant, sol de nuit au liseré d'or
+	local glyphes = {}
+	for _, px in {0.06, 0.94} do
+		local g = K.groupe(proche, px, 1.01, 0.1, 0.62, BAS)
+		K.bloc(g, 0.5, 1, 0.7, 0.88, BLANC, {AnchorPoint = BAS}, {K.degrade(nil, K.relief(rgb(44, 46, 80)), 0), trait(rgb(6, 6, 14), 1.5)})
+		K.bloc(g, 0.5, 0.06, 0.7, 0.12, BLANC, {}, {K.degrade(nil, K.metal(rgb(196, 150, 70)), 90)})
+		local px2, py2
+		for k = 1, 4 do
+			local x, y = 0.5 + rng:NextNumber(-0.2, 0.2), 0.25 + k * 0.13
+			if px2 then K.seg(g, px2, py2, x, y, 0.008, OR_PALE, 0.3) end
+			table.insert(glyphes, K.disque(g, x, y, 0.035, if k == 1 then OR else BLANC, 0))
+			px2, py2 = x, y
+		end
+	end
+	local cr1 = K.amas(proche, 0.25, 1.01, 0.18, rgb(255, 210, 120), rgb(20, 20, 40), rng, rgb(24, 24, 44))
+	local cr2 = K.amas(proche, 0.76, 1.01, 0.15, rgb(120, 210, 255), rgb(20, 20, 40), rng, rgb(24, 24, 44))
+	K.sol(proche, rng, rgb(14, 14, 32), 0.95, nil, OR)
+	return function(t: number)
+		for i, s in nebs do s.Scale = 1 + 0.08 * math.sin(t * 0.4 + i * 2) end
+		for _, e in etoiles do
+			e[1].BackgroundTransparency = 0.1 + 0.7 * (0.5 + 0.5 * math.sin(t * e[3] + e[2]))
+		end
+		local ph = (t * 0.18) % 1
+		filante.Position = UDim2.fromScale(0.1 + ph * 1.2, 0.05 + ph * 0.4)
+		filante.BackgroundTransparency = if ph < 0.35 then 0 else 1
+		soleilHalo.Scale = 1 + 0.06 * math.sin(t * 1.5)
+		for _, o in orbites do
+			local a = o[3] + t * o[4]
+			o[1].Position = UDim2.fromScale(0.5 + math.cos(a) * o[2] * 9 / 16, 0.4 + math.sin(a) * o[2] * 0.35)
+		end
+		for _, r in rochers do
+			r[1].Position = UDim2.fromScale(r[2], r[3] + math.sin(t * 0.7 + r[4]) * 0.015)
+		end
+		for i, g in glyphes do g.BackgroundTransparency = 0.5 + 0.5 * math.sin(t * 1.4 + i) end
+		cr1.Scale = 1 + 0.08 * math.sin(t * 1.3)
+		cr2.Scale = 1 + 0.08 * math.sin(t * 1.6 + 1)
+	end
+end
+
 -- ================= Thèmes =================
 -- couleurs : fond (haut / milieu / bas), roche de la veine, tunnel creusé, lueur du tunnel, minerais de la veine,
 -- éclats de roche, étincelles, fer et bois de la pioche.
@@ -1866,6 +2181,58 @@ local THEMES = {
 			"Le dernier camp de l'expédition est un refuge : les mobs n'y entrent jamais.",
 		},
 		construire = decorCoeur,
+	},
+	[6] = {
+		titre = "Les Cavernes de glace éternelle",
+		couleurs = {fondHaut = rgb(4, 10, 24), fondMilieu = rgb(16, 46, 80), fondBas = rgb(150, 190, 220), roche = rgb(120, 160, 196),
+			creuse = rgb(14, 26, 40), accent = rgb(120, 230, 255), minerai = rgb(110, 220, 255), eclat = rgb(190, 225, 250),
+			etincelle = rgb(220, 250, 255), fer = rgb(160, 176, 196), bois = rgb(110, 80, 56)},
+		particules = {
+			{nombre = 30, couleurs = {rgb(240, 248, 255), rgb(200, 230, 255)}, taille = {0.004, 0.01}, vitesse = {0.02, 0.05}, sens = 1, transp = 0.15, amplitude = 0.03},
+			{nombre = 8, couleurs = {rgb(120, 255, 190), rgb(190, 140, 255)}, taille = {0.003, 0.006}, vitesse = {0.005, 0.012}, sens = -1, transp = 0.4, amplitude = 0.02},
+		},
+		lumieres = "Les aurores s'éveillent…",
+		astuces = {
+			"Le sol du Lac gelé est de la vraie glace : on y glisse !",
+			"Le bivouac de l'arrivée est un refuge : les mobs n'y entrent jamais.",
+			"Le Titan de givre attend au fond, sous le lustre de la Cathédrale de givre.",
+			"Givrite, argent, obsidienne… et parfois une émeraude prise dans la glace.",
+		},
+		construire = decorGlace,
+	},
+	[7] = {
+		titre = "La Cité engloutie",
+		couleurs = {fondHaut = rgb(2, 14, 22), fondMilieu = rgb(6, 46, 60), fondBas = rgb(2, 20, 26), roche = rgb(70, 110, 112),
+			creuse = rgb(6, 18, 22), accent = rgb(60, 230, 200), minerai = rgb(255, 110, 160), eclat = rgb(110, 150, 150),
+			etincelle = rgb(160, 255, 235), fer = rgb(130, 160, 160), bois = rgb(90, 70, 52)},
+		particules = {
+			{nombre = 26, couleurs = {rgb(120, 255, 230), rgb(200, 255, 250)}, taille = {0.003, 0.008}, vitesse = {0.01, 0.03}, sens = -1, transp = 0.3, amplitude = 0.035},
+		},
+		lumieres = "Les méduses s'illuminent…",
+		astuces = {
+			"Le Gouffre abyssal n'a pas de fond : reste sur les dalles de la cité.",
+			"Les sources chaudes cachent parfois de la magmaïte.",
+			"La cloche de plongée de l'arrivée est un refuge : les mobs n'y entrent jamais.",
+			"Le Léviathan des abysses attend dans son Sanctuaire.",
+		},
+		construire = decorAbysses,
+	},
+	[8] = {
+		titre = "L'Observatoire des astres",
+		couleurs = {fondHaut = rgb(2, 2, 10), fondMilieu = rgb(16, 14, 44), fondBas = rgb(4, 4, 14), roche = rgb(44, 46, 80),
+			creuse = rgb(6, 6, 16), accent = rgb(255, 210, 120), minerai = rgb(220, 240, 255), eclat = rgb(70, 72, 110),
+			etincelle = rgb(255, 236, 180), fer = rgb(150, 150, 176), bois = rgb(70, 52, 40)},
+		particules = {
+			{nombre = 24, couleurs = {rgb(255, 236, 180), rgb(150, 210, 255)}, taille = {0.003, 0.007}, vitesse = {0.006, 0.018}, sens = -1, transp = 0.2, amplitude = 0.02},
+		},
+		lumieres = "Les étoiles s'allument…",
+		astuces = {
+			"Le Puits des étoiles n'a pas de fond : reste sur les dalles dorées.",
+			"Diamant, orichalque… et la néantite, le minerai le plus rare du monde.",
+			"Le Seuil de l'arrivée est un refuge : les mobs n'y entrent jamais.",
+			"Le Gardien des astres garde l'Épée des astres sur l'Autel des constellations.",
+		},
+		construire = decorAstres,
 	},
 }
 

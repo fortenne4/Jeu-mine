@@ -280,7 +280,11 @@ Pour revenir à l'ancien système (Pièces au minage) : `CONFIG.GAIN_DIRECT = tr
 Prix de vente (un seul endroit : `src/partage/PrixMinerais.lua`) : Charbon **1**, Bronze **3**, Fer **8**, Or **25** Pièces.
 Nouveaux minerais de la mine privée : Soufre **2**, Quartz **4**, Argent **12**, Obsidienne **18**, Givrite **22**, Émeraude **40**,
 Rubis **45**, Lunarite **75**, Magmaïte **90**, Diamant **150**, Orichalque **200**, Néantite **250**. Ils vont au sac et se vendent
-chez Gaspard, mais **ne se forgent pas encore** (`forgeable = false` dans `Forge.MINERAIS`, hors de `Forge.ORDRE_MINERAIS`).
+chez Gaspard, mais **ne se forgent pas encore** (`forgeable = false` dans `Forge.MINERAIS`, hors de `Forge.ORDRE_MINERAIS`),
+sauf la **lunarite** (force 16) et la **magmaïte** (force 19), butin du Léviathan des abysses : elles sont dans la forge de Brom
+(`Forge.ORDRE_FORGE`, `Forge.FORGEABLES_PROFONDS`). Ensemble, elles forgent la **Lame des marées** (épée, rang 12, 315 dégâts
+à 1 + 1, jusqu'à 425) et le **Heaume des marées** (casque, rang 11, défense 190, jusqu'à 256), rareté Divin, sans modèle 3D
+dédié pour l'instant (épée de fer / casque générique teintés ; modèles `EpeeMarees` / `CasqueMarees` à créer).
 
 Le comptoir : touche **E** (manette X, mobile : toucher l'invite) près de Gaspard. À gauche, les minerais du sac
 (modèle 3D, rareté, stock, prix à l'unité, valeur totale) ; à droite, le minerai choisi avec le choix de la quantité
@@ -497,7 +501,7 @@ Le cercle « Sortie » derrière le point d'apparition ramène le joueur devant 
 
 Dans la grande salle de la caverne, à droite du Tunnel VI, se trouvent le panneau « Grottes profondes » et **deux grands cercles lumineux « 0/2 »**
 côte à côte devant l'arche (anneau épais, liseré, lueur au sol ; halo animé côté client par `src/client/HalosGrottes.client.lua` : couronne qui respire, ondes, orbes qui tournent, étincelles, doré dès qu'un joueur attend). Le premier joueur qui entre dans un cercle devient le **chef** de ce groupe :
-l'interface de choix de profondeur s'ouvre. Très peu de texte : seulement les niveaux (−50 m … −500 m) et une
+l'interface de choix de profondeur s'ouvre. Très peu de texte : seulement les niveaux (−50 m … −1200 m) et une
 **barre de difficulté** calculée selon SON équipement (pioche, épée, défense casque + plastron + jambières), et à droite
 les **minerais du palier** : petites pastilles 3D (les vrais modèles de minerai) qui se chevauchent, générées depuis
 `Grottes.NIVEAUX`, **du plus fréquent au plus rare** (estimation `Grottes.partsMinerais`). Un minerai que le joueur n'a
@@ -509,9 +513,10 @@ quand plus personne n'est dedans (sortie, mort ou départ du jeu).
 
 La plateforme d'entrée est générée au démarrage dans `Workspace.EntreeGrottes`. Une dalle commune porte les deux cercles et trois marches jointives mènent au seuil. Les rails, traverses et runes sont décoratifs.
 
-5 paliers (réglages dans `src/partage/Grottes.lua`) : plus on descend, plus les minerais sont **rares et résistants**
+8 paliers (réglages dans `src/partage/Grottes.lua`) : plus on descend, plus les minerais sont **rares et résistants**
 (du charbon à −50 m jusqu'à surtout de l'or à −500 m) et plus les **mobs** sont dangereux (chauves-souris, zombies,
-rampants, brutes, et l'Exécuteur maudit en boss à −500 m). Chaque palier a un équipement **conseillé** :
+rampants, brutes, et l'Exécuteur maudit en boss à −500 m ; au-delà, mobs recolorés et bien plus forts). Tous les paliers
+sont sélectionnables (pas de déverrouillage progressif). Chaque palier a un équipement **conseillé** :
 
 | Palier | Pioche (puissance) | Épée (dégâts) | Défense |
 |---|---|---|---|
@@ -520,6 +525,12 @@ rampants, brutes, et l'Exécuteur maudit en boss à −500 m). Chaque palier a u
 | −200 m Abîme de fer | 2 | 49 | 25 |
 | −350 m Profondeurs ardentes | 4 | 124 | 55 |
 | −500 m Cœur maudit | 8 | 230 | 100 |
+| −700 m Glacier éternel | 10 | 310 | 140 |
+| −900 m Abysses engloutis | 12 | 420 | 190 |
+| −1200 m Néant étoilé | 12 | 560 | 250 |
+
+Les paliers 6 à 8 dépassent l'équipement forgeable actuel : prévus pour de futures recettes de forge avec les nouveaux minerais
+(premières recettes : Lame / Heaume des marées, lunarite + magmaïte, butin du Léviathan des abysses).
 
 Combat : les mobs (sans Humanoid, déplacés par le serveur) se battent à l'épée ; la défense réduit les dégâts reçus
 (`défense / (défense + 60)`). Coup reçu : le mob flashe orange et lâche quelques éclats
@@ -536,7 +547,7 @@ dernier et vérifiée (sinon la grotte est regénérée avec une autre graine).
 **Taille** : bloc de roche 360 × 190 × 360 studs (1,5 × l'ancien) ; salles de 21 à 30 studs de rayon, galeries
 de ~24 à 33 studs de large, chaîne départ → boss de ~240 studs ; marches, pentes et corniches gardent leurs hauteurs.
 **Minerais en gisements (« zones de chaleur »)** : 1 nœud = 1 minerai ; `nombreMinerais` nœuds par grotte
-(−50 m 12–14, −100 m 12–13, −200 m 11–13, −350 m 11–13, −500 m 11–13), regroupés en **3–4 gisements de 2 à 5 nœuds**
+(−50 m 12–14, −100 m 12–13, −200 m 11–13, −350 m 11–13, −500 m 11–13, −700 à −1200 m 11–13), regroupés en **3–4 gisements de 2 à 5 nœuds**
 dans une même salle / alcôve (affleurant dans les murs ou le sol), jamais dans la zone sûre. Chaque gisement a un
 type dominant différent (70 % des nœuds) ; les 30 % restants sont tirés au poids. Un minerai `dominant = false`
 ne domine jamais un gisement : il reste rare.
@@ -548,6 +559,9 @@ ne domine jamais un gisement : il reste rare.
 | −200 m | Fer ~37 %, Or ~34 %, Cuivre ~29 % |
 | −350 m | Fer ~51 %, Or ~49 % |
 | −500 m | Or ~56 %, Fer ~44 % |
+| −700 m | Givrite ~34 %, Argent ~30 %, Obsidienne ~30 %, Émeraude ~6 % |
+| −900 m | Émeraude ~32 %, Rubis ~32 %, Lunarite ~31 %, Magmaïte ~5 % |
+| −1200 m | Diamant ~47 %, Orichalque ~45 %, Néantite ~8 % |
 
 **Minerais découverts** : profil `mineraisDecouverts = {[id] = true}` (`src/server/Donnees.lua`, champ ajouté sans
 changer de version ; ancien profil → déduit du sac et des objets forgés). Mis à vrai par le serveur à chaque minerai
@@ -568,6 +582,15 @@ le serveur pose `CoupDirection` puis `DernierCoup` sur le mob (avant `PV`) et le
 | −200 m | Zombie à lame 240 / 26, zombie mineur 180 / 22, rampant 180 / 22, chauve-souris 70 / 14 | 11–13 |
 | −350 m | Zombie mutant 650 / 50, zombie à lame 520 / 44, brute 1200 / 70, chauve-souris 140 / 26 | 11–14 |
 | −500 m | Zombie mutant 1400 / 80, brute 2300 / 105, zombie à lame 1100 / 72 + boss Exécuteur 9000 / 170 | 12–14 |
+| −700 m | Zombie mutant 2400 / 120, zombie à lame 1900 / 105, brute 3800 / 150, chauve-souris 700 / 60 (teintes de glace) + boss Titan de givre 15000 / 240 | 12–14 |
+| −900 m | Crabe des abysses 3200 / 150, spectre 2600 / 140, rampant 3000 / 145, zombie mutant 4200 / 170 + boss **Léviathan des abysses** 24000 / 320 | 12–14 |
+| −1200 m | Spectre 4200 / 210, zombie à lame 5200 / 230, brute 8500 / 300, chauve-souris 1600 / 130 + boss **Gardien des astres** 36000 / 420 | 13–15 |
+
+Les mobs des paliers 6 à 8 réutilisent les modèles existants, recolorés par `teinte` / `teinteForce` / `lueur` (pièces néon)
+et renommés par `nom` (attribut `Nom`, affiché sur la barre du boss) dans `Grottes.NIVEAUX` (`MobsGrotte.creerMob`).
+Les boss des paliers 7 et 8 sont de **nouveaux mobs** (modèles provisoires MobsKit, à remplacer par les vrais) :
+`MobsVoxels/LeviathanAbysses.lua` et `MobsVoxels/GardienAstres.lua` ; leurs attaques et récompenses : voir
+« Boss des grottes profondes » plus bas.
 
 **Décor et ambiance** (appelé à la fin de `GrotteGenerateur.construire`, purement décoratif, jamais dans les
 gisements ni à l'arrivée) :
@@ -687,8 +710,11 @@ pose ses zones d'ambiance (musique de `SonsGrotte` par alias) et le dossier `Gui
 | −200 m | `GrotteFonderie.lua` « La Fonderie de l'Abîme » | Porte de la fonderie royale, **l'Abîme** (gouffre de fer en fusion, ponts à chaînes, pilier-enclume, chaînes géantes), **la Fonderie** (creuset suspendu qui déverse sa coulée, rigoles, lingotières, haut-fourneau), **salle des Rouages** (engrenages géants qui tournent), conduites de cuivre et braseros dans les galeries, **Grande Forge des Rois** (statue du nain forgeron) |
 | −350 m | `GrotteLave.lua` « Les Rivières de lave » | Avant-poste de basalte, **lac de lave** qui brûle (ponts de basalte, îlot à l'obélisque d'obsidienne), chutes de lave, **forêt de basalte** (orgues hexagonales), **geysers de feu** à intervalles, pics d'obsidienne, cendres, **Trône de magma** du **Roi déchu** (voir plus bas). Toute la roche passe en basalte sombre (la lave craquelée seulement en berges) |
 | −500 m | `GrotteCoeur.lua` « Le Cœur maudit » | Dernier camp d'une expédition, **le Vide suspendu** (gouffre sans fond, dalles runiques, rochers qui flottent), failles du vide qui aspirent la lumière, cristaux corrompus, runes maudites, esprits errants, ossements, **Arène du Cœur** (cœur de cristal géant enchaîné à la voûte au-dessus du combat du boss, piliers d'obsidienne aux flammes violettes, cercle de runes) |
+| −700 m | `GrotteGlace.lua` « Les Cavernes de glace éternelle » | Bivouac gelé (tente, feu, traîneau), **lac gelé** (sol de glace glissant, poissons pris dans la glace, fissures), **aurores** sous les voûtes hautes, cristaux de givre, congères, nains gelés, neige, **Cathédrale de givre** (salle du boss : piliers de glace, lustre, nains agenouillés), **salle scellée** au trésor derrière une porte de glace (3 leviers gelés). Idées d'événements : blizzard, glace qui craque, nain qui dégèle |
+| −900 m | `GrotteAbysses.lua` « La Cité engloutie » | Cloche de plongée, **Gouffre abyssal** (eau au fond, statue du dieu-poisson, méduses géantes), **cité engloutie** (colonnes, arches, escaliers, amphores), **récif** (coraux, anémones, algues, bénitiers), sources chaudes, plancton, **Sanctuaire du Léviathan** (squelette géant, perle sur l'autel). Idées : marée montante, courant, perle à rapporter |
+| −1200 m | `GrotteAstres.lua` « L'Observatoire des astres » | Seuil aux pierres levées (lunette, table des cartes), voûtes étoilées, **Puits des étoiles** (nébuleuse, **planétaire** qui tourne, étoiles tombées), **météore** tombé, constellations aux parois, cristaux du néant, **Autel des constellations** (salle du boss : anneau-portail, 12 obélisques). Idées : pluie d'étoiles, gravité faible, constellation à reformer |
 
-- **Écran de chargement** (`src/client/ChargementGrotte.client.lua` + `src/client/ChargementGrotteThemes.lua`) : au départ, le serveur pose l'attribut joueur `GrotteDepart` (id du palier, effacé à la sortie de la grotte) ; l'écran reste tant que la grotte n'est pas prête chez le joueur (arrivée dans la boîte de la grotte, streaming et sol autour de l'arrivée, modèle stable, textures et particules préchargées, ambiance de `AmbianceGrotte` appliquée ; entre 1,5 s et 20 s), contrôles coupés et personnage ancré. Un fond d'écran dessiné par palier (lac et champignons lumineux, galeries boisées et améthyste, engrenages et creuset, trône et rivière de lave, cœur de cristal enchaîné), avec parallaxe et particules ; nom, profondeur et astuce du palier ; la barre est une veine de roche qu'une pioche mine en rythme (éclats, étincelles, son).
+- **Écran de chargement** (`src/client/ChargementGrotte.client.lua` + `src/client/ChargementGrotteThemes.lua`) : au départ, le serveur pose l'attribut joueur `GrotteDepart` (id du palier, effacé à la sortie de la grotte) ; l'écran reste tant que la grotte n'est pas prête chez le joueur (arrivée dans la boîte de la grotte, streaming et sol autour de l'arrivée, modèle stable, textures et particules préchargées, ambiance de `AmbianceGrotte` appliquée ; entre 1,5 s et 20 s), contrôles coupés et personnage ancré. Un fond d'écran dessiné par palier (lac et champignons lumineux, galeries boisées et améthyste, engrenages et creuset, trône et rivière de lave, cœur de cristal enchaîné, aurores et lac gelé, cité engloutie et méduses, planétaire et nébuleuses), avec parallaxe et particules ; nom, profondeur et astuce du palier ; la barre est une veine de roche qu'une pioche mine en rythme (éclats, étincelles, son).
 - **Dangers** (`src/server/DangersGrotte.server.lua`) : on tombe dans un gouffre → ramené au bord (−15 PV) ;
   la lave (tag « Lave ») brûle (−10 PV / 0,4 s) ; les geysers (tag « Geyser ») jaillissent toutes les 6 à 9 s
   (fumée d'avertissement, puis −18 PV et projection).
@@ -731,9 +757,51 @@ pose ses zones d'ambiance (musique de `SonsGrotte` par alias) et le dossier `Gui
     fonce 18 studs épée en avant, 70) ; **pluie de météores** (6 cercles rouges, dont un sous chaque combattant,
     impacts l'un après l'autre, 40). La cinématique reste sobre (lumières et flammes atténuées, aucun flash plein écran).
   - −500 m : le boss est relié au **Cœur maudit** : à 75, 50 et 25 % de ses PV une des 6 chaînes cède, et dès la
-    2e phase les **runes brûlantes** de l'arène (geysers violets) s'éveillent ; à sa mort, cinématique : le Cœur
-    se brise en éclats.
+    2e phase les **runes brûlantes** de l'arène (geysers violets) s'éveillent ; à sa mort, cinématique (~10 s, pour
+    les membres de l'expédition présents dans l'arène, à 90 studs du centre) : l'Exécuteur s'effondre au ralenti,
+    la caméra monte vers le Cœur qui se fissure puis éclate (ses dernières chaînes tombent), une **pluie de pépites
+    et de pièces d'or** tombe sur l'arène, puis la caméra revient derrière le joueur et rend la main. Les membres
+    ailleurs dans la grotte ont un bandeau. **Butin** (serveur, une fois par expédition et par joueur, marque
+    `OrExecuteur` sur la grotte) : chaque membre vivant dans la grotte reçoit **25 à 40 Or** dans son sac + **500
+    pièces** ; pépites qui volent vers le sac puis pop-up de coffre « Butin de l'Exécuteur » (thème Maudit).
+    Réglages en tête de `MecaniquesGrotte.server.lua` : `OR_EXECUTEUR_MIN/MAX`, `PIECES_EXECUTEUR`, `RAYON_ARENE_COEUR`.
+  - −700 m : **la salle scellée** (toujours générée, `GrotteGlace` section 0). Un couloir est creusé dans la paroi
+    de la salle la plus éloignée du départ qui a la place (boss en dernier recours) et bouché par une **porte de glace**
+    (modèle `PorteGlace` : 16 blocs de glace translucide, gemmes prises dans la glace, 3 runes gelées, cercle de
+    runes). Derrière : **salle au trésor** (cristal géant, cristaux aux parois et à la voûte, lumières, paillettes) avec
+    **7 à 9 minerais très rares** (mêmes nœuds que les gisements, gros) tirés au poids : Émeraude 26, Lunarite 22,
+    Magmaïte 18, Diamant 16, Orichalque 11, Néantite 7 ; le 1er est toujours Diamant, Orichalque ou Néantite.
+    **3 leviers gelés** (invite `LevierGlace`) dans 3 autres salles très espacées (jamais au départ) : maintenir
+    « Briser la glace » (2,5 s) fait éclater la gangue, puis « Abaisser » : le levier bascule, son, une rune de la
+    porte s'allume. Au 3e levier, le serveur ouvre la porte une seule fois (`SalleGlaceOuverte` sur la grotte) :
+    bandeau, fissures lumineuses, courte cinématique pour qui est à moins de 90 studs, puis la glace éclate et la
+    salle est ouverte à toute l'expédition. Marqueurs : leviers (30 studs) et porte (45 studs).
   - Test depuis Studio : attribut `ForcerCrue = true` sur le lac (tag « LaveMontante ») pour déclencher une crue.
+
+**Boss des grottes profondes (paliers 7 et 8)** — `src/server/BossProfondeurs.lua` (appelé par `Grottes.server.lua`
+après `TroneLave.preparer`) + `src/client/BossProfondeurs.client.lua` (pop-ups). Le boss naît dans la salle du boss
+(Sanctuaire du Léviathan / Autel des constellations) ; IA et coups d'épée de `MobsGrotte`. Toutes les 9 s (6 s après
+avoir pris une cible), une **attaque spéciale** annoncée par une animation et une zone rouge au sol, validée par le
+serveur, visant seulement les joueurs à moins de 60 studs du boss (pendant l'attaque, le boss est figé mais blessable) :
+  - **Léviathan des abysses** (−900 m, 24000 PV, coup 320, modèle `LeviathanAbysses` : serpent de mer dressé sur ses
+    anneaux, perle au front, tentacules violets) : **raz-de-marée** (disque rouge 1,2 s puis vague de 20 studs qui
+    part de lui : sauter au passage, 260) ; **tentacules** (6 cercles rouges dont un sous chaque combattant, des
+    tentacules jaillissent du sol l'un après l'autre, 230). **Butin** (une fois par expédition, chaque joueur de
+    l'expédition présent dans la grotte) : **1 lunarite + 1 magmaïte** (de quoi forger la Lame ou le Heaume des
+    marées) + **1000 pièces**, pop-up « Butin du Léviathan » (thème Abysses).
+  - **Gardien des astres** (−1200 m, 36000 PV, coup 420, modèle `GardienAstres` : chevalier céleste bleu nuit et or,
+    auréole, sceptre à étoile, astres en orbite) : **onde stellaire** (22 studs, 340) ; **pluie d'étoiles** (8 cercles,
+    étoiles qui tombent de la voûte, 300). **Butin** : l'**Épée des astres** (objet unique dans le sac : type Épée,
+    modèle `EpeeDesAstres`, **900 dégâts**, rareté **Céleste** — au-dessus de Divin, couleur bleu cosmique dans le sac),
+    pop-up « ÉPÉE DES ASTRES OBTENUE ». Une seule par joueur : marque `EpeeAstres` dans `profil.fragments` (comme
+    `MagmaForge`), posée avant l'objet. Déjà obtenue, ou coffre d'équipement plein (200 objets) : **consolation**
+    2 lunarites + 2 magmaïtes + 5000 pièces (pop-up « Trésor des astres »).
+  - Modèle de l'épée : `src/partage/ArmesVoxels/EpeeDesAstres.lua` est **provisoire** (lame bleu nuit, étoiles et fil
+    en néon, garde en croissant d'or). Pour le vrai modèle : remplacer ce fichier (même format que `EpeeFer.lua`) ou
+    importer `ReplicatedStorage.EpeesMesh.EpeeDesAstres` (+ entrée dans `EpeesMeshMateriaux`), pris en priorité.
+    Modèles des boss : remplacer `MobsVoxels/LeviathanAbysses.lua` / `GardienAstres.lua` en gardant les noms d'os et
+    les clips (Idle, Walk, Attack, Hurt, Roar, Death, Vague / Tentacules, Nova / Invocation).
+  - Réglages en tête de `BossProfondeurs.lua` (butin, dégâts de l'épée, consolation, dégâts et tailles des attaques).
 - `GrotteDecor.decorer` accepte `champignons = false`, `racines = false`, `mine = false`.
 - Le contrôle « chemin bouché » du générateur ne régénère plus la grotte pour une simple bosse du sol (rayons à 3,
   6 et 9 studs : bouché seulement si les trois touchent) : la grotte n'est plus générée trois fois de suite.
@@ -760,6 +828,7 @@ pose ses zones d'ambiance (musique de `SonsGrotte` par alias) et le dossier `Gui
 | `src/server/ArenaTemple.lua` + `src/client/ArenaTemple.client.lua` | Arène du temple (gong, 8 vagues, record). |
 | `src/monde/GrotteTheme.lua` | Outils communs des thèmes de grottes (fosse à ponts, éclairage, zones, veines, guide). |
 | `src/monde/GrotteMine.lua`, `GrotteFonderie.lua`, `GrotteLave.lua`, `GrotteCoeur.lua` | Thèmes des paliers −100, −200, −350 et −500 m. |
+| `src/monde/GrotteGlace.lua`, `GrotteAbysses.lua`, `GrotteAstres.lua` | Thèmes des paliers −700, −900 et −1200 m (glace, cité engloutie, observatoire des astres). |
 | `src/server/DangersGrotte.server.lua` + `src/client/MachinesGrotte.client.lua` | Gouffres, lave, geysers ; rouages qui tournent. |
 | `src/server/MecaniquesGrotte.server.lua` + `src/client/MecaniquesGrotte.client.lua` | Mécaniques signature : wagonnet, ascenseur, creuset, rouages et coffre de l'Abîme, lave montante, phases du Cœur maudit. |
 | `src/client/PopupCoffre.lua` | Pop-up d'ouverture de coffre (coffre dessiné qui tremble et s'ouvre, rayons, étincelles, récompenses en cartes avec minerais 3D) : coffres du sanctuaire et de l'Abîme, lingot royal. |

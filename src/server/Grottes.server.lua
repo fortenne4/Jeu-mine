@@ -21,6 +21,7 @@ local Sanctuaire = require(script.Parent:WaitForChild("Sanctuaire")) -- palier 1
 local EvenementsGrotte = require(script.Parent:WaitForChild("EvenementsGrotte")) -- palier 1 : événements aléatoires
 local ArenaTemple = require(script.Parent:WaitForChild("ArenaTemple")) -- palier 1 : arène du temple (gong)
 local TroneLave = require(script.Parent:WaitForChild("TroneLave")) -- palier 4 : trône de magma, le Roi déchu
+local BossProfondeurs = require(script.Parent:WaitForChild("BossProfondeurs")) -- paliers 7 et 8 : Léviathan, Gardien des astres
 
 local monde = ServerStorage:WaitForChild("Monde")
 local D = require(monde:WaitForChild("Disposition"))
@@ -86,7 +87,7 @@ Donnees.surChangement(function(joueur) task.spawn(majStats, joueur) end)
 
 -- ================= Entrée dans la caverne =================
 -- Portail des profondeurs : arche de pierre sombre en voussoirs, vide violet où s'enfoncent les rails,
--- cristaux, braseros, lanternes suspendues, éboulis et 5 gemmes (une par palier) sur le pilier.
+-- cristaux, braseros, lanternes suspendues, éboulis et une gemme par palier sur le pilier.
 local PIERRE = Color3.fromRGB(58, 53, 64)
 local PIERRE_CLAIRE = Color3.fromRGB(88, 82, 96)
 local VIOLET = Color3.fromRGB(186, 96, 255)
@@ -218,13 +219,15 @@ local function construireEntree()
 		O.decor(O.bloc(f, Vector3.new(0.15, Y_ARC + 6.2 - (Y_ARC + 2.9), 0.15), L(x, (Y_ARC + 6.2 + Y_ARC + 2.9) / 2, A - 2.4), C.Fer, M.Metal, "Chaine"))
 	end
 
-	-- 5 gemmes sur le pilier gauche : une par palier, du bleu (facile) au rouge (mortel)
+	-- Une gemme par palier sur le pilier gauche, du bleu (facile) au rouge (mortel) ; resserrées au-delà de 5 paliers
+	local pasGemmes = math.min(2.7, 10.8 / math.max(#Grottes.NIVEAUX - 1, 1))
+	local tailleSocle = math.min(1.6, pasGemmes - 0.12)
 	for i, niveau in Grottes.NIVEAUX do
-		local y = 2.6 + (i - 1) * 2.7
-		local socle = O.bloc(f, Vector3.new(1.6, 1.6, 0.4), L(-R_ARC, y, A - 2.3), pierre(0.7), M.Pierre, "Socle")
-		local g = O.decor(O.bloc(f, Vector3.new(0.8, 0.8, 0.4), L(-R_ARC, y, A - 2.55) * CFrame.Angles(0, 0, math.rad(45)),
+		local y = 2.6 + (i - 1) * pasGemmes
+		local socle = O.bloc(f, Vector3.new(tailleSocle, tailleSocle, 0.4), L(-R_ARC, y, A - 2.3), pierre(0.7), M.Pierre, "Socle")
+		local g = O.decor(O.bloc(f, Vector3.new(tailleSocle / 2, tailleSocle / 2, 0.4), L(-R_ARC, y, A - 2.55) * CFrame.Angles(0, 0, math.rad(45)),
 			Grottes.couleurDanger((i - 1) / (#Grottes.NIVEAUX - 1)), M.Neon, "GemmePalier"))
-		local etiquette = O.decor(O.bloc(f, Vector3.new(2.4, 0.8, 0.1), L(-R_ARC - 2.1, y, A - 2.3), pierre(0.1), M.Ardoise, "Profondeur"))
+		local etiquette = O.decor(O.bloc(f, Vector3.new(2.4, math.min(0.8, pasGemmes - 0.2), 0.1), L(-R_ARC - 2.1, y, A - 2.3), pierre(0.1), M.Ardoise, "Profondeur"))
 		O.texte(etiquette, Enum.NormalId.Front, "−" .. niveau.profondeur .. " m", {lumiere = 0, couleur = g.Color})
 		socle.Name = "Socle" .. i
 	end
@@ -473,6 +476,8 @@ local function lancer(teleporteur, niveau)
 	if not okArene then warn("[Grottes] Arène : " .. tostring(errArene)) end
 	local okTrone, errTrone = pcall(TroneLave.preparer, exp)
 	if not okTrone then warn("[Grottes] Trône : " .. tostring(errTrone)) end
+	local okBoss, errBoss = pcall(BossProfondeurs.preparer, exp)
+	if not okBoss then warn("[Grottes] Boss des profondeurs : " .. tostring(errBoss)) end
 	-- Le cercle se libère tout de suite pour le groupe suivant
 	libererGroupe(teleporteur)
 	Cercle.activer(teleporteur.cercle)
