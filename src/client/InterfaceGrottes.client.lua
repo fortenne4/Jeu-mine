@@ -30,8 +30,8 @@ local evOuvrir, evFermer, evChoisir, evQuitter = remote("Ouvrir"), remote("Ferme
 local evInviter, evInvitation, evRepondre, evMessage = remote("Inviter"), remote("Invitation"), remote("Repondre"), remote("Message")
 
 local LARGEUR = 640 -- taille de conception (mise à l'échelle par UIScale) ; le panneau « Groupe » est collé à droite
--- hauteur : 500 pour 5 paliers, + 72 par palier en plus (une carte de 64 + 8 d'écart)
-local HAUTEUR = 500 + (#Grottes.NIVEAUX - 5) * 72
+-- hauteur fixe : 5 paliers visibles, les plus profonds apparaissent en faisant défiler la liste
+local HAUTEUR = 500
 local CRISTAL = Color3.fromRGB(120, 210, 255)
 local BOUTON_BLEU = Color3.fromRGB(56, 140, 205)
 local DUREE_INVITATION = 20
@@ -485,6 +485,10 @@ local fond = creer("Frame", {AnchorPoint = Vector2.new(0, 1), Position = UDim2.f
 local gFond = creer("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1),
 	NumberSequenceKeypoint.new(1, 0.7)}), Parent = fond})
 UI.boucle(gFond, TweenInfo.new(3.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Offset = Vector2.new(0, 0.2)}, boucles)
+-- Ombre de profondeur : le fond s'assombrit à mesure qu'on fait défiler les paliers vers le bas
+local ombreProfondeur = creer("Frame", {Name = "OmbreProfondeur", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(10, 6, 16),
+	BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1, Parent = interieur}, {arrondi(10),
+	creer("UIGradient", {Rotation = 90, Transparency = NumberSequence.new(0.45, 0)})})
 cristaux(interieur, UDim2.new(0, 470, 1, 10), 0.9, Color3.fromRGB(190, 120, 255), 2, 3)
 cristaux(interieur, UDim2.new(0, 14, 1, 8), 0.7, CRISTAL, 2, 9)
 
@@ -503,11 +507,20 @@ local fermer = boutonFermer({Name = "Fermer", AnchorPoint = Vector2.new(1, 0), P
 	Size = UDim2.fromOffset(64, 64), ZIndex = 12, Parent = corps})
 
 -- ================= Paliers (colonne de gauche) =================
-local Y0, H_LIGNE, ECART, X_CARTE, L_CARTE = 98, 64, 8, 64, 538
+-- Liste défilante (molette, glisser au doigt, sélection manette) : 5 cartes visibles, Y0 = haut de la 1re carte
+-- dans le canevas de la liste
+local Y0, H_LIGNE, ECART, X_CARTE, L_CARTE = 12, 64, 8, 64, 538
+local Y_LISTE = 86
+local H_LISTE = HAUTEUR - 24 - Y_LISTE
+local H_CANEVAS = Y0 + #Grottes.NIVEAUX * (H_LIGNE + ECART) - ECART + 22
+local listePaliers = creer("ScrollingFrame", {Name = "Paliers", Position = UDim2.fromOffset(0, Y_LISTE), Size = UDim2.new(1, 0, 0, H_LISTE),
+	BackgroundTransparency = 1, BorderSizePixel = 0, ScrollingDirection = Enum.ScrollingDirection.Y, CanvasSize = UDim2.fromOffset(0, H_CANEVAS),
+	ScrollBarThickness = 5, ScrollBarImageColor3 = T.OrFonce, ScrollBarImageTransparency = 0.1, VerticalScrollBarInset = Enum.ScrollBarInset.None,
+	ElasticBehavior = Enum.ElasticBehavior.WhenScrollable, Selectable = false, ZIndex = 4, Parent = interieur})
 
 -- Puits : corde verticale + nœuds lumineux
 creer("Frame", {Name = "Puits", Position = UDim2.fromOffset(31, Y0 + 8), Size = UDim2.fromOffset(6, #Grottes.NIVEAUX * (H_LIGNE + ECART) - ECART - 16),
-	BackgroundColor3 = Color3.fromRGB(120, 86, 52), BorderSizePixel = 0, ZIndex = 3, Parent = interieur},
+	BackgroundColor3 = Color3.fromRGB(120, 86, 52), BorderSizePixel = 0, ZIndex = 3, Parent = listePaliers},
 	{coin(0.5), trait(ENCRE, 1.5), creer("UIGradient", {Rotation = 0, Color = ColorSequence.new(Color3.fromRGB(255, 230, 190), Color3.fromRGB(110, 80, 60))})})
 
 type Ligne = {
@@ -525,6 +538,9 @@ type Ligne = {
 	pastilles: {Pastille},
 	bulle: TextLabel,
 	survol: boolean,
+	base: UDim2, -- position de repos du conteneur (glissement d'entrée dans la vue)
+	centre: number, -- centre vertical de la carte dans le canevas de la liste
+	dansVue: boolean?,
 }
 local lignes: {Ligne} = {}
 
@@ -639,7 +655,7 @@ local function creerLigne(niveau: any, i: number): Ligne
 	local accent: Color3 = niveau.ambiance.lumiere
 	local conteneur = creer("Frame", {Name = "Niveau" .. i, AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromOffset(X_CARTE + L_CARTE / 2, y + H_LIGNE / 2), Size = UDim2.fromOffset(L_CARTE, H_LIGNE),
-		BackgroundTransparency = 1, ZIndex = 4, Parent = interieur})
+		BackgroundTransparency = 1, ZIndex = 4, Parent = listePaliers})
 	local echelle = creer("UIScale", {Parent = conteneur})
 	local lueur = creer("Frame", {Name = "Lueur", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.new(1, 34, 1, 30), BackgroundColor3 = accent, BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 1, Parent = conteneur},
@@ -691,7 +707,7 @@ local function creerLigne(niveau: any, i: number): Ligne
 
 	-- Nœud lumineux sur le puits
 	local noeud = creer("Frame", {Name = "Noeud" .. i, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(34, y + H_LIGNE / 2),
-		Size = UDim2.fromOffset(16, 16), BackgroundColor3 = accent, ZIndex = 4, Parent = interieur}, {coin(0.5), trait(ENCRE, 2),
+		Size = UDim2.fromOffset(16, 16), BackgroundColor3 = accent, ZIndex = 4, Parent = listePaliers}, {coin(0.5), trait(ENCRE, 2),
 		UI.degrade(BLANC, Color3.fromRGB(140, 140, 150), 45)})
 	local aura = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1.6, 1.6),
 		BackgroundTransparency = 1, ZIndex = 3, Parent = noeud}, {coin(0.5), trait(accent, 2, 0.3)})
@@ -699,7 +715,8 @@ local function creerLigne(niveau: any, i: number): Ligne
 		{Size = UDim2.fromScale(2.3, 2.3)}, boucles)
 
 	return {niveau = niveau, conteneur = conteneur, echelle = echelle, carte = carte, ombre = ombre, halo = halo, lueur = lueur,
-		plein = plein, info = info, noeud = noeud, assombri = assombri, pastilles = pastilles, bulle = bulle, survol = false}
+		plein = plein, info = info, noeud = noeud, assombri = assombri, pastilles = pastilles, bulle = bulle, survol = false,
+		base = conteneur.Position, centre = y + H_LIGNE / 2, dansVue = nil}
 end
 
 decouverts = lireDecouverts()
@@ -1286,6 +1303,134 @@ for _, l in lignes do
 	end)
 end
 
+-- ================= Défilement des paliers =================
+-- Indice « il y a plus bas » : dégradé sombre en bas de la liste + plaquette « PLUS PROFOND » avec chevrons
+-- dessinés en Frames, qui pulse ; elle disparaît en fondu une fois tout en bas (clic = descendre de 3 paliers).
+local indice = creer("CanvasGroup", {Name = "IndicePlusBas", AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1),
+	Size = UDim2.new(1, 0, 0, 66), BackgroundTransparency = 1, ZIndex = 6, Parent = interieur}, {arrondi(10)})
+creer("Frame", {Name = "Degrade", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(14, 9, 18), BorderSizePixel = 0, ZIndex = 1,
+	Parent = indice}, {creer("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.55, 0.55), NumberSequenceKeypoint.new(1, 0.15)})})})
+local plusBas = creer("TextButton", {Name = "PlusProfond", Text = "", AutoButtonColor = false, Selectable = false, AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.fromOffset(176, 28), BackgroundColor3 = T.BoisSombre, ZIndex = 2, Parent = indice},
+	{coin(0.5), trait(T.OrFonce, 2, 0.1), UI.degrade(Color3.fromRGB(255, 240, 225), Color3.fromRGB(150, 130, 120))})
+texte({Text = "PLUS PROFOND", Font = Enum.Font.GothamBlack, TextColor3 = T.Parchemin, AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, -64, 0, 16), ZIndex = 4, Parent = plusBas}, 14)
+local function chevron(x: number): Frame
+	local f = creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(x, 0, 0.5, 0), Size = UDim2.fromOffset(16, 10),
+		BackgroundTransparency = 1, ZIndex = 3, Parent = plusBas})
+	-- « V » pointe en bas : branche « \ » à gauche, « / » à droite
+	for _, b in {{-1, 45}, {1, -45}} do
+		creer("Frame", {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, b[1] * 3.5, 0.5, -1), Size = UDim2.fromOffset(10, 3),
+			Rotation = b[2], BackgroundColor3 = CRISTAL, BorderSizePixel = 0, ZIndex = 3, Parent = f}, {coin(0.5)})
+	end
+	UI.boucle(f, TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+		{Position = UDim2.new(x, 0, 0.5, 3)}, boucles)
+	return f
+end
+chevron(0.1)
+chevron(0.9)
+UI.reactif(plusBas, 1.06)
+UI.boucle(plusBas, TweenInfo.new(0.7, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+	{Position = UDim2.new(0.5, 0, 1, -5)}, boucles)
+
+local DEFILE = TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local ENTREE = TweenInfo.new(0.42, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+local MAX_CANEVAS = math.max(H_CANEVAS - H_LISTE, 1) -- défilement maximal en unités de conception
+local indiceVisible = true
+local tweenDefile: Tween? = nil
+
+-- CanvasPosition est en pixels écran (UIScale compris) : on passe par la fraction défilée pour rester juste
+local function maxReel(): number
+	return listePaliers.AbsoluteCanvasSize.Y - listePaliers.AbsoluteWindowSize.Y
+end
+local function fractionDefilee(): number
+	local m = maxReel()
+	return if m > 1 then math.clamp(listePaliers.CanvasPosition.Y / m, 0, 1) else 0
+end
+local function defilerVers(yConception: number)
+	local m = maxReel()
+	if m <= 1 then
+		return
+	end
+	if tweenDefile then
+		tweenDefile:Cancel()
+	end
+	local t = TweenService:Create(listePaliers, DEFILE, {CanvasPosition = Vector2.new(0, math.clamp(yConception, 0, MAX_CANEVAS) / MAX_CANEVAS * m)})
+	tweenDefile = t
+	t:Play()
+end
+
+local function montrerIndice(visible: boolean)
+	if indiceVisible == visible then
+		return
+	end
+	indiceVisible = visible
+	if visible then
+		indice.Visible = true
+	end
+	TweenService:Create(indice, SURVOL, {GroupTransparency = if visible then 0 else 1}):Play()
+	if not visible then
+		task.delay(0.26, function()
+			if not indiceVisible then
+				indice.Visible = false
+			end
+		end)
+	end
+end
+
+-- Carte qui entre dans la vue : léger glissement depuis la droite + petit grossissement
+local function entrerDansVue(l: Ligne)
+	l.conteneur.Position = l.base + UDim2.fromOffset(36, 0)
+	TweenService:Create(l.conteneur, ENTREE, {Position = l.base}):Play()
+	if not l.survol and not (attente and choisiId == l.niveau.id) then
+		l.echelle.Scale = 0.9
+		TweenService:Create(l.echelle, ENTREE, {Scale = 1}):Play()
+	end
+end
+
+local function majDefilement(animer: boolean)
+	local f = fractionDefilee()
+	local y = f * MAX_CANEVAS
+	ombreProfondeur.BackgroundTransparency = 1 - 0.4 * f -- plus on descend, plus c'est sombre
+	montrerIndice(f < 0.985)
+	for _, l in lignes do
+		local vu = l.centre >= y and l.centre <= y + H_LISTE
+		if vu ~= l.dansVue then
+			l.dansVue = vu
+			if vu and animer then
+				entrerDansVue(l)
+			end
+		end
+	end
+end
+
+listePaliers:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+	if ouverte then
+		majDefilement(true)
+	end
+end)
+listePaliers:GetPropertyChangedSignal("AbsoluteWindowSize"):Connect(function()
+	if ouverte then
+		majDefilement(false)
+	end
+end)
+plusBas.Activated:Connect(function()
+	jouer("clic", 0.8)
+	defilerVers(fractionDefilee() * MAX_CANEVAS + 3 * (H_LIGNE + ECART))
+end)
+
+-- Manette : la carte sélectionnée s'agrandit comme au survol et la liste défile pour la centrer
+for _, l in lignes do
+	l.carte.SelectionGained:Connect(function()
+		survoler(l, true)
+		defilerVers(l.centre - H_LISTE / 2)
+	end)
+	l.carte.SelectionLost:Connect(function()
+		survoler(l, false)
+	end)
+end
+
 -- ================= Ouverture / fermeture =================
 local function particule()
 	local cristal = math.random() < 0.35
@@ -1307,6 +1452,11 @@ local function ouvrirFenetre()
 	if ouverte then
 		return
 	end
+	-- la liste repart du haut (fenêtre encore fermée : pas d'animation d'entrée des cartes)
+	if tweenDefile then
+		tweenDefile:Cancel()
+	end
+	listePaliers.CanvasPosition = Vector2.zero
 	ouverte = true
 	Curseur.liberer("Grottes", true)
 	gui.Enabled = true
@@ -1332,6 +1482,7 @@ local function ouvrirFenetre()
 		l.halo.Transparency, l.lueur.BackgroundTransparency, l.info.TextTransparency = 1, 1, 1
 		l.ombre.BackgroundTransparency, l.ombre.Position = 0.72, UDim2.fromOffset(3, 5)
 		l.noeud.Size = UDim2.fromOffset(16, 16)
+		l.conteneur.Position = l.base
 		l.echelle.Scale = 0.5
 		TweenService:Create(l.echelle, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out, 0, false, 0.12 + i * 0.06), {Scale = 1}):Play()
 		-- les minerais tombent dans leur pile l'un après l'autre
@@ -1351,6 +1502,7 @@ local function ouvrirFenetre()
 	end
 	majDecouvertes() -- après la cascade : l'éclat d'un minerai découvert n'est pas écrasé par le tween d'ouverture
 	majBarres(true)
+	majDefilement(false)
 	jetonOuverture += 1
 	local jeton = jetonOuverture
 	task.spawn(function()
