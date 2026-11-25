@@ -45,9 +45,15 @@ textures et sons en attente (`ContentProvider.RequestQueueSize`). Minimum 3 s, m
 Pendant le chargement, le chat et la liste des joueurs sont masqués et les contrôles coupés ; l'écran s'efface en fondu.
 
 Titre provisoire « LA GRANDE MINE » (constante `TITRE`). Décor « la paroi », tout en Frames (aucune image importée) :
-galerie étayée (poteaux, linteau, ferrures boulonnées, jambes de force, stalactites), deux lanternes qui se balancent
-avec leur cône de lumière et un vacillement global, mur de roche en blocs voxel en relief avec fissures et minerais en
-cristaux qui scintillent, pioche appuyée au poteau, caisse et tonneau, gros rochers sombres au premier plan, chauves-souris,
+galerie étayée (poutres veinées avec nœuds, entailles et clous, ferrures rouillées à 4 boulons, jambes de force, corde
+enroulée, stalactites), lanternes détaillées (chaîne, dôme, verre, flamme qui vacille) qui se balancent avec leur cône de
+lumière, mur de roche en blocs voxel en relief avec fissures, filons de gemmes en cristaux à facettes et pépites de métal
+d'où montent des particules, pioche (fer courbé, poignée en cuir), caisse (planches, croix clouée, équerres) avec sa
+lanterne, tonneau (douelles, cercles rivetés, robinet) coiffé d'un casque de mineur à lampe frontale allumée, sac de
+toile noué plein de minerais, toiles d'araignée dans les angles avec une araignée au bout de son fil, gouttes d'eau qui
+tombent des stalactites et éclaboussent, flaque qui reflète les lanternes, brume au ras du sol, paillettes d'or autour
+du titre, veinules colorées dans la roche, pioche plantée dans le wagon et reflet qui court sur le rail,
+gros rochers sombres au premier plan, chauves-souris,
 cailloux qui tombent, braises et poussière. Le titre doré en relief tombe lettre par lettre (poussière, secousse du mur),
 puis ondule avec un reflet qui court de lettre en lettre. Deux jauges : une veine d'or qui s'illumine dans la roche, et un
 wagonnet chargé de minerais, pourcentage peint sur le flanc, qui avance sur le rail (étincelles, cahots) puis file hors

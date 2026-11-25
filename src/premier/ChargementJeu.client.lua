@@ -186,6 +186,16 @@ for l = 0, LIGNES - 1 do
 		local b = bloc(mur, {AnchorPoint = CENTRE, Position = UDim2.fromScale(x, y), Size = UDim2.fromScale(taille / COLONNES, taille / LIGNES),
 			BackgroundColor3 = BLANC, ZIndex = 3}, {coin(0.1), degrade(70, {{0, couleur:Lerp(BLANC, 0.1)}, {1, couleur:Lerp(NOIR, 0.4)}})})
 		biseau(b, if saillant then 2 else 1.5, couleur:Lerp(BLANC, 0.3), couleur:Lerp(NOIR, 0.6))
+		-- veinules colorées dans la roche, avec un petit éclat de minerai au bout
+		if not mi and rng:NextNumber() < 0.13 then
+			local vc = MINERAIS[rng:NextInteger(1, #MINERAIS)]
+			local a = rng:NextNumber(-40, 40)
+			for k = 0, 1 do
+				bloc(b, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.32 + k * 0.32, 0.38 + k * 0.22 + rng:NextNumber(-0.05, 0.05)), Size = UDim2.fromScale(0.44, 0.045),
+					Rotation = a + k * 25, BackgroundColor3 = vc, BackgroundTransparency = 0.5, ZIndex = 4}, {coin()})
+			end
+			bloc(b, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.78, 0.66), Size = UDim2.fromScale(0.09, 0.09), SizeConstraint = YY, Rotation = 45, BackgroundColor3 = vc:Lerp(BLANC, 0.3), ZIndex = 4})
+		end
 		-- fissures
 		if not mi and rng:NextNumber() < 0.16 then
 			local fx, fy, a = rng:NextNumber(0.25, 0.75), rng:NextNumber(0.25, 0.75), rng:NextNumber(-60, 60)
@@ -193,20 +203,53 @@ for l = 0, LIGNES - 1 do
 			bloc(b, {AnchorPoint = CENTRE, Position = UDim2.fromScale(fx + 0.15, fy + 0.12), Size = UDim2.fromScale(0.28, 0.03), Rotation = a + 50, BackgroundColor3 = rgb(18, 13, 10), ZIndex = 4})
 		end
 		if mi then
-			-- cristaux qui sortent de la roche, lueur qui respire, étoile de scintillement
-			local lueur = halo(b, UDim2.fromScale(0.5, 0.55), 1.5, mi, 0.13, 5, 3)
-			local creux = bloc(b, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.6), Size = UDim2.fromScale(0.7, 0.5), BackgroundColor3 = rgb(16, 12, 10), ZIndex = 4}, {coin(0.4)})
-			creux.BackgroundTransparency = 0.2
-			for k = 1, 4 do
-				local h = rng:NextNumber(0.32, 0.55)
-				local cristal = bloc(b, {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.22 + (k - 1) * 0.18 + rng:NextNumber(-0.04, 0.04), 0.82),
-					Size = UDim2.fromScale(0.15, h), Rotation = (k - 2.5) * 14 + rng:NextNumber(-8, 8), BackgroundColor3 = BLANC, ZIndex = 5},
-					{coin(0.35), degrade(0, {{0, mi:Lerp(BLANC, 0.65)}, {0.45, mi}, {1, mi:Lerp(NOIR, 0.45)}}),
-						creer("UIStroke", {Color = mi:Lerp(NOIR, 0.6), Thickness = 1})})
-				bloc(cristal, {Position = UDim2.fromScale(0.2, 0.08), Size = UDim2.fromScale(0.22, 0.6), BackgroundColor3 = BLANC, BackgroundTransparency = 0.45, ZIndex = 6}, {coin()})
+			local estGemme = (table.find(MINERAIS, mi) or 1) >= 4
+			local lueur = halo(b, UDim2.fromScale(0.5, 0.58), 1.6, mi, if estGemme then 0.14 else 0.08, 6, 3)
+			-- cavité aux bords irréguliers, éclats de roche au pied
+			for k = 1, 3 do
+				bloc(b, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5 + (k - 2) * 0.13, 0.62 + rng:NextNumber(-0.04, 0.04)), Size = UDim2.fromScale(0.42, 0.38),
+					Rotation = rng:NextNumber(-25, 25), BackgroundColor3 = rgb(14, 10, 8), BackgroundTransparency = 0.1, ZIndex = 4}, {coin(0.45)})
 			end
-			table.insert(mineraisMur, {lueur = lueur, phase = rng:NextNumber(0, 6.28), vitesse = rng:NextNumber(1.5, 3)})
-			table.insert(etoilesMur, etoile(b, UDim2.fromScale(rng:NextNumber(0.3, 0.7), rng:NextNumber(0.25, 0.5)), 0.9, mi:Lerp(BLANC, 0.5), 7))
+			if estGemme then
+				-- cristaux à facettes : face claire, face sombre, pointe en losange, arête lumineuse
+				for k = 1, 5 do
+					local h = if k == 3 then 0.66 else rng:NextNumber(0.3, 0.5)
+					local z = if k == 3 then 7 else 5
+					local cristal = bloc(b, {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5 + (k - 3) * 0.12, 0.84), Size = UDim2.fromScale(0.16, h),
+						Rotation = (k - 3) * 17 + rng:NextNumber(-5, 5), BackgroundTransparency = 1, ZIndex = z})
+					bloc(cristal, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.16), Size = UDim2.fromScale(0.71, 0.71), SizeConstraint = Enum.SizeConstraint.RelativeXX,
+						Rotation = 45, BackgroundColor3 = BLANC, ZIndex = z}, {degrade(0, {{0, mi:Lerp(BLANC, 0.7)}, {0.5, mi:Lerp(BLANC, 0.2)}, {0.51, mi:Lerp(NOIR, 0.15)}, {1, mi:Lerp(NOIR, 0.45)}})})
+					bloc(cristal, {Position = UDim2.fromScale(0, 0.16), Size = UDim2.fromScale(0.5, 0.84), BackgroundColor3 = BLANC, ZIndex = z + 1},
+						{degrade(90, {{0, mi:Lerp(BLANC, 0.6)}, {1, mi:Lerp(BLANC, 0.05)}})})
+					bloc(cristal, {Position = UDim2.fromScale(0.5, 0.16), Size = UDim2.fromScale(0.5, 0.84), BackgroundColor3 = BLANC, ZIndex = z + 1},
+						{degrade(90, {{0, mi}, {1, mi:Lerp(NOIR, 0.55)}})})
+					bloc(cristal, {Position = UDim2.fromScale(0.12, 0.2), Size = UDim2.fromScale(0.1, 0.6), BackgroundColor3 = BLANC, BackgroundTransparency = 0.35, ZIndex = z + 2}, {coin()})
+					bloc(cristal, {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.16), Size = UDim2.fromScale(0.04, 0.84), BackgroundColor3 = mi:Lerp(BLANC, 0.8),
+						BackgroundTransparency = 0.3, ZIndex = z + 2})
+				end
+			else
+				-- pépites de métal brillantes, avec reflet
+				for _ = 1, 5 do
+					local d = rng:NextNumber(0.18, 0.3)
+					local p = bloc(b, {AnchorPoint = CENTRE, Position = UDim2.fromScale(rng:NextNumber(0.26, 0.74), rng:NextNumber(0.46, 0.74)), Size = UDim2.fromScale(d, d * 0.8),
+						Rotation = rng:NextNumber(0, 90), BackgroundColor3 = BLANC, ZIndex = 5},
+						{coin(0.38), degrade(45, {{0, mi:Lerp(BLANC, 0.65)}, {0.45, mi}, {1, mi:Lerp(NOIR, 0.6)}}), creer("UIStroke", {Color = mi:Lerp(NOIR, 0.7), Thickness = 1})})
+					bloc(p, {Position = UDim2.fromScale(0.2, 0.18), Size = UDim2.fromScale(0.28, 0.22), BackgroundColor3 = BLANC, BackgroundTransparency = 0.25, ZIndex = 6}, {coin()})
+				end
+			end
+			for _ = 1, 3 do -- gravillons au pied du filon
+				local d = rng:NextNumber(0.07, 0.12)
+				bloc(b, {AnchorPoint = CENTRE, Position = UDim2.fromScale(rng:NextNumber(0.2, 0.8), 0.86), Size = UDim2.fromScale(d, d), Rotation = rng:NextNumber(0, 90),
+					BackgroundColor3 = couleur:Lerp(BLANC, 0.1), ZIndex = 8}, {coin(0.25)})
+			end
+			-- particules lumineuses qui montent du filon
+			local particules = {}
+			for _ = 1, 2 do
+				local f = bloc(b, {AnchorPoint = CENTRE, Size = UDim2.fromScale(0.07, 0.07), SizeConstraint = YY, BackgroundColor3 = mi:Lerp(BLANC, 0.5), ZIndex = 9}, {coin()})
+				table.insert(particules, {f = f, x = rng:NextNumber(0.3, 0.7), y = rng:NextNumber(0, 1), v = rng:NextNumber(0.25, 0.45)})
+			end
+			table.insert(mineraisMur, {lueur = lueur, phase = rng:NextNumber(0, 6.28), vitesse = rng:NextNumber(1.5, 3), particules = particules})
+			table.insert(etoilesMur, etoile(b, UDim2.fromScale(rng:NextNumber(0.3, 0.7), rng:NextNumber(0.2, 0.45)), 0.9, mi:Lerp(BLANC, 0.5), 10))
 		end
 	end
 end
@@ -218,55 +261,148 @@ for _, v in {{0, 0, 1, 0.38, 90, {{0, 0}, {1, 1}}}, {0, 0.5, 1, 0.5, 90, {{0, 1}
 end
 
 -- ================= Charpente de la galerie : poutres, ferrures, lanternes =================
+-- Bois détaillé : arêtes éclairée / ombrée, veines, nœuds avec cernes, entailles d'usure, clous
 local function grainBois(o: Frame, vertical: boolean, z: number)
-	for _, p in {0.22, 0.5, 0.78} do
-		local pos = p + rng:NextNumber(-0.06, 0.06)
-		bloc(o, {Position = if vertical then UDim2.fromScale(pos, 0) else UDim2.fromScale(0, pos), Size = if vertical then UDim2.fromScale(0.035, 1) else UDim2.fromScale(1, 0.05),
-			BackgroundColor3 = BOIS_SOMBRE, BackgroundTransparency = 0.45, ZIndex = z})
+	bloc(o, {Size = if vertical then UDim2.fromScale(0.13, 1) else UDim2.fromScale(1, 0.14), BackgroundColor3 = BLANC, BackgroundTransparency = 0.8, ZIndex = z})
+	bloc(o, {AnchorPoint = Vector2.new(1, 1), Position = UDim2.fromScale(1, 1), Size = if vertical then UDim2.fromScale(0.16, 1) else UDim2.fromScale(1, 0.18),
+		BackgroundColor3 = NOIR, BackgroundTransparency = 0.6, ZIndex = z})
+	for k = 1, 6 do -- veines du bois
+		local pos = (k - 0.5) / 6 + rng:NextNumber(-0.04, 0.04)
+		local ep = rng:NextNumber(0.012, 0.03)
+		local long = rng:NextNumber(0.55, 0.95)
+		bloc(o, {Position = if vertical then UDim2.fromScale(pos, rng:NextNumber(0, 1 - long)) else UDim2.fromScale(rng:NextNumber(0, 1 - long), pos),
+			Size = if vertical then UDim2.fromScale(ep, long) else UDim2.fromScale(long, ep * 2.5), BackgroundColor3 = BOIS_SOMBRE,
+			BackgroundTransparency = rng:NextNumber(0.35, 0.7), ZIndex = z}, {coin()})
 	end
-	for _ = 1, 2 do -- nœuds du bois
-		bloc(o, {AnchorPoint = CENTRE, Position = if vertical then UDim2.fromScale(rng:NextNumber(0.3, 0.7), rng:NextNumber(0.3, 0.9)) else UDim2.fromScale(rng:NextNumber(0.1, 0.9), rng:NextNumber(0.3, 0.7)),
-			Size = if vertical then UDim2.fromScale(0.3, 0.025) else UDim2.fromScale(0.012, 0.35), BackgroundColor3 = BOIS_SOMBRE, BackgroundTransparency = 0.2, ZIndex = z}, {coin()})
+	for _ = 1, 2 do -- nœuds avec cernes
+		local pos = if vertical then UDim2.fromScale(rng:NextNumber(0.35, 0.65), rng:NextNumber(0.25, 0.9)) else UDim2.fromScale(rng:NextNumber(0.08, 0.92), rng:NextNumber(0.35, 0.65))
+		local taille = if vertical then Vector2.new(0.42, 0.045) else Vector2.new(0.025, 0.5)
+		for k, v in {{1, BOIS_SOMBRE, 0.15}, {0.66, BOIS:Lerp(BLANC, 0.08), 0}, {0.3, rgb(40, 22, 10), 0}} do
+			bloc(o, {AnchorPoint = CENTRE, Position = pos, Size = UDim2.fromScale(taille.X * v[1], taille.Y * v[1]), BackgroundColor3 = v[2], BackgroundTransparency = v[3], ZIndex = z + k - 1}, {coin()})
+		end
+	end
+	for _ = 1, 3 do -- entailles sur les arêtes
+		local le = rng:NextNumber(0.1, 0.9)
+		local bord = if rng:NextNumber() < 0.5 then 0.02 else 0.98
+		bloc(o, {AnchorPoint = CENTRE, Position = if vertical then UDim2.fromScale(bord, le) else UDim2.fromScale(le, bord),
+			Size = if vertical then UDim2.fromScale(0.22, 0.012) else UDim2.fromScale(0.008, 0.22), Rotation = 45, BackgroundColor3 = rgb(30, 16, 8), ZIndex = z + 2})
 	end
 end
 local function boulon(parent: Instance, pos: UDim2, taille: number, z: number)
-	bloc(parent, {AnchorPoint = CENTRE, Position = pos, Size = UDim2.fromScale(taille, taille), SizeConstraint = YY, BackgroundColor3 = BLANC, ZIndex = z},
-		{coin(), degrade(45, {{0, rgb(210, 210, 218)}, {1, rgb(70, 70, 78)}}), creer("UIStroke", {Color = FER_SOMBRE, Thickness = 1})})
+	local b = bloc(parent, {AnchorPoint = CENTRE, Position = pos, Size = UDim2.fromScale(taille, taille), SizeConstraint = YY, BackgroundColor3 = BLANC, ZIndex = z},
+		{coin(), degrade(45, {{0, rgb(220, 220, 228)}, {0.5, rgb(130, 130, 140)}, {1, rgb(56, 56, 64)}}), creer("UIStroke", {Color = FER_SOMBRE, Thickness = 1})})
+	bloc(b, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.7, 0.14), Rotation = 35, BackgroundColor3 = rgb(40, 40, 46), ZIndex = z + 1})
+	return b
 end
+local function clou(parent: Instance, pos: UDim2, taille: number, z: number)
+	local c = bloc(parent, {AnchorPoint = CENTRE, Position = pos, Size = UDim2.fromScale(taille, taille), SizeConstraint = YY, BackgroundColor3 = rgb(54, 52, 56), ZIndex = z}, {coin()})
+	bloc(c, {Position = UDim2.fromScale(0.2, 0.2), Size = UDim2.fromScale(0.35, 0.35), BackgroundColor3 = rgb(180, 180, 188), ZIndex = z + 1}, {coin()})
+end
+-- ferrure : plaque de fer biseautée, taches de rouille, 4 boulons
 local function ferrure(parent: Instance, pos: UDim2, taille: UDim2, z: number)
 	local f = bloc(parent, {AnchorPoint = CENTRE, Position = pos, Size = taille, BackgroundColor3 = BLANC, ZIndex = z},
-		{coin(0.12), degrade(90, {{0, rgb(120, 120, 130)}, {1, rgb(50, 50, 58)}}), creer("UIStroke", {Color = FER_SOMBRE, Thickness = 1.5})})
-	boulon(f, UDim2.fromScale(0.5, 0.25), 0.22, z + 1)
-	boulon(f, UDim2.fromScale(0.5, 0.75), 0.22, z + 1)
+		{coin(0.1), degrade(90, {{0, rgb(140, 140, 150)}, {0.15, rgb(104, 104, 114)}, {1, rgb(44, 44, 52)}}), creer("UIStroke", {Color = FER_SOMBRE, Thickness = 1.5})})
+	for _ = 1, 3 do
+		local d = rng:NextNumber(0.15, 0.3)
+		bloc(f, {AnchorPoint = CENTRE, Position = UDim2.fromScale(rng:NextNumber(0.2, 0.8), rng:NextNumber(0.2, 0.8)), Size = UDim2.fromScale(d, d), SizeConstraint = YY,
+			BackgroundColor3 = rgb(150, 74, 30), BackgroundTransparency = 0.55, ZIndex = z}, {coin()})
+	end
+	local vertical = taille.X.Scale < taille.Y.Scale
+	for _, a in {0.2, 0.8} do
+		for _, b in {0.27, 0.73} do
+			boulon(f, if vertical then UDim2.fromScale(b, a) else UDim2.fromScale(a, b), 0.18, z + 1)
+		end
+	end
 	return f
 end
 local charpente = bloc(ecran, {Name = "Charpente", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 10})
+local function poutre(parent: Instance, props: {[string]: any}, vertical: boolean, z: number): Frame
+	props.BackgroundColor3 = BLANC
+	props.ZIndex = z
+	local p = bloc(parent, props, {degrade(if vertical then 0 else 90, {{0, BOIS:Lerp(BLANC, 0.14)}, {0.55, BOIS}, {1, BOIS_SOMBRE}}),
+		creer("UIStroke", {Color = rgb(26, 14, 6), Thickness = 2})})
+	grainBois(p, vertical, z + 1)
+	return p
+end
 local function poteau(cote: number)
-	local p = bloc(charpente, {Name = "Poteau", AnchorPoint = Vector2.new(cote, 0), Position = UDim2.fromScale(if cote == 0 then 0.015 else 0.985, 0.05),
-		Size = UDim2.fromScale(0.085, 0.82), SizeConstraint = YY, BackgroundColor3 = BLANC, ZIndex = 11},
-		{degrade(0, {{0, BOIS:Lerp(BLANC, 0.12)}, {0.6, BOIS}, {1, BOIS_SOMBRE}}), creer("UIStroke", {Color = rgb(26, 14, 6), Thickness = 2})})
-	grainBois(p, true, 12)
-	ferrure(p, UDim2.fromScale(0.5, 0.1), UDim2.fromScale(1.12, 0.09), 13)
-	ferrure(p, UDim2.fromScale(0.5, 0.86), UDim2.fromScale(1.12, 0.09), 13)
+	local x = if cote == 0 then 0.015 else 0.985
+	local p = poutre(charpente, {Name = "Poteau", AnchorPoint = Vector2.new(cote, 0), Position = UDim2.fromScale(x, 0.05), Size = UDim2.fromScale(0.085, 0.82), SizeConstraint = YY}, true, 11)
+	ferrure(p, UDim2.fromScale(0.5, 0.1), UDim2.fromScale(1.12, 0.1), 15)
+	ferrure(p, UDim2.fromScale(0.5, 0.86), UDim2.fromScale(1.12, 0.1), 15)
+	for _, y in {0.3, 0.55} do clou(p, UDim2.fromScale(0.3, y), 0.012, 15); clou(p, UDim2.fromScale(0.7, y + 0.02), 0.012, 15) end
+	if cote == 0 then -- corde enroulée autour du poteau gauche
+		for k = 0, 5 do
+			bloc(p, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.42 + k * 0.022), Size = UDim2.fromScale(1.14, 0.016), Rotation = -12, BackgroundColor3 = BLANC, ZIndex = 16},
+				{coin(), degrade(90, {{0, rgb(214, 182, 120)}, {1, rgb(120, 92, 50)}}), creer("UIStroke", {Color = rgb(60, 42, 20), Thickness = 1})})
+		end
+		bloc(p, {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.82, 0.54), Size = UDim2.fromScale(0.09, 0.1), Rotation = 8, BackgroundColor3 = rgb(168, 136, 80), ZIndex = 16},
+			{coin(), creer("UIStroke", {Color = rgb(60, 42, 20), Thickness = 1})})
+	end
 	-- jambe de force en diagonale vers le linteau
 	local s = if cote == 0 then 1 else -1
-	local jambe = bloc(p, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5 + s * 1.55, 0.1), Size = UDim2.fromScale(0.055, 0.25), SizeConstraint = YY, Rotation = s * 45,
-		BackgroundColor3 = BLANC, ZIndex = 10}, {degrade(0, {{0, BOIS}, {1, BOIS_SOMBRE}}), creer("UIStroke", {Color = rgb(26, 14, 6), Thickness = 2})})
-	grainBois(jambe, true, 10)
+	local jambe = poutre(p, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5 + s * 1.55, 0.1), Size = UDim2.fromScale(0.055, 0.25), SizeConstraint = YY, Rotation = s * 45}, true, 9)
+	clou(jambe, UDim2.fromScale(0.5, 0.1), 0.05, 12)
+	clou(jambe, UDim2.fromScale(0.5, 0.9), 0.05, 12)
 	-- ombre du poteau sur la roche
-	bloc(charpente, {AnchorPoint = Vector2.new(cote, 0), Position = UDim2.fromScale(if cote == 0 then 0.015 else 0.985, 0.05), Size = UDim2.fromScale(0.16, 0.82), SizeConstraint = YY,
-		BackgroundColor3 = NOIR, ZIndex = 9}, {creer("UIGradient", {Rotation = if cote == 0 then 0 else 180, Transparency = transp({{0, 0.2}, {0.5, 0.45}, {1, 1}})})})
+	bloc(charpente, {AnchorPoint = Vector2.new(cote, 0), Position = UDim2.fromScale(x, 0.05), Size = UDim2.fromScale(0.16, 0.82), SizeConstraint = YY,
+		BackgroundColor3 = NOIR, ZIndex = 8}, {creer("UIGradient", {Rotation = if cote == 0 then 0 else 180, Transparency = transp({{0, 0.2}, {0.5, 0.45}, {1, 1}})})})
 end
 poteau(0)
 poteau(1)
-local linteau = bloc(charpente, {Name = "Linteau", Position = UDim2.fromScale(-0.01, 0.025), Size = UDim2.fromScale(1.02, 0.085), BackgroundColor3 = BLANC, ZIndex = 14},
-	{degrade(90, {{0, BOIS:Lerp(BLANC, 0.15)}, {0.5, BOIS}, {1, BOIS_SOMBRE}}), creer("UIStroke", {Color = rgb(26, 14, 6), Thickness = 2})})
-grainBois(linteau, false, 15)
+local linteau = poutre(charpente, {Name = "Linteau", Position = UDim2.fromScale(-0.01, 0.025), Size = UDim2.fromScale(1.02, 0.085)}, false, 18)
 for _, x in {0.06, 0.3, 0.5, 0.7, 0.94} do
-	ferrure(linteau, UDim2.fromScale(x, 0.5), UDim2.fromScale(0.022, 1.15), 16)
+	ferrure(linteau, UDim2.fromScale(x, 0.5), UDim2.fromScale(0.024, 1.15), 21)
 end
+for _ = 1, 10 do clou(linteau, UDim2.fromScale(rng:NextNumber(0.1, 0.9), rng:NextNumber(0.3, 0.7)), 0.13, 21) end
 bloc(charpente, {Position = UDim2.fromScale(0, 0.11), Size = UDim2.fromScale(1, 0.06), BackgroundColor3 = NOIR, ZIndex = 9},
 	{creer("UIGradient", {Rotation = 90, Transparency = transp({{0, 0.25}, {1, 1}})})})
+
+-- Lanterne détaillée, dessinée dans un cadre « pivot » (hauteur de référence) : anneau et chaîne (si suspendue),
+-- chapeau en dôme, verre lumineux avec flamme vivante, montants de fer, reflet, socle à pieds
+local function dessinerLanterne(pivot: Frame, z: number, suspendue: boolean)
+	local fer = function(props, enfants)
+		props.BackgroundColor3 = BLANC
+		props.ZIndex = props.ZIndex or z + 2
+		local e = enfants or {}
+		table.insert(e, degrade(0, {{0, rgb(70, 70, 80)}, {0.35, rgb(150, 150, 160)}, {1, rgb(34, 34, 40)}}))
+		return bloc(pivot, props, e)
+	end
+	if suspendue then
+		bloc(pivot, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.505), Size = UDim2.fromScale(0.06, 0.06), SizeConstraint = Enum.SizeConstraint.RelativeXX,
+			BackgroundTransparency = 1, ZIndex = z + 2}, {coin(), creer("UIStroke", {Color = rgb(60, 60, 68), Thickness = 2})})
+		for k = 0, 4 do -- maillons
+			local m = bloc(pivot, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.53 + k * 0.034), Size = UDim2.fromScale(if k % 2 == 0 then 0.05 else 0.02, 0.04),
+				BackgroundTransparency = if k % 2 == 0 then 1 else 0, BackgroundColor3 = rgb(70, 70, 78), ZIndex = z + 2}, {coin()})
+			if k % 2 == 0 then creer("UIStroke", {Color = rgb(70, 70, 78), Thickness = 1.5, Parent = m}) end
+		end
+	end
+	fer({AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.7), Size = UDim2.fromScale(0.07, 0.03)}, {coin()}) -- pommeau
+	fer({AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.72), Size = UDim2.fromScale(0.36, 0.04)}, {coin(0.5)}) -- dôme
+	fer({AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.742), Size = UDim2.fromScale(0.52, 0.016), ZIndex = z + 3}, {coin(0.3)}) -- rebord
+	local verre = bloc(pivot, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.822), Size = UDim2.fromScale(0.42, 0.145), BackgroundColor3 = BLANC, ZIndex = z},
+		{coin(0.12), degrade(90, {{0, rgb(255, 240, 180)}, {0.55, rgb(255, 186, 80)}, {1, rgb(220, 110, 36)}})})
+	-- flamme : goutte (losange arrondi) jaune, cœur blanc
+	local flamme = bloc(verre, {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 0.82), Size = UDim2.fromScale(0.36, 0.58), BackgroundTransparency = 1, ZIndex = z + 1})
+	local echelleFlamme = creer("UIScale", {Parent = flamme})
+	bloc(flamme, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.62), Size = UDim2.fromScale(0.62, 0.62), SizeConstraint = Enum.SizeConstraint.RelativeYY, Rotation = 45,
+		BackgroundColor3 = BLANC, ZIndex = z + 1}, {creer("UICorner", {CornerRadius = UDim.new(0.5, 0)}), degrade(45, {{0, rgb(255, 255, 230)}, {1, rgb(255, 150, 30)}})})
+	bloc(flamme, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.7), Size = UDim2.fromScale(0.3, 0.3), SizeConstraint = Enum.SizeConstraint.RelativeYY, Rotation = 45,
+		BackgroundColor3 = rgb(255, 255, 245), ZIndex = z + 1}, {coin()})
+	bloc(verre, {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 1), Size = UDim2.fromScale(0.16, 0.2), BackgroundColor3 = rgb(240, 230, 200), ZIndex = z + 1}, {coin(0.2)}) -- mèche / bougie
+	bloc(verre, {Position = UDim2.fromScale(0.14, 0.08), Size = UDim2.fromScale(0.07, 0.8), BackgroundColor3 = BLANC, BackgroundTransparency = 0.55, ZIndex = z + 2}, {coin()}) -- reflet
+	for _, bx in {0.04, 0.96} do -- montants
+		fer({AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5 + (bx - 0.5) * 0.42, 0.822), Size = UDim2.fromScale(0.05, 0.155)}, {coin(0.3)})
+	end
+	for _, bx in {0.36, 0.64} do -- barreaux fins
+		fer({AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5 + (bx - 0.5) * 0.42, 0.822), Size = UDim2.fromScale(0.018, 0.145)})
+	end
+	fer({AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.822), Size = UDim2.fromScale(0.44, 0.012)}) -- ceinture
+	fer({AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.902), Size = UDim2.fromScale(0.5, 0.022)}, {coin(0.3)}) -- socle
+	for _, bx in {0.32, 0.68} do -- pieds
+		fer({AnchorPoint = CENTRE, Position = UDim2.fromScale(bx, 0.918), Size = UDim2.fromScale(0.07, 0.014)}, {coin(0.3)})
+	end
+	return echelleFlamme
+end
 
 -- lanternes suspendues qui se balancent, avec leur cône de lumière
 local lanternes = {}
@@ -277,19 +413,9 @@ for i, x in {0.24, 0.76} do
 		bloc(pivot, {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.86), Size = UDim2.fromScale(0.5 + k * 0.5, 1.4 - k * 0.08),
 			BackgroundColor3 = rgb(255, 190, 100), ZIndex = 8}, {coin(0.5), creer("UIGradient", {Rotation = 90, Transparency = transp({{0, 0.95}, {0.7, 0.98}, {1, 1}})})})
 	end
-	local lueur = halo(pivot, UDim2.fromScale(0.5, 0.8), 0.7, rgb(255, 180, 80), 0.07, 12, 16)
-	bloc(pivot, {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.04, 0.2), BackgroundColor3 = rgb(40, 40, 46), ZIndex = 17})
-	bloc(pivot, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.7), Size = UDim2.fromScale(0.22, 0.03), BackgroundColor3 = rgb(40, 40, 46), ZIndex = 18}, {coin()})
-	bloc(pivot, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.725), Size = UDim2.fromScale(0.5, 0.04), BackgroundColor3 = BLANC, ZIndex = 19},
-		{coin(0.3), degrade(90, {{0, rgb(110, 110, 120)}, {1, rgb(40, 40, 48)}})})
-	local verre = bloc(pivot, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.82), Size = UDim2.fromScale(0.4, 0.16), BackgroundColor3 = BLANC, ZIndex = 18},
-		{coin(0.2), degrade(90, {{0, rgb(255, 246, 190)}, {0.6, rgb(255, 190, 80)}, {1, rgb(230, 120, 40)}}), creer("UIStroke", {Color = FER_SOMBRE, Thickness = 2})})
-	bloc(verre, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.6), Size = UDim2.fromScale(0.22, 0.4), BackgroundColor3 = rgb(255, 255, 230), ZIndex = 19}, {coin()})
-	for _, bx in {0.33, 0.66} do
-		bloc(verre, {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(bx, 0), Size = UDim2.fromScale(0.07, 1), BackgroundColor3 = FER_SOMBRE, ZIndex = 20})
-	end
-	bloc(pivot, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.91), Size = UDim2.fromScale(0.48, 0.03), BackgroundColor3 = rgb(50, 50, 58), ZIndex = 19}, {coin(0.3)})
-	table.insert(lanternes, {pivot = pivot, lueur = lueur, phase = i * 1.7})
+	local lueur = halo(pivot, UDim2.fromScale(0.5, 0.82), 0.7, rgb(255, 180, 80), 0.07, 12, 16)
+	local flamme = dessinerLanterne(pivot, 17, true)
+	table.insert(lanternes, {pivot = pivot, lueur = lueur, flamme = flamme, phase = i * 1.7, balance = true})
 end
 
 -- ================= Sol, rail et wagonnet =================
@@ -312,6 +438,9 @@ bloc(rail, {Size = UDim2.fromScale(1, 0.5), BackgroundColor3 = BLANC, ZIndex = 2
 local allume = bloc(rail, {Size = UDim2.fromScale(0, 0.5), BackgroundColor3 = BLANC, ZIndex = 22}, {degrade(0, {{0, rgb(255, 130, 30)}, {1, rgb(255, 240, 160)}})})
 local lueurRail = bloc(allume, {AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.fromScale(0, 0.5), Size = UDim2.fromScale(1, 6), BackgroundColor3 = rgb(255, 170, 60),
 	BackgroundTransparency = 0.82, ZIndex = 19}, {coin()})
+-- reflet de la lanterne du wagon qui court sur le rail
+local refletRail = bloc(rail, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0, 0.15), Size = UDim2.fromScale(0.09, 0.3), BackgroundColor3 = rgb(255, 244, 210), ZIndex = 23},
+	{coin(), creer("UIGradient", {Transparency = transp({{0, 1}, {0.5, 0.05}, {1, 1}})})})
 for _, x in {0} do -- butoir au départ (le wagon sort par la droite)
 	local butoir = bloc(rail, {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(x, 0.5), Size = UDim2.fromScale(1.4, 3.2), SizeConstraint = YY, BackgroundColor3 = BLANC, ZIndex = 21},
 		{coin(0.15), degrade(0, {{0, BOIS}, {1, BOIS_SOMBRE}}), creer("UIStroke", {Color = rgb(26, 14, 6), Thickness = 1.5})})
@@ -358,10 +487,19 @@ local pct = texte(plaque, {Name = "Pourcentage", Text = "0 %", Font = Enum.Font.
 creer("UIGradient", {Rotation = 90, Color = seq({{0, rgb(255, 240, 170)}, {1, rgb(255, 170, 50)}}), Parent = pct})
 contour(pct, rgb(30, 16, 6), 0.08)
 bloc(wagon, {Position = UDim2.fromScale(0.1, 0.74), Size = UDim2.fromScale(0.8, 0.07), BackgroundColor3 = FER_SOMBRE, ZIndex = 33}, {coin(0.3)})
--- petite lanterne à l'avant du wagon
+-- lanterne détaillée accrochée à l'avant du wagon
 local lueurWagon = halo(wagon, UDim2.fromScale(0.985, 0.3), 0.55, rgb(255, 200, 100), 0.09, 8, 32)
-bloc(wagon, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.985, 0.3), Size = UDim2.fromScale(0.07, 0.1), SizeConstraint = YY, BackgroundColor3 = rgb(255, 226, 140), ZIndex = 33},
-	{coin(0.3), creer("UIStroke", {Color = FER_SOMBRE, Thickness = 1.5})})
+local pivotWagon = bloc(wagon, {AnchorPoint = Vector2.new(0.5, 0.925), Position = UDim2.fromScale(0.99, 0.42), Size = UDim2.fromScale(0.2, 0.7), SizeConstraint = YY,
+	BackgroundTransparency = 1, ZIndex = 33})
+local lanterneWagon = dessinerLanterne(pivotWagon, 33, false)
+-- pioche plantée dans le tas de minerais
+do
+	local manche = bloc(wagon, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.74, 0.02), Size = UDim2.fromScale(0.045, 0.62), SizeConstraint = YY, Rotation = 32,
+		BackgroundColor3 = BLANC, ZIndex = 29}, {coin(0.4), degrade(0, {{0, rgb(196, 138, 80)}, {1, rgb(80, 46, 22)}}), creer("UIStroke", {Color = rgb(26, 14, 6), Thickness = 1})})
+	local fer = bloc(manche, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.02), Size = UDim2.fromScale(9, 0.1), Rotation = 0, BackgroundColor3 = BLANC, ZIndex = 29},
+		{coin(0.5), degrade(90, {{0, rgb(236, 238, 246)}, {1, rgb(80, 82, 94)}}), creer("UIStroke", {Color = FER_SOMBRE, Thickness = 1})})
+	bloc(fer, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.14, 1.3), BackgroundColor3 = rgb(60, 60, 70), ZIndex = 30}, {coin(0.3)})
+end
 local roues = {}
 for _, rx in {0.25, 0.75} do
 	local r = bloc(wagon, {AnchorPoint = CENTRE, Position = UDim2.fromScale(rx, 0.83), Size = UDim2.fromScale(0.3, 0.3), SizeConstraint = YY, BackgroundColor3 = rgb(36, 36, 42), ZIndex = 40},
@@ -419,51 +557,129 @@ end
 local gauche = bloc(ecran, {Name = "AccessoiresGauche", Position = UDim2.fromScale(0.015, 0), Size = UDim2.fromScale(1, 1), SizeConstraint = YY, BackgroundTransparency = 1, ZIndex = 19})
 local droite = bloc(ecran, {Name = "AccessoiresDroite", AnchorPoint = Vector2.new(1, 0), Position = UDim2.fromScale(0.985, 0), Size = UDim2.fromScale(1, 1), SizeConstraint = YY,
 	BackgroundTransparency = 1, ZIndex = 19})
--- pioche appuyée contre le poteau gauche
+-- ombre au sol sous un objet (ellipse sombre)
+local function ombreSol(parent: Instance, x: number, largeur: number)
+	bloc(parent, {AnchorPoint = CENTRE, Position = UDim2.fromScale(x, SOL_Y + 0.008), Size = UDim2.fromScale(largeur, 0.02), BackgroundColor3 = NOIR, BackgroundTransparency = 0.45, ZIndex = 18}, {coin()})
+end
+-- pioche appuyée contre le poteau gauche : manche veiné, poignée en cuir enroulé, virole, fer courbé à pointes
 do
 	local th = -18
 	local centre = Vector2.new(0.17, SOL_Y - 0.13)
 	local a = math.rad(th)
 	local haut = centre + Vector2.new(0.14 * math.sin(a), -0.14 * math.cos(a))
 	local dir = Vector2.new(math.cos(a), math.sin(a))
-	bloc(gauche, {AnchorPoint = CENTRE, Position = UDim2.fromScale(centre.X, centre.Y), Size = UDim2.fromScale(0.019, 0.28), Rotation = th, BackgroundColor3 = BLANC, ZIndex = 19},
-		{coin(0.4), degrade(0, {{0, rgb(176, 118, 66)}, {1, rgb(90, 54, 28)}}), creer("UIStroke", {Color = rgb(26, 14, 6), Thickness = 1.5})})
-	for _, s in {-1, 1} do
-		local p = haut + dir * (0.036 * s)
-		bloc(gauche, {AnchorPoint = CENTRE, Position = UDim2.fromScale(p.X, p.Y + 0.006), Size = UDim2.fromScale(0.08, 0.02), Rotation = th + s * 14, BackgroundColor3 = BLANC, ZIndex = 20},
-			{coin(0.5), degrade(90, {{0, rgb(226, 228, 236)}, {1, rgb(96, 98, 110)}}), creer("UIStroke", {Color = FER_SOMBRE, Thickness = 1.5})})
+	local bas = Vector2.new(-math.sin(a), math.cos(a)) -- le long du manche, vers le sol
+	ombreSol(gauche, 0.13, 0.08)
+	local manche = bloc(gauche, {AnchorPoint = CENTRE, Position = UDim2.fromScale(centre.X, centre.Y), Size = UDim2.fromScale(0.021, 0.28), Rotation = th, BackgroundColor3 = BLANC, ZIndex = 19},
+		{coin(0.4), degrade(0, {{0, rgb(196, 138, 80)}, {0.45, rgb(150, 98, 52)}, {1, rgb(80, 46, 22)}}), creer("UIStroke", {Color = rgb(26, 14, 6), Thickness = 1.5})})
+	for _, x in {0.3, 0.62} do
+		bloc(manche, {Position = UDim2.fromScale(x, 0.05), Size = UDim2.fromScale(0.08, 0.6), BackgroundColor3 = rgb(90, 52, 24), BackgroundTransparency = 0.45, ZIndex = 20})
 	end
-	bloc(gauche, {AnchorPoint = CENTRE, Position = UDim2.fromScale(haut.X, haut.Y + 0.004), Size = UDim2.fromScale(0.026, 0.026), Rotation = th, BackgroundColor3 = rgb(60, 60, 68), ZIndex = 21},
-		{coin(0.25), creer("UIStroke", {Color = FER_SOMBRE, Thickness = 1})})
-	for k = 1, 4 do -- quelques minerais au pied
+	-- poignée : cuir enroulé en biais
+	local poignee = bloc(manche, {Position = UDim2.fromScale(-0.08, 0.66), Size = UDim2.fromScale(1.16, 0.28), BackgroundColor3 = BLANC, ZIndex = 20},
+		{coin(0.3), degrade(0, {{0, rgb(110, 64, 36)}, {1, rgb(50, 26, 14)}}), creer("UIStroke", {Color = rgb(24, 12, 6), Thickness = 1})})
+	for k = 0, 6 do
+		bloc(poignee, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.07 + k * 0.145), Size = UDim2.fromScale(1.05, 0.035), Rotation = -20, BackgroundColor3 = rgb(160, 104, 62), ZIndex = 21})
+	end
+	bloc(manche, {AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.985), Size = UDim2.fromScale(1.3, 0.04), BackgroundColor3 = rgb(40, 24, 14), ZIndex = 21}, {coin()})
+	-- fer : segments qui s'affinent et se courbent vers le bas, pointes, arête éclairée
+	for _, s in {-1, 1} do
+		for k = 1, 3 do
+			local le = 0.012 + k * 0.022
+			local p = haut + dir * (s * le) + bas * (0.0035 * k * k)
+			local seg = bloc(gauche, {AnchorPoint = CENTRE, Position = UDim2.fromScale(p.X, p.Y), Size = UDim2.fromScale(0.03, 0.026 - k * 0.0045), Rotation = th + s * k * 9,
+				BackgroundColor3 = BLANC, ZIndex = 21}, {coin(0.3), degrade(90, {{0, rgb(236, 238, 246)}, {0.45, rgb(150, 152, 164)}, {1, rgb(70, 72, 84)}})})
+			bloc(seg, {Size = UDim2.fromScale(1, 0.2), BackgroundColor3 = BLANC, BackgroundTransparency = 0.3, ZIndex = 22})
+		end
+		local pointe = haut + dir * (s * 0.088) + bas * 0.037
+		bloc(gauche, {AnchorPoint = CENTRE, Position = UDim2.fromScale(pointe.X, pointe.Y), Size = UDim2.fromScale(0.011, 0.011), Rotation = th + s * 30 + 45,
+			BackgroundColor3 = rgb(200, 202, 212), ZIndex = 21}, {creer("UIStroke", {Color = FER_SOMBRE, Thickness = 1})})
+	end
+	-- œil du fer (virole) et rivet
+	bloc(gauche, {AnchorPoint = CENTRE, Position = UDim2.fromScale(haut.X, haut.Y + 0.002), Size = UDim2.fromScale(0.03, 0.034), Rotation = th, BackgroundColor3 = BLANC, ZIndex = 22},
+		{coin(0.25), degrade(0, {{0, rgb(120, 122, 134)}, {1, rgb(40, 40, 48)}}), creer("UIStroke", {Color = FER_SOMBRE, Thickness = 1.5})})
+	boulon(gauche, UDim2.fromScale(haut.X, haut.Y + 0.002), 0.011, 23)
+	table.insert(etoilesMur, etoile(gauche, UDim2.fromScale(haut.X + dir.X * 0.07, haut.Y + dir.Y * 0.07 + 0.01), 0.035, rgb(255, 255, 240), 24))
+	-- petit tas de minerais au pied, à facettes
+	for k = 1, 5 do
 		local c = MINERAIS[rng:NextInteger(1, #MINERAIS)]
-		local d = rng:NextNumber(0.018, 0.028)
-		bloc(gauche, {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.22 + k * 0.026, SOL_Y + 0.006), Size = UDim2.fromScale(d, d), Rotation = rng:NextNumber(0, 90),
-			BackgroundColor3 = BLANC, ZIndex = 19}, {coin(0.25), degrade(45, {{0, c:Lerp(BLANC, 0.5)}, {0.5, c}, {1, c:Lerp(NOIR, 0.5)}}), creer("UIStroke", {Color = c:Lerp(NOIR, 0.7), Thickness = 1})})
+		local d = rng:NextNumber(0.018, 0.03)
+		local m = bloc(gauche, {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.21 + k * 0.022, SOL_Y + 0.006 - (if k == 3 then 0.012 else 0)), Size = UDim2.fromScale(d, d),
+			Rotation = rng:NextNumber(0, 90), BackgroundColor3 = BLANC, ZIndex = 19 + (if k == 3 then 1 else 0)},
+			{coin(0.25), degrade(45, {{0, c:Lerp(BLANC, 0.55)}, {0.5, c}, {1, c:Lerp(NOIR, 0.55)}}), creer("UIStroke", {Color = c:Lerp(NOIR, 0.7), Thickness = 1})})
+		bloc(m, {Position = UDim2.fromScale(0.18, 0.18), Size = UDim2.fromScale(0.3, 0.3), BackgroundColor3 = BLANC, BackgroundTransparency = 0.3, ZIndex = 21}, {coin()})
 	end
 end
 -- caisse et tonneau contre le poteau droit
+local lanterneCaisse
 do
-	local caisseD = bloc(droite, {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(1 - 0.2, SOL_Y + 0.008), Size = UDim2.fromScale(0.12, 0.11), BackgroundColor3 = BLANC, ZIndex = 19},
-		{coin(0.06), degrade(90, {{0, BOIS:Lerp(BLANC, 0.1)}, {1, BOIS_SOMBRE}}), creer("UIStroke", {Color = rgb(26, 14, 6), Thickness = 2})})
-	grainBois(caisseD, false, 19)
-	for _, r in {41, -41} do
-		bloc(caisseD, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1.3, 0.1), Rotation = r, BackgroundColor3 = BOIS_SOMBRE, ZIndex = 20},
-			{creer("UIStroke", {Color = rgb(26, 14, 6), Thickness = 1})})
+	-- caisse : cadre en planches, panneau de 3 planches, croix clouée, équerres de fer
+	ombreSol(droite, 1 - 0.2, 0.15)
+	local caisseD = bloc(droite, {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(1 - 0.2, SOL_Y + 0.008), Size = UDim2.fromScale(0.12, 0.11), BackgroundColor3 = rgb(30, 18, 10), ZIndex = 19},
+		{coin(0.04), creer("UIStroke", {Color = rgb(20, 10, 4), Thickness = 2})})
+	local function planche(props, vertical: boolean, z: number)
+		props.BackgroundColor3 = BLANC
+		props.ZIndex = z
+		local p = bloc(caisseD, props, {degrade(if vertical then 0 else 90, {{0, BOIS:Lerp(BLANC, 0.16)}, {1, BOIS:Lerp(NOIR, 0.3)}}), creer("UIStroke", {Color = rgb(30, 16, 8), Thickness = 1})})
+		for k = 1, 2 do
+			bloc(p, {Position = if vertical then UDim2.fromScale(0.3 * k, 0.05) else UDim2.fromScale(0.05, 0.3 * k), Size = if vertical then UDim2.fromScale(0.06, 0.9) else UDim2.fromScale(0.9, 0.06),
+				BackgroundColor3 = BOIS_SOMBRE, BackgroundTransparency = 0.5, ZIndex = z})
+		end
+		return p
 	end
-	for _, x in {0.06, 0.94} do
-		for _, y in {0.08, 0.92} do boulon(caisseD, UDim2.fromScale(x, y), 0.09, 21) end
+	for k = 0, 2 do
+		planche({Position = UDim2.fromScale(0.1, 0.11 + k * 0.265), Size = UDim2.fromScale(0.8, 0.24)}, false, 20)
 	end
+	planche({Size = UDim2.fromScale(1, 0.12)}, false, 22)
+	planche({Position = UDim2.fromScale(0, 0.88), Size = UDim2.fromScale(1, 0.12)}, false, 22)
+	planche({Size = UDim2.fromScale(0.11, 1)}, true, 23)
+	planche({Position = UDim2.fromScale(0.89, 0), Size = UDim2.fromScale(0.11, 1)}, true, 23)
+	for _, r in {39, -39} do
+		local x = planche({AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1.02, 0.13), Rotation = r}, false, 21)
+		clou(x, UDim2.fromScale(0.12, 0.5), 0.4, 22)
+		clou(x, UDim2.fromScale(0.88, 0.5), 0.4, 22)
+	end
+	clou(caisseD, UDim2.fromScale(0.5, 0.5), 0.06, 23)
+	for _, cx in {0, 1} do
+		for _, cy in {0, 1} do
+			local e1 = bloc(caisseD, {AnchorPoint = Vector2.new(cx, cy), Position = UDim2.fromScale(cx, cy), Size = UDim2.fromScale(0.24, 0.09), BackgroundColor3 = BLANC, ZIndex = 24},
+				{degrade(90, {{0, rgb(130, 130, 140)}, {1, rgb(50, 50, 58)}}), creer("UIStroke", {Color = FER_SOMBRE, Thickness = 1})})
+			bloc(caisseD, {AnchorPoint = Vector2.new(cx, cy), Position = UDim2.fromScale(cx, cy), Size = UDim2.fromScale(0.09, 0.24), BackgroundColor3 = BLANC, ZIndex = 24},
+				{degrade(0, {{0, rgb(130, 130, 140)}, {1, rgb(50, 50, 58)}}), creer("UIStroke", {Color = FER_SOMBRE, Thickness = 1})})
+			boulon(e1, UDim2.fromScale(if cx == 0 then 0.25 else 0.75, 0.5), 0.6, 25)
+		end
+	end
+	-- lanterne posée sur la caisse (même dessin que les lanternes suspendues, sans chaîne)
+	halo(droite, UDim2.fromScale(1 - 0.2, SOL_Y - 0.135), 0.22, rgb(255, 180, 80), 0.07, 10, 18)
+	local pivotCaisse = bloc(droite, {AnchorPoint = Vector2.new(0.5, 0.925), Position = UDim2.fromScale(1 - 0.2, SOL_Y - 0.102), Size = UDim2.fromScale(0.088, 0.31),
+		BackgroundTransparency = 1, ZIndex = 22})
+	lanterneCaisse = dessinerLanterne(pivotCaisse, 22, false)
+
+	-- tonneau : douelles, reflet, couvercle, trois cercles de fer rivetés, robinet
+	ombreSol(droite, 1 - 0.33, 0.12)
 	local tonneau = bloc(droite, {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(1 - 0.33, SOL_Y + 0.008), Size = UDim2.fromScale(0.1, 0.14), BackgroundColor3 = BLANC, ZIndex = 19},
-		{coin(0.3), degrade(0, {{0, BOIS_SOMBRE}, {0.35, BOIS:Lerp(BLANC, 0.15)}, {1, BOIS_SOMBRE}}), creer("UIStroke", {Color = rgb(26, 14, 6), Thickness = 2})})
-	for _, y in {0.2, 0.8} do
-		bloc(tonneau, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, y), Size = UDim2.fromScale(1.04, 0.08), BackgroundColor3 = BLANC, ZIndex = 20},
-			{degrade(0, {{0, rgb(50, 50, 58)}, {0.4, rgb(150, 150, 160)}, {1, rgb(50, 50, 58)}})})
+		{coin(0.3), degrade(0, {{0, rgb(58, 32, 14)}, {0.32, BOIS:Lerp(BLANC, 0.2)}, {0.6, BOIS}, {1, rgb(46, 24, 10)}}), creer("UIStroke", {Color = rgb(26, 14, 6), Thickness = 2})})
+	for _, x in {0.16, 0.32, 0.5, 0.68, 0.84} do
+		bloc(tonneau, {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(x, 0.04), Size = UDim2.fromScale(0.025, 0.92), BackgroundColor3 = rgb(40, 20, 8), BackgroundTransparency = 0.4, ZIndex = 20})
 	end
-	-- petite lanterne posée sur la caisse
-	halo(caisseD, UDim2.fromScale(0.5, -0.25), 1.1, rgb(255, 180, 80), 0.07, 8, 18)
-	bloc(caisseD, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, -0.2), Size = UDim2.fromScale(0.2, 0.35), BackgroundColor3 = BLANC, ZIndex = 21},
-		{coin(0.2), degrade(90, {{0, rgb(255, 246, 190)}, {1, rgb(240, 140, 40)}}), creer("UIStroke", {Color = FER_SOMBRE, Thickness = 2})})
+	bloc(tonneau, {Position = UDim2.fromScale(0.24, 0.06), Size = UDim2.fromScale(0.08, 0.88), BackgroundColor3 = BLANC, BackgroundTransparency = 0.8, ZIndex = 20}, {coin()})
+	local couvercle = bloc(tonneau, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.035), Size = UDim2.fromScale(0.9, 0.13), BackgroundColor3 = BLANC, ZIndex = 21},
+		{coin(), degrade(90, {{0, rgb(120, 76, 40)}, {1, rgb(70, 40, 18)}}), creer("UIStroke", {Color = rgb(26, 14, 6), Thickness = 1.5})})
+	bloc(couvercle, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.8, 0.6), BackgroundTransparency = 1, ZIndex = 22},
+		{coin(), creer("UIStroke", {Color = rgb(40, 22, 10), Thickness = 1})})
+	for _, x in {0.38, 0.62} do
+		bloc(couvercle, {AnchorPoint = CENTRE, Position = UDim2.fromScale(x, 0.5), Size = UDim2.fromScale(0.02, 0.7), BackgroundColor3 = rgb(40, 22, 10), ZIndex = 22})
+	end
+	for _, y in {0.16, 0.5, 0.86} do
+		local cercle = bloc(tonneau, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, y), Size = UDim2.fromScale(if y == 0.5 then 1.05 else 0.98, 0.07), BackgroundColor3 = BLANC, ZIndex = 22},
+			{coin(0.3), degrade(0, {{0, rgb(46, 46, 54)}, {0.3, rgb(170, 170, 180)}, {0.7, rgb(90, 90, 100)}, {1, rgb(40, 40, 48)}}), creer("UIStroke", {Color = FER_SOMBRE, Thickness = 1})})
+		for _, x in {0.3, 0.7} do clou(cercle, UDim2.fromScale(x, 0.5), 0.6, 23) end
+	end
+	-- robinet et goutte
+	bloc(tonneau, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.52, 0.68), Size = UDim2.fromScale(0.16, 0.05), BackgroundColor3 = BLANC, ZIndex = 23},
+		{coin(0.3), degrade(90, {{0, rgb(220, 180, 90)}, {1, rgb(120, 80, 30)}}), creer("UIStroke", {Color = rgb(50, 30, 10), Thickness = 1})})
+	bloc(tonneau, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.58, 0.74), Size = UDim2.fromScale(0.05, 0.07), BackgroundColor3 = rgb(180, 140, 70), ZIndex = 23}, {coin(0.3)})
+	bloc(tonneau, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.58, 0.95), Size = UDim2.fromScale(0.3, 0.05), BackgroundColor3 = rgb(30, 14, 6), BackgroundTransparency = 0.4, ZIndex = 20}, {coin()})
 end
 -- gros rochers sombres au premier plan, dans les coins (profondeur)
 for _, cote in {gauche, droite} do
@@ -475,6 +691,149 @@ for _, cote in {gauche, droite} do
 		biseau(r, 2, rgb(110, 80, 50), rgb(6, 5, 4))
 	end
 	cote.ZIndex = 27
+end
+
+-- ================= Détails vivants : toiles, araignée, gouttes, flaque, casque, sac, brume, paillettes =================
+-- trait fin d'un point à un autre (coordonnées en hauteurs d'écran, dans un conteneur carré gauche / droite)
+local function fil(parent: Instance, p0: Vector2, p1: Vector2, alpha: number, z: number): Frame
+	local d = p1 - p0
+	return bloc(parent, {AnchorPoint = CENTRE, Position = UDim2.fromScale((p0.X + p1.X) / 2, (p0.Y + p1.Y) / 2), Size = UDim2.new(d.Magnitude, 0, 0, 1),
+		Rotation = math.deg(math.atan2(d.Y, d.X)), BackgroundColor3 = rgb(232, 226, 214), BackgroundTransparency = alpha, ZIndex = z})
+end
+-- toile d'araignée dans l'angle poteau / linteau (sous la jambe de force)
+local function toile(parent: Instance, angle: Vector2, sens: number, rayon: number)
+	local RAYONS = 7
+	local bouts = {}
+	for k = 1, RAYONS do
+		local a = math.rad((k - 1) / (RAYONS - 1) * 90)
+		local dir = Vector2.new(sens * math.cos(a), math.sin(a))
+		local long = rayon * rng:NextNumber(0.85, 1)
+		bouts[k] = {dir = dir, long = long}
+		fil(parent, angle, angle + dir * long, 0.35, 26)
+	end
+	for _, r in {0.22, 0.4, 0.58, 0.76, 0.92} do
+		for k = 1, RAYONS - 1 do
+			local a, b = bouts[k], bouts[k + 1]
+			fil(parent, angle + a.dir * a.long * r, angle + b.dir * b.long * r, 0.5, 26)
+		end
+	end
+end
+toile(gauche, Vector2.new(0.085, 0.11), 1, 0.075)
+toile(droite, Vector2.new(1 - 0.085, 0.11), -1, 0.075)
+-- araignée au bout de son fil, sous la toile de droite
+local araignee = {attache = Vector2.new(1 - 0.12, 0.14)}
+araignee.fil = bloc(droite, {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(araignee.attache.X, araignee.attache.Y), Size = UDim2.new(0, 1, 0.1, 0),
+	BackgroundColor3 = rgb(232, 226, 214), BackgroundTransparency = 0.35, ZIndex = 26})
+araignee.corps = bloc(droite, {AnchorPoint = CENTRE, Size = UDim2.fromScale(0.05, 0.05), BackgroundTransparency = 1, ZIndex = 27})
+do
+	local noir = rgb(22, 16, 14)
+	araignee.pattes = {}
+	for _, s in {-1, 1} do
+		for k = 1, 4 do
+			local patte = bloc(araignee.corps, {AnchorPoint = Vector2.new(if s < 0 then 1 else 0, 0.5), Position = UDim2.fromScale(0.5, 0.45 + (k - 2.5) * 0.08),
+				Size = UDim2.new(0.55, 0, 0, 1), Rotation = s * ((k - 2.5) * 28), BackgroundColor3 = noir, ZIndex = 27})
+			table.insert(araignee.pattes, {f = patte, base = patte.Rotation, k = k})
+		end
+	end
+	bloc(araignee.corps, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.62), Size = UDim2.fromScale(0.62, 0.62), BackgroundColor3 = noir, ZIndex = 28},
+		{coin(), degrade(45, {{0, rgb(70, 56, 50)}, {1, noir}})})
+	bloc(araignee.corps, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.25), Size = UDim2.fromScale(0.34, 0.34), BackgroundColor3 = noir, ZIndex = 28}, {coin()})
+	for _, s in {-1, 1} do
+		bloc(araignee.corps, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5 + s * 0.07, 0.2), Size = UDim2.fromScale(0.07, 0.07), BackgroundColor3 = rgb(255, 90, 60), ZIndex = 29}, {coin()})
+	end
+end
+
+-- flaque d'eau sous le rail : reflet doré des lanternes qui ondule
+local flaque = bloc(ecran, {Name = "Flaque", AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.876), Size = UDim2.fromScale(0.36, 0.032), SizeConstraint = YY,
+	BackgroundColor3 = BLANC, ZIndex = 19}, {coin(), degrade(0, {{0, rgb(20, 24, 30)}, {0.5, rgb(40, 46, 56)}, {1, rgb(20, 24, 30)}}),
+	creer("UIStroke", {Color = rgb(70, 60, 50), Thickness = 1, Transparency = 0.4})})
+local refletFlaque = bloc(flaque, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.45), Size = UDim2.fromScale(0.7, 0.5), BackgroundColor3 = rgb(255, 196, 100), ZIndex = 20},
+	{coin(), creer("UIGradient", {Transparency = transp({{0, 1}, {0.5, 0.4}, {1, 1}})})})
+-- gouttes d'eau : se forment sous un stalactite, tombent, éclaboussent
+local SOURCES_GOUTTES = {{x = 0.33, sol = SOL_Y}, {x = 0.5, sol = 0.872}, {x = 0.67, sol = SOL_Y}}
+local gouttes = {}
+for _, src in SOURCES_GOUTTES do
+	bloc(charpente, {AnchorPoint = CENTRE, Position = UDim2.fromScale(src.x, 0.108), Size = UDim2.fromScale(0.03, 0.04), SizeConstraint = YY, Rotation = 45, BackgroundColor3 = BLANC, ZIndex = 13},
+		{degrade(45, {{0, rgb(110, 96, 84)}, {1, rgb(30, 24, 20)}})})
+	local f = bloc(ecran, {AnchorPoint = Vector2.new(0.5, 0), Size = UDim2.fromScale(0.007, 0.011), SizeConstraint = YY, BackgroundColor3 = rgb(200, 226, 255), BackgroundTransparency = 0.15,
+		ZIndex = 24}, {coin(), degrade(0, {{0, rgb(255, 255, 255)}, {1, rgb(120, 170, 230)}})})
+	local echelle = creer("UIScale", {Scale = 0, Parent = f})
+	table.insert(gouttes, {f = f, echelle = echelle, x = src.x, sol = src.sol, y = 0.122, vy = 0, etat = "forme", minuteur = rng:NextNumber(0, 2)})
+end
+local function eclaboussure(x: number, y: number)
+	local onde = bloc(ecran, {AnchorPoint = CENTRE, Position = UDim2.fromScale(x, y), Size = UDim2.fromScale(0.01, 0.004), SizeConstraint = YY, BackgroundTransparency = 1, ZIndex = 24},
+		{coin(), creer("UIStroke", {Color = rgb(200, 226, 255), Thickness = 1.5, Transparency = 0.2})})
+	tween(onde, 0.5, {Size = UDim2.fromScale(0.06, 0.014)})
+	tween(onde:FindFirstChildOfClass("UIStroke"), 0.5, {Transparency = 1}).Completed:Connect(function() onde:Destroy() end)
+	for _, s in {-1, 1} do
+		local g = bloc(ecran, {AnchorPoint = CENTRE, Position = UDim2.fromScale(x, y), Size = UDim2.fromScale(0.004, 0.004), SizeConstraint = YY, BackgroundColor3 = rgb(210, 230, 255), ZIndex = 24}, {coin()})
+		tween(g, 0.18, {Position = UDim2.fromScale(x + s * 0.008, y - 0.018)}, Enum.EasingStyle.Quad, Enum.EasingDirection.Out).Completed:Connect(function()
+			tween(g, 0.2, {Position = UDim2.fromScale(x + s * 0.013, y), BackgroundTransparency = 1}, Enum.EasingStyle.Quad, Enum.EasingDirection.In).Completed:Connect(function() g:Destroy() end)
+		end)
+	end
+end
+
+-- casque de mineur posé sur le tonneau, lampe frontale allumée
+local casque = bloc(droite, {Name = "Casque", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(1 - 0.33, SOL_Y - 0.126), Size = UDim2.fromScale(0.09, 0.048),
+	BackgroundTransparency = 1, ZIndex = 24})
+do
+	for k = 1, 4 do -- faisceau de la lampe, vers la gauche
+		bloc(casque, {AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(0.12, 0.45), Size = UDim2.fromScale(1 + k * 0.6, 0.25 + k * 0.3), Rotation = -6,
+			BackgroundColor3 = rgb(255, 236, 170), ZIndex = 23}, {coin(), creer("UIGradient", {Transparency = transp({{0, 1}, {0.7, 0.96}, {1, 0.9}})})})
+	end
+	local calotte = bloc(casque, {Size = UDim2.fromScale(0.86, 0.78), Position = UDim2.fromScale(0.07, 0), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 24})
+	local dome = bloc(calotte, {Size = UDim2.fromScale(1, 2), BackgroundColor3 = BLANC, ZIndex = 24},
+		{coin(), degrade(90, {{0, rgb(255, 236, 120)}, {0.25, rgb(250, 196, 40)}, {0.5, rgb(180, 120, 10)}, {1, rgb(180, 120, 10)}}), creer("UIStroke", {Color = rgb(70, 44, 6), Thickness = 1.5})})
+	bloc(dome, {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.02), Size = UDim2.fromScale(0.1, 0.4), BackgroundColor3 = rgb(255, 240, 150), ZIndex = 25}, {coin()})
+	bloc(dome, {Position = UDim2.fromScale(0.2, 0.08), Size = UDim2.fromScale(0.12, 0.2), BackgroundColor3 = BLANC, BackgroundTransparency = 0.4, ZIndex = 25}, {coin()})
+	bloc(casque, {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.7), Size = UDim2.fromScale(1, 0.24), BackgroundColor3 = BLANC, ZIndex = 25},
+		{coin(), degrade(90, {{0, rgb(240, 186, 40)}, {1, rgb(150, 96, 10)}}), creer("UIStroke", {Color = rgb(70, 44, 6), Thickness = 1})})
+	local lampe = bloc(casque, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.16, 0.45), Size = UDim2.fromScale(0.5, 0.5), SizeConstraint = YY, BackgroundColor3 = BLANC, ZIndex = 26},
+		{coin(), degrade(45, {{0, rgb(180, 180, 190)}, {1, rgb(60, 60, 70)}}), creer("UIStroke", {Color = FER_SOMBRE, Thickness = 1})})
+	bloc(lampe, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(0.66, 0.66), BackgroundColor3 = rgb(255, 250, 220), ZIndex = 27}, {coin()})
+	halo(casque, UDim2.fromScale(0.16, 0.45), 1.4, rgb(255, 240, 190), 0.1, 6, 23)
+end
+
+-- sac de toile rempli de minerais, noué d'une corde
+do
+	local sac = bloc(droite, {Name = "Sac", AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(1 - 0.115, SOL_Y + 0.012), Size = UDim2.fromScale(0.078, 0.09), BackgroundTransparency = 1, ZIndex = 24})
+	ombreSol(droite, 1 - 0.115, 0.09)
+	local function toileSac()
+		return degrade(0, {{0, rgb(196, 162, 110)}, {0.4, rgb(170, 134, 84)}, {1, rgb(96, 70, 40)}}), creer("UIStroke", {Color = rgb(60, 42, 20), Thickness = 1.5})
+	end
+	local ventre = bloc(sac, {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 1), Size = UDim2.fromScale(1, 0.72), BackgroundColor3 = BLANC, ZIndex = 24}, {coin(0.42), toileSac()})
+	for k = 1, 4 do -- trame de la toile
+		bloc(ventre, {Position = UDim2.fromScale(0.08, 0.15 + k * 0.16), Size = UDim2.fromScale(0.84, 0.025), BackgroundColor3 = rgb(90, 66, 36), BackgroundTransparency = 0.6, ZIndex = 25})
+		bloc(ventre, {Position = UDim2.fromScale(0.08 + k * 0.17, 0.12), Size = UDim2.fromScale(0.02, 0.78), BackgroundColor3 = rgb(90, 66, 36), BackgroundTransparency = 0.7, ZIndex = 25})
+	end
+	local piece = bloc(ventre, {Position = UDim2.fromScale(0.52, 0.42), Size = UDim2.fromScale(0.3, 0.3), Rotation = 6, BackgroundColor3 = rgb(150, 110, 70), ZIndex = 26},
+		{creer("UIStroke", {Color = rgb(70, 50, 26), Thickness = 1})})
+	for k = 0, 5 do -- points de couture
+		bloc(piece, {AnchorPoint = CENTRE, Position = UDim2.fromScale(if k < 3 then 0.05 else 0.95, 0.2 + (k % 3) * 0.3), Size = UDim2.fromScale(0.12, 0.05), BackgroundColor3 = rgb(230, 210, 170), ZIndex = 27})
+	end
+	bloc(sac, {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 0.32), Size = UDim2.fromScale(0.42, 0.14), BackgroundColor3 = BLANC, ZIndex = 24}, {coin(0.3), toileSac()})
+	bloc(sac, {AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 0.2), Size = UDim2.fromScale(0.62, 0.18), Rotation = -4, BackgroundColor3 = BLANC, ZIndex = 24}, {coin(0.45), toileSac()})
+	bloc(sac, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.5, 0.29), Size = UDim2.fromScale(0.5, 0.06), BackgroundColor3 = BLANC, ZIndex = 26},
+		{coin(), degrade(90, {{0, rgb(220, 186, 120)}, {1, rgb(120, 90, 46)}}), creer("UIStroke", {Color = rgb(60, 42, 20), Thickness = 1})})
+	bloc(sac, {AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.62, 0.29), Size = UDim2.fromScale(0.05, 0.2), Rotation = -20, BackgroundColor3 = rgb(190, 156, 96), ZIndex = 26}, {coin()})
+	for k = 1, 3 do -- minerais qui dépassent du col
+		local c = MINERAIS[rng:NextInteger(3, #MINERAIS)]
+		bloc(sac, {AnchorPoint = CENTRE, Position = UDim2.fromScale(0.36 + k * 0.08, 0.06 + (k % 2) * 0.03), Size = UDim2.fromScale(0.13, 0.13), SizeConstraint = Enum.SizeConstraint.RelativeXX,
+			Rotation = 45, BackgroundColor3 = BLANC, ZIndex = 23}, {degrade(45, {{0, c:Lerp(BLANC, 0.5)}, {1, c:Lerp(NOIR, 0.4)}})})
+	end
+end
+
+-- brume au ras du sol, qui dérive lentement
+local brumes = {}
+for k = 1, 2 do
+	table.insert(brumes, bloc(ecran, {Name = "Brume", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.8 + k * 0.025), Size = UDim2.fromScale(1.5, 0.12),
+		BackgroundColor3 = rgb(196, 170, 140), ZIndex = 25}, {creer("UIGradient", {Rotation = 90, Transparency = transp({{0, 1}, {0.5, if k == 1 then 0.9 else 0.93}, {1, 1}})})}))
+end
+-- paillettes d'or qui flottent autour du titre
+local paillettes = {}
+for _ = 1, 22 do
+	local f = bloc(ecran, {AnchorPoint = CENTRE, Size = UDim2.fromScale(0.005, 0.005), SizeConstraint = YY, BackgroundColor3 = rgb(255, 226, 140), ZIndex = 65}, {coin()})
+	table.insert(paillettes, {f = f, x = rng:NextNumber(0.22, 0.78), y = rng:NextNumber(0.24, 0.52), v = rng:NextNumber(0.01, 0.025), phase = rng:NextNumber(0, 6.28)})
 end
 
 -- ================= Veine d'or : une fissure qui s'illumine avec le chargement =================
@@ -712,6 +1071,55 @@ local function animer(t: number, dt: number)
 	for _, l in lanternes do
 		l.pivot.Rotation = 5 * math.sin(t * 1.3 + l.phase)
 		l.lueur.Size = UDim2.fromScale(0.7 + 0.04 * math.sin(t * 9 + l.phase) + 0.03 * math.sin(t * 17), 0.7)
+		l.flamme.Scale = 1 + 0.08 * math.sin(t * 13 + l.phase) + 0.05 * math.sin(t * 23 + l.phase * 2)
+	end
+	lanterneCaisse.Scale = 1 + 0.08 * math.sin(t * 11 + 2) + 0.05 * math.sin(t * 19)
+	lanterneWagon.Scale = 1 + 0.08 * math.sin(t * 12 + 4) + 0.05 * math.sin(t * 21)
+	refletRail.Position = UDim2.fromScale(xWagon + 0.04, 0.15)
+	refletFlaque.BackgroundTransparency = 0.15 + 0.2 * math.sin(t * 1.7)
+	refletFlaque.Size = UDim2.fromScale(0.7 + 0.06 * math.sin(t * 2.3), 0.5)
+	-- araignée qui monte et descend au bout de son fil, pattes qui gigotent
+	local yAraignee = araignee.attache.Y + 0.1 + 0.035 * math.sin(t * 0.8)
+	araignee.fil.Size = UDim2.new(0, 1, yAraignee - araignee.attache.Y - 0.008, 0)
+	araignee.corps.Position = UDim2.fromScale(araignee.attache.X, yAraignee)
+	araignee.corps.Rotation = 6 * math.sin(t * 1.3)
+	for _, p in araignee.pattes do
+		p.f.Rotation = p.base + 8 * math.sin(t * 9 + p.k)
+	end
+	-- gouttes : se forment, tombent, éclaboussent
+	for _, g in gouttes do
+		if g.etat == "forme" then
+			g.minuteur += dt
+			g.echelle.Scale = math.clamp(g.minuteur / 1.2, 0, 1)
+			g.f.Position = UDim2.fromScale(g.x, 0.122)
+			if g.minuteur > 1.6 then g.etat, g.vy, g.y = "chute", 0, 0.122 end
+		else
+			g.vy += 2.2 * dt
+			g.y += g.vy * dt
+			g.f.Position = UDim2.fromScale(g.x, g.y)
+			if g.y >= g.sol then
+				eclaboussure(g.x, g.sol)
+				g.etat, g.minuteur, g.echelle.Scale = "forme", -rng:NextNumber(0.5, 2.5), 0
+			end
+		end
+	end
+	for k, b in brumes do
+		b.Position = UDim2.fromScale(0.5 + 0.08 * math.sin(t * 0.12 * k + k), 0.8 + k * 0.025)
+	end
+	for _, p in paillettes do
+		p.y -= p.v * dt
+		if p.y < 0.2 then p.y, p.x = 0.54, rng:NextNumber(0.22, 0.78) end
+		p.f.Position = UDim2.fromScale(p.x + 0.015 * math.sin(t * 0.9 + p.phase), p.y)
+		p.f.BackgroundTransparency = 0.25 + 0.7 * (0.5 + 0.5 * math.sin(t * 3 + p.phase))
+	end
+	-- particules lumineuses qui montent des filons
+	for _, m in mineraisMur do
+		for _, p in m.particules do
+			p.y -= p.v * dt
+			if p.y < -0.15 then p.y, p.x = 0.75, rng:NextNumber(0.3, 0.7) end
+			p.f.Position = UDim2.fromScale(p.x + 0.06 * math.sin(t * 2 + p.v * 20), p.y)
+			p.f.BackgroundTransparency = 0.2 + 0.8 * math.clamp(1 - (p.y + 0.15) / 0.9, 0, 1)
+		end
 	end
 	-- lettres : vague douce une fois posées, reflet qui court de lettre en lettre
 	for _, l in lettres do
