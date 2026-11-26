@@ -16,6 +16,14 @@
 		previews/armes/casques_minerais/) : CasqueQuartz, CasqueSoufre, CasqueArgent, CasqueObsidienne,
 		CasqueGivrite, CasqueEmeraude, CasqueRubis, CasqueLunarite, CasqueMagmaite, CasqueDiamant,
 		CasqueOrichalque, CasqueNeantite.
+		Plastrons et jambières des minerais (Format = "Code", même contrat que Plastron / Jambieres, couleurs fixes),
+		assortis aux casques et épées du même minerai, générés par blender/armes/armures_minerais.py (aperçus :
+		previews/armes/plastrons_minerais/, jambieres_minerais/, sets_minerais/) :
+		PlastronSoufre, PlastronQuartz, PlastronArgent, PlastronObsidienne, PlastronGivrite, PlastronEmeraude,
+		PlastronRubis, PlastronLunarite, PlastronMagmaite, PlastronDiamant, PlastronOrichalque, PlastronNeantite ;
+		JambieresSoufre, JambieresQuartz, JambieresArgent, JambieresObsidienne, JambieresGivrite, JambieresEmeraude,
+		JambieresRubis, JambieresLunarite, JambieresMagmaite, JambieresDiamant, JambieresOrichalque, JambieresNeantite
+		(sous-Models JambeG / JambeD + Centre construits par le module lui-même).
 
 	construire(id, teinte?, tailleTete?) : tailleTete = taille visuelle de la tête (Vector3) ; le modèle est mis à
 		l'échelle (Model:ScaleTo) par rapport à la tête R15 de référence 1.2 stud. Omis = taille 1.2.

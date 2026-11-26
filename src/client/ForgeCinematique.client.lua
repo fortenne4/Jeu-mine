@@ -1,6 +1,7 @@
 -- Cinématique de forge (locale) : après une forge réussie, Brom martèle un lingot incandescent sur la grosse enclume ;
 -- le lingot s'étire par paliers à chaque coup, refroidit et révèle l'objet forgé. Clone local de Brom (le vrai est figé
 -- par AnimationsNains et caché), rien côté serveur. Attribut joueur « ForgeCinematique » = true pendant toute la durée.
+-- Plastron et jambières : déroulés propres (ForgeCinematiqueArmures).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -42,7 +43,7 @@ for i = 0, COUPS - 1 do
 	table.insert(CLES, {b + 0.2, "leve", "sortie"})
 	table.insert(CLES, {b + 0.34, "frappe", "entree"})
 	table.insert(CLES, {b + 0.42, "garde", "sortie"})
-	IMPACTS[i + 1] = b + 0.34
+	IMPACTS[i + 1] = {b + 0.34, 1}
 end
 table.insert(CLES, {REVELE + 0.7, "garde", "douce"})
 table.insert(CLES, {REVELE + 1.3, "souleve", "douce"})
@@ -72,6 +73,8 @@ local PLANS = {
 		return CFrame.lookAt(e.F * V(math.sin(a) * d, d * 0.42, math.cos(a) * d), e.F * V(0, e.hObjet * 0.45, ZC))
 	end},
 }
+-- Épée et casque : lingot étiré (déroulé ci-dessus) ; plastron et jambières : ForgeCinematiqueArmures.
+local BASE = {cles = CLES, impacts = IMPACTS, duree = DUREE, revele = REVELE, apparition = 0.65, plans = PLANS}
 
 -- ================= Écran : voile + bandes =================
 local ecran = Instance.new("ScreenGui")
@@ -237,6 +240,11 @@ local function construireObjet(donnees): Model
 	return if reussi and modele then modele else substitut(epee, couleur)
 end
 
+local SCENARIOS = require(script.Parent:WaitForChild("ForgeCinematiqueArmures"))({
+	lisse = lisse, piece = piece, ZC = ZC, LAVE = LAVE, BLANC_CHAUD = BLANC_CHAUD, FROID = FROID, poses = POSES,
+	construire = construireObjet,
+})
+
 -- Pose l'objet sur l'enclume et mesure sa boîte dans le repère F.
 local function poserObjet(etat, objet: Model)
 	local rot = if etat.epee then CFrame.fromMatrix(Vector3.zero, V(0, 0, 1), V(1, 0, 0), V(0, 1, 0)) else CFrame.Angles(0, math.pi, 0)
@@ -288,8 +296,8 @@ local function poserObjet(etat, objet: Model)
 end
 
 -- ================= Brom (clone local animé) =================
-local function lirePose(nom: string)
-	local p = POSES and POSES[nom] or {}
+local function lirePose(p)
+	p = p or {}
 	local function bras(v)
 		local r = table.create(7, 0)
 		for i, a in v or {} do r[i] = a end
@@ -298,8 +306,13 @@ local function lirePose(nom: string)
 	return {D = bras(p.D), G = bras(p.G), tete = {(p.tete or {})[1] or 0, (p.tete or {})[2] or 0}, buste = p.buste or 0}
 end
 local POSES_LUES = {}
-for _, cle in CLES do POSES_LUES[cle[2]] = POSES_LUES[cle[2]] or lirePose(cle[2]) end
-local pose = lirePose("repos")
+for _, sc in {BASE, SCENARIOS.Plastron, SCENARIOS.Jambieres} do
+	for _, cle in sc.cles do
+		local nom = cle[2]
+		POSES_LUES[nom] = POSES_LUES[nom] or lirePose(sc.poses and sc.poses[nom] or POSES and POSES[nom])
+	end
+end
+local pose = lirePose(POSES and POSES.repos)
 
 local function melanger(a, b, w: number)
 	pose.buste = a.buste + (b.buste - a.buste) * w
@@ -311,10 +324,10 @@ local function melanger(a, b, w: number)
 	end
 end
 
-local function poseA(t: number)
+local function poseA(cles, t: number)
 	local k = 1
-	while k < #CLES and t >= CLES[k + 1][1] do k += 1 end
-	local a, b = CLES[k], CLES[math.min(k + 1, #CLES)]
+	while k < #cles and t >= cles[k + 1][1] do k += 1 end
+	local a, b = cles[k], cles[math.min(k + 1, #cles)]
 	if a == b then
 		melanger(POSES_LUES[a[2]], POSES_LUES[a[2]], 0)
 	else
@@ -372,7 +385,7 @@ local function preparerBrom(etat, brom: Model): boolean
 	local boite, tailleBoite = clone:GetBoundingBox()
 	local sol = boite.Position.Y - tailleBoite.Y / 2
 	clone:PivotTo(pied + decalage)
-	local b = {R = pied.Rotation, Rinv = pied.Rotation:Inverse(), groupes = {}, pivots = {}, T = {}}
+	local b = {R = pied.Rotation, Rinv = pied.Rotation:Inverse(), groupes = {}, pivots = {}, T = {}, clone = clone, pied = pied + decalage, sol = pied.Y}
 	for _, g in GROUPES do
 		local groupe = clone:FindFirstChild(g)
 		local repere = groupe and groupe:FindFirstChild(brom.Name .. "_" .. g .. "_Pivot")
@@ -513,46 +526,23 @@ local function terminer(etat)
 	animerEcran(1, 0, OUVERTURE)
 end
 
+-- coup = {instant, force, cible} : force 1 = coup normal, > 1 = coup lourd (plus grave), < 1 = petit coup (plus aigu)
 local function impact(etat, n: number)
-	etat.pCible = n / COUPS
-	etat.flash, etat.ecrase, etat.secousse = 1, 1, 1
-	etat.gerbe:Emit(hasard:NextInteger(18, 26))
-	etat.sonMarteau.PlaybackSpeed = hasard:NextNumber(1.55, 1.8)
+	local sc = etat.sc
+	local coup = sc.impacts[n]
+	local force = coup[2]
+	etat.pCible = n / #sc.impacts
+	etat.flash, etat.ecrase, etat.secousse = force, force, force
+	etat.gerbe:Emit(math.max(1, math.round(hasard:NextInteger(18, 26) * force)))
+	etat.sonMarteau.PlaybackSpeed = hasard:NextNumber(1.55, 1.8) + (1 - force) * 0.7
 	etat.sonMarteau:Play()
+	if sc.impact then sc.impact(etat, coup) end
 end
 
-local function etape(etat, dt: number)
-	local camera = etat.camera
-	if workspace.CurrentCamera ~= camera or not etat.lingot.Parent then terminer(etat); return end
-	local t = os.clock() - etat.debut
-	if t >= DUREE then
-		voile.BackgroundTransparency = 0
-		terminer(etat)
-		return
-	end
-	while etat.coup < COUPS and t >= IMPACTS[etat.coup + 1] do
-		etat.coup += 1
-		impact(etat, etat.coup)
-	end
-	local amorti = math.exp(-dt * 11)
-	etat.flash *= amorti
-	etat.ecrase *= amorti
-	etat.secousse *= math.exp(-dt * 16)
-	etat.p += (etat.pCible - etat.p) * (1 - math.exp(-dt * 14))
+-- Lingot qui s'étire (épée, casque) puis refroidit et s'efface devant l'objet.
+local function majLingot(etat, t: number, apparition: number)
 	local p = lisse(etat.p)
-
-	-- refroidissement, puis l'objet apparaît dans le lingot qui s'efface
 	local froid = lisse((t - REVELE) / 0.8)
-	local apparition = lisse((t - REVELE) / 0.65)
-	if t >= REVELE and not etat.revele then
-		etat.revele = true
-		etat.braises.Enabled = false
-		etat.vapeur:Emit(14)
-		etat.sonTrempe:Play()
-		if etat.surbrillance then etat.surbrillance.Enabled = true end
-		for _, e in etat.effetsObjet do e[1].Enabled = e[2] end
-	end
-
 	local s = etat.ecrase
 	local taille = S0:Lerp(etat.cible, p) * V(1 + 0.16 * s, 1 - 0.32 * s, 1 + 0.16 * s)
 	local lingot = etat.lingot
@@ -571,24 +561,60 @@ local function etape(etat, dt: number)
 		etat.dome.Color = couleur
 		etat.dome.Transparency = apparition
 	end
+end
+
+local function etape(etat, dt: number)
+	local camera = etat.camera
+	if workspace.CurrentCamera ~= camera or not etat.lingot.Parent then terminer(etat); return end
+	local sc = etat.sc
+	local t = os.clock() - etat.debut
+	if t >= sc.duree then
+		voile.BackgroundTransparency = 0
+		terminer(etat)
+		return
+	end
+	while etat.coup < #sc.impacts and t >= sc.impacts[etat.coup + 1][1] do
+		etat.coup += 1
+		impact(etat, etat.coup)
+	end
+	local amorti = math.exp(-dt * 11)
+	etat.flash *= amorti
+	etat.ecrase *= amorti
+	etat.secousse *= math.exp(-dt * 16)
+	etat.p += (etat.pCible - etat.p) * (1 - math.exp(-dt * 14))
+
+	-- l'objet apparaît pendant que la pièce chaude s'efface
+	local apparition = lisse((t - sc.revele) / sc.apparition)
+	if t >= sc.revele and not etat.revele then
+		etat.revele = true
+		etat.braises.Enabled = false
+		if not sc.maj then
+			etat.vapeur:Emit(14)
+			etat.sonTrempe:Play()
+		end
+		if etat.surbrillance then etat.surbrillance.Enabled = true end
+		for _, e in etat.effetsObjet do e[1].Enabled = e[2] end
+	end
+	if sc.maj then sc.maj(etat, t, dt, apparition) else majLingot(etat, t, apparition) end
 	if etat.piecesObjet then
 		for _, pc in etat.piecesObjet do pc[1].Transparency = pc[2] + (1 - pc[2]) * (1 - apparition) end
-		if etat.surbrillance then etat.surbrillance.FillTransparency = 0.2 + 0.8 * lisse((t - REVELE - 0.2) / 1.2) end
+		if etat.surbrillance then etat.surbrillance.FillTransparency = 0.2 + 0.8 * lisse((t - sc.revele - 0.2) / 1.2) end
 	end
 
-	if etat.brom then
-		poseA(t)
+	if etat.brom and not sc.brom then
+		poseA(sc.cles, t)
 		poserBrom(etat.brom, math.sin(t * 1.6) * 0.03)
 	end
 	for _, piece in etat.perso do piece.LocalTransparencyModifier = 1 end
 
-	local plan = PLANS[etat.plan]
-	while t >= plan.fin and PLANS[etat.plan + 1] do
+	local plans = etat.plans
+	local plan = plans[etat.plan]
+	while t >= plan.fin and plans[etat.plan + 1] do
 		etat.plan += 1
-		plan = PLANS[etat.plan]
+		plan = plans[etat.plan]
 		camera.FieldOfView = plan.fov
 	end
-	local debut = if etat.plan > 1 then PLANS[etat.plan - 1].fin else 0
+	local debut = if etat.plan > 1 then plans[etat.plan - 1].fin else 0
 	local k = etat.secousse * 0.012
 	etat.secousseCF = CFrame.Angles(k * math.sin(t * 47), k * math.sin(t * 39), 0)
 	camera.CFrame = plan.camera(etat, (t - debut) / (plan.fin - debut))
@@ -612,8 +638,10 @@ local function lancer(donnees): boolean
 	if versBrom.Magnitude < 0.01 then versBrom = enclume.CFrame.ZVector end
 	local dossier = Instance.new("Folder")
 	dossier.Name = "CinematiqueForge"
+	local sc = SCENARIOS[donnees.type] or BASE
 	local etat = {
 		camera = camera, fov = camera.FieldOfView, dossier = dossier, epee = donnees.type == "Epee",
+		sc = sc, plans = sc.plans, donnees = donnees, enclume = enclume,
 		F = CFrame.lookAt(haut, haut + versBrom.Unit), cible = V(3.4, 0.22, 0.5), cibleDome = nil, hObjet = 1, dist = 5,
 		caches = {}, perso = {}, etiquettes = {}, connexions = {}, effetsObjet = {},
 		debut = 0, plan = 1, coup = 0, p = 0, pCible = 0, flash = 0, ecrase = 0, secousse = 0, secousseCF = CFrame.identity,
@@ -623,6 +651,14 @@ local function lancer(donnees): boolean
 	local ok, erreur = pcall(function()
 		preparerLingot(etat)
 		if brom then preparerBrom(etat, brom) end
+		if sc.preparer then
+			if etat.brom then
+				sc.preparer(etat)
+			else
+				sc = BASE
+				etat.sc, etat.plans = BASE, BASE.plans
+			end
+		end
 		for _, d in perso:GetDescendants() do
 			if d:IsA("BasePart") then table.insert(etat.perso, d) end
 		end
@@ -636,8 +672,8 @@ local function lancer(donnees): boolean
 		for _, g in etat.etiquettes do g.Enabled = true end
 		return false
 	end
-	-- le casque peut prendre un court instant à se construire (CSG) : en parallèle
-	task.spawn(function()
+	-- le casque peut prendre un court instant à se construire (CSG) : en parallèle (armures : pièce déjà construite)
+	if not sc.objet then task.spawn(function()
 		local objet = construireObjet(donnees)
 		if actif == etat and dossier.Parent then
 			local reussi, e = pcall(poserObjet, etat, objet)
@@ -645,13 +681,13 @@ local function lancer(donnees): boolean
 		else
 			objet:Destroy()
 		end
-	end)
+	end) end
 	table.insert(etat.connexions, humain.Died:Connect(function() terminer(etat) end))
-	task.delay(DUREE + 4, terminer, etat)
+	task.delay(sc.duree + 4, terminer, etat)
 	etat.debut = os.clock()
 	local pret, erreurDebut = pcall(function()
 		camera.CameraType = Enum.CameraType.Scriptable
-		camera.FieldOfView = PLANS[1].fov
+		camera.FieldOfView = etat.plans[1].fov
 		voile.BackgroundTransparency = 1
 		animerEcran(1, BANDES, 0.45)
 		masquerInterface()

@@ -364,6 +364,8 @@ diamant, orichalque et néantite passent au-dessus des marées. Le **rang** affi
 
 Valeurs à 2 minerais ; plafond = base × 1,35 sans atteindre le palier suivant (néantite : 468 / 777, sous l'Épée des astres 900).
 Plastrons et jambières acceptent aussi ces minerais (alliages libres, force 2,5 pour le soufre … 29 pour la néantite).
+Forgés avec **un seul** de ces minerais, ils prennent leur modèle 3D assorti au casque et à l'épée (`ArmuresVoxels/Plastron<Minerai>`,
+`Jambieres<Minerai>`, générés par `blender/armes/armures_minerais.py`, aperçus `previews/armes/sets_minerais/`) ; même valeur que l'alliage libre.
 
 Deux pioches décoratives reprennent les couleurs des épées extérieures du râtelier mural de la forge. Leur position et leur échelle sont réglables en tête de `src/server/PiochesMurales.server.lua`.
 Les pioches sont fixées à l'intérieur des bords du mur. Le dallage rejoint le seuil au niveau de la rue et la toiture à deux pans ménage un passage pour la cheminée.
@@ -973,6 +975,10 @@ fine et des étincelles aux couleurs du boss s'élèvent du cercle.
 - **Transformation à chaque phase** (`TRANSFORMATIONS` dans `src/partage/BossVillage.lua`) : le boss grandit (+15 % par phase), change de couleur en fondu et s'illumine (yeux et veines en néon, lueur autour de lui, éclat de lumière) ; phase 3 : aura de ki. Titan : cristaux violets → magenta → rouge sang ; Reine : marques rouges → vert venimeux → violet sur carapace d'ébène ; Seigneur : lave orange → jaune vif → feu infernal bleu. La hitbox suit la nouvelle taille (`MobsGrotte.grandir`).
 - **Écran de chargement** (`src/client/BossChargement.lua`) : un décor par boss (géode de cristaux, nid avec toiles, yeux et araignées, lave avec braises et fissures), portrait 3D du boss en contre-jour qui rugit, nom en impact, menace, mineurs, attaques à éviter, conseil, jauge à thème et astuces qui défilent.
 - **Verrouillage (focus)** (`src/client/VerrouBoss.client.lua`) : Ctrl (PC), R3 (manette) ou appui sur le logo en bas à gauche (téléphone) : la caméra suit le boss (sinon le mob le plus proche), réticule rouge « point vital » au milieu du corps (torse / nombril), le personnage lui fait face ; rappuyer libère. Saute si la cible meurt ou s'éloigne. Caméra de visée (`CameraVisee.client.lua`) : souris bloquée au viseur en 3e personne, libre dès qu'une interface ou un pop-up est ouvert (`Curseur.lua`) ou pendant les cinématiques, Alt maintenu pour la libérer ; champ de vision 90 en 1re personne.
+- **Verrou de caméra** (`src/client/VerrouCamera.client.lua`) : bouton sous le logo du boss, touche C (croix gauche à la manette) : « Caméra verrouillée » (visée au centre) ↔ « Caméra libre » (souris libre, caméra Roblox classique). Attribut `CameraVerrouillee` du joueur, lu par `CameraVisee`.
+- **Parade à l'épée** (`src/server/Parade.lua`, `EpeeAnimation.client.lua`) : maintenir clic droit (L2, bouton « Parade » sur téléphone) : garde lame en travers, marche ralentie, coûte de l'endurance. Pare 85 % des coups au corps à corps et projectiles devant soi (cône 120°), 100 % + mob étourdi si la garde est levée moins de 0,25 s avant l'impact. Ne pare ni feu, ni lave, ni brûlure, ni chutes, ni attaques de zone.
+- **Combo d'épée** (`EpeeAnimation.client.lua`, `Epee.server.lua`) : 4 coups, droite→gauche, gauche→droite, **fendoir à deux mains** (remplace l'ancien coup vertical, dégâts ×1,5) puis **coup montant**.
+- **Coups à valider** (`src/client/CoupsEpeeAValider.lua`) : aperçu **en Studio seulement**, l'épée en main : Y estoc fendu, U moulinet (pas encore dans le combo) ; J coup montant et K fendoir sont validés et déjà dans le combo.
 - **Ciblage** : le boss attaque au hasard un des mineurs à moins de 24 studs de lui et change de cible toutes les
   2,5 à 4,5 s ; si sa cible s'éloigne, il passe à un mineur proche (ou au plus proche).
 - **Barre de PV** : grand trait rouge centré en haut de l'écran, nom du boss en plus petit dessous (PV chiffrés, temps

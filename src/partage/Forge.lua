@@ -366,10 +366,23 @@ function Forge.calculer(typeId: any, composition: any): (Resultat?, string?)
 		bonus, mat = alliage.bonus, alliage.mat
 		couleur = couleur:Lerp(alliage.couleur, 0.7)
 	end
+	-- Plastron / Jambières d'un seul minerai de la mine privée : modèle 3D assorti (ArmuresVoxels.Plastron<Minerai>,
+	-- Jambieres<Minerai>), même valeur que l'alliage libre. Sinon : modèle générique teinté.
+	local modele, nom = t.id, t.nom .. " en " .. mat
+	if #liste == 1 and Forge.FORGEABLES_PROFONDS[liste[1][1]] then
+		local special = {modele = t.id .. liste[1][1], nom = nom} :: any
+		local armures = script.Parent:FindFirstChild("ArmuresVoxels")
+		local ok, existe = pcall(function()
+			return armures and require(armures :: any).existe(special.modele)
+		end)
+		if ok and existe then
+			modele, nom = special.modele, nomAffiche(special)
+		end
+	end
 	return {
 		type = t.id,
-		nom = t.nom .. " en " .. mat,
-		modele = t.id,
+		nom = nom,
+		modele = modele,
 		couleur = couleur,
 		stat = t.stat,
 		valeur = math.max(1, math.floor(force * bonus * t.mult * math.sqrt(total / t.min) + 0.5)),

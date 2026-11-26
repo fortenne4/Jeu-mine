@@ -31,6 +31,8 @@ local ServerStorage = game:GetService("ServerStorage")
 local Partage = ReplicatedStorage:WaitForChild("Partage")
 local Grottes = require(Partage:WaitForChild("Grottes"))
 local MobsVoxels = require(Partage:WaitForChild("MobsVoxels"))
+local Parade = require(script.Parent:WaitForChild("Parade"))
+local ETOURDI_PARADE = 0.9 -- s d'étourdissement d'un mob après une parade parfaite
 
 local MobsGrotte = {}
 
@@ -275,6 +277,15 @@ local function frapper(h, m, maintenant: number)
 	local defense = joueur:GetAttribute("StatDefense")
 	if type(defense) ~= "number" then defense = 0 end
 	local degats = m.def.degats * Grottes.reductionDefense(defense)
+	-- Parade à l'épée (Parade.lua) : coup frontal paré ; parfaite = 100 % + mob (hors boss) étourdi.
+	-- def.toucher (feu du Roi déchu) : seul le coup est réduit, la brûlure reste appliquée.
+	local reduction, parfaite = Parade.bloque(joueur, m.pos, "melee")
+	if parfaite and not m.boss then
+		m.finAction = math.max(m.finAction, maintenant + ETOURDI_PARADE)
+		etat(m, "Hurt")
+	end
+	if reduction >= 1 then return end
+	degats *= 1 - reduction
 	if m.def.toucher then
 		m.def.toucher(joueur, hum, degats)
 	else

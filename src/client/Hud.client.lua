@@ -19,6 +19,7 @@ local playerGui = joueur:WaitForChild("PlayerGui")
 
 -- ================= Réglages =================
 local MULT_COURSE = 1.85
+local MULT_GARDE = 0.55 -- marche pendant la parade à l'épée
 local FOV_BONUS = 8
 local VITESSE_REELLE = 2 -- studs/s horizontaux minimum pour compter comme « bouge vraiment »
 local RETARD_DELAI = 0.45 -- la barre claire attend avant de rattraper
@@ -510,7 +511,8 @@ RunService.RenderStepped:Connect(function(dt)
 		end
 		local maj = (UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift))
 			and UserInputService:GetFocusedTextBox() == nil
-		if (maj or bascule) and intention and libre(h) and Stamina.peutCourir() then
+		local garde = joueur:GetAttribute("EpeeGarde") == true -- parade à l'épée (EpeeAnimation.client) : marche ralentie, pas de course
+		if (maj or bascule) and intention and not garde and libre(h) and Stamina.peutCourir() then
 			local v = r.AssemblyLinearVelocity
 			-- au démarrage on accélère déjà ; la stamina ne baisse que si on avance réellement
 			veut = true
@@ -522,7 +524,7 @@ RunService.RenderStepped:Connect(function(dt)
 			end
 		end
 
-		local cibleF = if veut then MULT_COURSE else 1
+		local cibleF = if garde then MULT_GARDE elseif veut then MULT_COURSE else 1
 		facteur += (cibleF - facteur) * (1 - math.exp(-8 * dt))
 		if math.abs(cibleF - facteur) < 0.002 then
 			facteur = cibleF

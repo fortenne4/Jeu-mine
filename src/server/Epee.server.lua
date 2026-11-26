@@ -4,7 +4,7 @@
 -- construite avec Partage.ArmesVoxels.construire(objet.modele) (EpeeFer si le modèle n'existe pas encore) ;
 -- sinon l'épée de base (Forge.EPEE_BASE). Attributs de l'outil : Epee, Degats, Modele, ObjetId.
 -- Les coups sont animés par chaque client (EpeeAnimation.client) : le serveur ne fait que valider la
--- cadence, calculer le combo (1-2-3, le 3e frappe plus fort), prévenir les autres clients et déclencher le hook ServerStorage.CoupEpee (joueur, coup, outil).
+-- cadence, calculer le combo (1-2-3-4, le 3e (fendoir) frappe plus fort), prévenir les autres clients et déclencher le hook ServerStorage.CoupEpee (joueur, coup, outil).
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,6 +12,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Forge = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("Forge"))
 local Donnees = require(script.Parent:WaitForChild("Donnees"))
+local Parade = require(script.Parent:WaitForChild("Parade")) -- crée le RemoteEvent ParadeEpee (garde au clic droit)
 
 local NOM_OUTIL = "Épée"
 local CADENCE_MIN = 0.45 -- recharge minimale entre deux coups (le client attend RECHARGE = 0.5 s)
@@ -91,7 +92,7 @@ local function creerGabarit(id: string): Tool
 	local poignee = (m.PrimaryPart or m:FindFirstChild("Poignee", true)) :: BasePart
 	local tool = Instance.new("Tool")
 	tool.Name = NOM_OUTIL
-	tool.ToolTip = "Clic : attaquer (combo x3)"
+	tool.ToolTip = "Clic : attaquer (combo x4)"
 	tool.CanBeDropped = false
 	tool.Grip = CFrame.Angles(0, math.rad(90), 0)
 	tool:SetAttribute("Epee", true)
@@ -178,7 +179,7 @@ local function donner(joueur: Player)
 		end
 	end
 	local outil = gabarit:Clone()
-	outil.ToolTip = string.format("%s · %d dégâts · Clic : attaquer (combo x3)", nom, valeur)
+	outil.ToolTip = string.format("%s · %d dégâts · Clic : attaquer (combo x4)", nom, valeur)
 	outil:SetAttribute("Cle", cle)
 	outil:SetAttribute("Degats", valeur)
 	outil:SetAttribute("Modele", modele)
@@ -195,7 +196,7 @@ local combos: {[Player]: {n: number, t: number}} = {}
 local FENETRE_COMBO = 1.2 -- s entre deux coups pour enchaîner le combo
 
 remote.OnServerEvent:Connect(function(joueur: Player, coup: any)
-	if coup ~= 0 and coup ~= 1 and coup ~= 2 and coup ~= 3 then
+	if coup ~= 0 and coup ~= 1 and coup ~= 2 and coup ~= 3 and coup ~= 4 then
 		return
 	end
 	local perso = joueur.Character
@@ -213,11 +214,12 @@ remote.OnServerEvent:Connect(function(joueur: Player, coup: any)
 			return
 		end
 		derniers[joueur] = t
+		Parade.finir(joueur) -- frapper baisse la garde
 	end
 	if coup > 0 then
-		-- Combo calculé ici (1 → 2 → 3 → 1, remis à 1 après une pause) : la valeur du client est ignorée
+		-- Combo calculé ici (1 → 2 → 3 → 4 → 1, remis à 1 après une pause) : la valeur du client est ignorée
 		local c = combos[joueur]
-		local n = if c and t - c.t < FENETRE_COMBO then c.n % 3 + 1 else 1
+		local n = if c and t - c.t < FENETRE_COMBO then c.n % 4 + 1 else 1
 		combos[joueur] = {n = n, t = t}
 		coup = n
 	end

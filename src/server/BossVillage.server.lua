@@ -24,6 +24,7 @@ local Grottes = require(Partage:WaitForChild("Grottes"))
 local Forge = require(Partage:WaitForChild("Forge"))
 local MobsVoxels = require(Partage:WaitForChild("MobsVoxels"))
 local MobsGrotte = require(script.Parent:WaitForChild("MobsGrotte"))
+local Parade = require(script.Parent:WaitForChild("Parade"))
 local AurasMobs = require(Partage:WaitForChild("AurasMobs"))
 
 local monde = ServerStorage:WaitForChild("Monde")
@@ -348,7 +349,8 @@ end
 -- Chaque coup du boss retire ~53 % des 150 PV d'un débutant sans armure : il meurt au 2e coup, jamais au 1er
 local COUP = Config.COUP_BOSS
 
-local function blesserZone(c, test: (Vector3) -> boolean, degats: number, hauteurMax: number?)
+-- parable : {source, type} (Parade.lua) pour les coups directs du boss (poing frontal, crachat de toile)
+local function blesserZone(c, test: (Vector3) -> boolean, degats: number, hauteurMax: number?, parable: {source: Vector3, type: string}?)
 	if c.fini then return end
 	for j in c.joueurs do
 		local _, racine, humain = vivant(j)
@@ -359,7 +361,8 @@ local function blesserZone(c, test: (Vector3) -> boolean, degats: number, hauteu
 				-- Seigneur de braise : coups de feu, réduits par la résistance au feu (casque magmatique)
 				local feu = if c.def.id == "SeigneurBraise" then j:GetAttribute("ResistanceFeu") else nil
 				local resFeu = if type(feu) == "number" then math.clamp(feu, 0, 0.9) else 0
-				humain:TakeDamage(degats * Grottes.reductionDefense(if type(defense) == "number" then defense else 0) * (1 - resFeu))
+				local pare = if parable then Parade.bloque(j, parable.source, parable.type) else 0
+				humain:TakeDamage(degats * Grottes.reductionDefense(if type(defense) == "number" then defense else 0) * (1 - resFeu) * (1 - pare))
 			end
 		end
 	end
@@ -477,7 +480,7 @@ local function frappeDisque(c, pos: any, rayon: number, debut: number, duree: nu
 		apres(c, duree, function()
 			effacer(parties)
 			if o.effet then o.effet(p, rayon) end
-			blesserZone(c, dansDisque(p, rayon, o.rMin), degats, o.hauteur)
+			blesserZone(c, dansDisque(p, rayon, o.rMin), degats, o.hauteur, o.parable)
 		end)
 	end
 	if debut <= 0 then lancer() else apres(c, debut, lancer) end
@@ -485,7 +488,7 @@ end
 
 -- Cône télégraphié depuis le boss vers `vers` (fonction → Vector3), apparaît à `debut` s
 local function frappeCone(c, m, vers: () -> Vector3?, longueur: number, demi: number, debut: number, duree: number, degats: number,
-	effet: ((Vector3, Vector3) -> ())?)
+	effet: ((Vector3, Vector3) -> ())?, parable: string?)
 	local function lancer()
 		local cible = vers()
 		if not cible then return end
@@ -497,7 +500,7 @@ local function frappeCone(c, m, vers: () -> Vector3?, longueur: number, demi: nu
 			effacer(parties)
 			if effet then effet(origine, dir) end
 			impact(c, origine + dir * longueur / 2, longueur / 2)
-			blesserZone(c, dansCone(origine, dir, longueur, demi), degats)
+			blesserZone(c, dansCone(origine, dir, longueur, demi), degats, nil, if parable then {source = origine, type = parable} else nil)
 		end)
 	end
 	if debut <= 0 then lancer() else apres(c, debut, lancer) end
@@ -571,7 +574,7 @@ function ATTAQUES.Poings(c, m, liste, T)
 		explosion(c, p, r)
 		onde(c, p, r + 2, Color3.fromRGB(200, 190, 180))
 	end
-	frappeDisque(c, pos, rayon, 0, T, degats, {effet = fracas})
+	frappeDisque(c, pos, rayon, 0, T, degats, {effet = fracas, parable = {source = m.pos, type = "melee"}})
 	armer(c, m, T)
 	local autres = melange(liste)
 	local n = 0
@@ -666,7 +669,7 @@ function ATTAQUES.Toile(c, m, liste, T)
 	local ecart = T + 0.25
 	for i, r in cibles_ do
 		local debut = (i - 1) * ecart
-		frappeCone(c, m, function() return if r.Parent then r.Position else nil end, longueur, demi, debut, T, degats, fils)
+		frappeCone(c, m, function() return if r.Parent then r.Position else nil end, longueur, demi, debut, T, degats, fils, "projectile")
 		if i == 1 then armer(c, m, T) else apres(c, debut, function() armer(c, m, T) end) end
 	end
 	return (#cibles_ - 1) * ecart + T + 0.5

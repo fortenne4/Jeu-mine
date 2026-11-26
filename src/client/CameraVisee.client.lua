@@ -6,6 +6,9 @@
 --  • Interface ouverte (Curseur.estLibre) : souris libre, en 1re comme en 3e personne.
 --  • PC : maintenir Alt libère la souris le temps de cliquer un bouton du HUD.
 --  • Rien n'est forcé pendant les cinématiques (caméra Scriptable), assis (wagon, banc) ou mort.
+--  • Caméra « libre » (bouton en bas à gauche, touche C, croix gauche manette ; voir VerrouCamera.client) :
+--    attribut CameraVerrouillee = false sur le LocalPlayer → caméra Roblox classique (souris libre, pas de
+--    décalage d'épaule). Pendant un verrou de boss (Ctrl), le personnage reste tourné vers la caméra.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -44,6 +47,20 @@ local etaitPremiere: boolean? = nil
 local typeAvant: Enum.CameraType? = nil
 local decalageEcrit = false
 local iconeCachee = false
+local verrouilleeAvant = true
+local rotationForcee = false -- caméra libre : rotation imposée pendant un verrou de boss
+
+-- Verrou de boss actif ? (le réticule « PointVital » de VerrouBoss.client n'est allumé que pendant le verrou)
+local pointVital: BillboardGui? = nil
+local function verrouBossActif(): boolean
+	if not pointVital or not pointVital.Parent then
+		local pg = joueur:FindFirstChildOfClass("PlayerGui")
+		local gui = pg and pg:FindFirstChild("VerrouBoss")
+		local p = gui and gui:FindFirstChild("PointVital")
+		pointVital = if p and p:IsA("BillboardGui") then p else nil
+	end
+	return pointVital ~= nil and pointVital.Enabled
+end
 
 local function miseAJour(dt: number)
 	local camera = workspace.CurrentCamera
@@ -70,12 +87,36 @@ local function miseAJour(dt: number)
 
 	local vivant = humain ~= nil and humain.Health > 0
 	local assis = humain ~= nil and (humain.Sit or humain.SeatPart ~= nil)
-	local viser = custom and vivant and not assis and not libre
+	local verrouillee = joueur:GetAttribute("CameraVerrouillee") ~= false -- verrouillée par défaut
+	local viserLibre = custom and vivant and not assis and not libre
+	local viser = viserLibre and verrouillee
+
+	-- Passage en caméra libre : on rend une fois la main à la caméra de Roblox (souris, rotation),
+	-- ensuite on n'y touche plus (clic droit pour tourner, comme dans un jeu Roblox classique)
+	if verrouillee ~= verrouilleeAvant then
+		verrouilleeAvant = verrouillee
+		rotationForcee = false
+		if not verrouillee then
+			UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+			pcall(function()
+				reglages.RotationType = Enum.RotationType.MovementRelative
+			end)
+		end
+	end
 
 	-- Souris : libre dans les interfaces (et avec Alt), bloquée au centre sinon
 	local cacherIcone = false
 	if libre or (altTenu and viser) then
 		UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+	elseif viserLibre and not verrouillee then
+		-- caméra libre : verrou de boss (Ctrl) → le personnage fait toujours face à la cible
+		local face = verrouBossActif()
+		if face or rotationForcee then
+			pcall(function()
+				reglages.RotationType = if face then Enum.RotationType.CameraRelative else Enum.RotationType.MovementRelative
+			end)
+			rotationForcee = face
+		end
 	elseif viser then
 		UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
 		cacherIcone = true -- le viseur du centre de l'écran sert de curseur
