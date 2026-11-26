@@ -1,0 +1,127 @@
+MINEUR DU PIC DORÉ
+Plan du skin de départ · pour validation
+
+Intention
+
+Un mineur de la vallée en salopette bleu ardoise, chemise de toile, cuir brun et
+casque de travail mat. La lampe à lentille chaude évoque les lanternes du Pic Doré.
+Quelques frottements terreux sur les genoux, le bas des jambes et les gants
+racontent le travail dans la mine. La silhouette et les grandes masses doivent
+rester lisibles à la distance normale de jeu.
+
+Gabarit
+
+Rig Roblox R15 standard de référence, mesuré dans Studio avec un HumanoidDescription
+neutre. Dimensions approximatives du corps sans accessoires, en studs, L × H × P.
+
+  Corps complet, bras le long du corps     4,000 × 5,188 × 1,198
+  Head                                    1,196 × 1,203 × 1,198
+  UpperTorso                              2,000 × 1,600 × 1,000
+  LowerTorso                              2,000 × 0,400 × 1,000
+  Chaque bras et chaque jambe             1,000 de largeur et de profondeur
+
+Conserver les segments R15, leurs articulations, leurs dimensions et leurs
+ancrages. Partir du rig bloc mesuré. Les échelles de taille, largeur, profondeur
+et tête valent 1. BodyTypeScale et ProportionScale valent 0. Les textures
+décrivent les vêtements sur ce même corps. Seuls le casque et la petite pioche
+ajoutent un volume en dehors du gabarit.
+
+Pièce par pièce
+
+Tête
+  Visage simple, expression calme. Peau de démonstration #C99167. La tenue serait
+  commune et la teinte de peau pourrait suivre le joueur. Visage classique, avec
+  des yeux #332928, sourcils #593C2E et bouche #694035, lisibles sous la
+  visière. Traces de poussière #9D7359 sur les joues. Le casque s’ajuste
+  autour de la tête R15.
+
+Torse haut et bas
+  Chemise de toile de lin #A99573 et col #C2AC87. Plastron de salopette de toile
+  épaisse #46545B, bretelles en cuir #72503B. Ceinture usée #51372B
+  avec boucle discrète et poche à outils à plat. Motifs à peindre dans les
+  gabarits Shirt et Pants, en raccordant la taille et le dos.
+
+Bras gauche
+  Manche de toile #A99573, gant en cuir #654A37, traces localisées #AA8E6C.
+  Garder visibles les articulations du coude et du poignet aux poses de minage.
+  Préférer le rendu dans Shirt sur le gabarit R15, avec validation du rendu
+  sur LeftHand. Si la main exige une pièce dédiée, la limiter à un gant ajusté.
+
+Bras droit
+  Même coupe, même toile et même cuir que le bras gauche. Poussière légère.
+  Garder la paume et le volume du gant compatibles avec la prise de la pioche.
+  Vérifier RightHand sur le même gabarit Shirt.
+
+Jambe gauche
+  Cuisse et tibia en toile #46545B, renfort de genou en toile #4E5D65. Botte cuir
+  #3B3430, embout fer mat #555B5B, poussière #AA8E6C. Peindre dans Pants en
+  gardant la continuité du motif sur LeftUpperLeg, LeftLowerLeg et LeftFoot.
+
+Jambe droite
+  Même coupe et mêmes couleurs. Varier légèrement les traces de poussière.
+  Valider le raccord sur RightUpperLeg, RightLowerLeg et RightFoot en marche
+  et en flexion.
+
+Accessoire 3D · casque à lampe intégrée
+  Coque basse ardoise #2D3336, bord #41494C, métal peint mat. Cerclage de lampe
+  en laiton patiné #BA853E et lentille chaude #F3D48B, à rendu diffus. Prévoir
+  une géométrie simple, une visière courte et un seul Accessory de type Hat,
+  sur HatAttachment. Lampe intégrée au Handle texturé. L’effet lumineux de la
+  planche est visuel, avec éclairage de jeu à décider séparément.
+
+Accessoire 3D · petite pioche de ceinture
+  Manche en bois #835B3C, tête en fer mat #717777. Une petite silhouette
+  plaquée à la hanche gauche, légèrement en arrière. Fixation rigide à la
+  taille via WaistCenterAttachment sur LowerTorso, avec décalage sur le Handle.
+  Bride et poche peintes sur le vêtement. La pioche de ceinture est décorative
+  et laisse le dos libre pour la pioche jouable.
+
+Production après validation
+
+  1. Préparer les textures classiques Shirt et Pants à partir des gabarits
+     Roblox, vérifier les raccords aux poignets, à la taille et aux chevilles,
+     puis publier les deux ressources vestimentaires pour l’expérience.
+  2. Modéliser le casque et la mini-pioche. Créer leurs Accessory rigides,
+     tester les ancrages sur le mannequin de référence et valider les
+     permissions des ressources pour les collaborateurs de l’expérience.
+     Vérifier le dégagement en marche, en course et avec une pioche tirée.
+  3. Choisir le visage classique et arrêter la règle de teinte de peau.
+     Tester le contraste de la lampe et de la tenue sous l’éclairage de la
+     mine et de la taverne, puis vérifier chaque équipement en situation.
+
+Application automatique envisagée
+
+  1. Préparer côté serveur un HumanoidDescription de base R15 avec les IDs des
+     vêtements et du casque, les échelles ci-dessus et éventuellement le seul
+     choix de teinte du joueur. Incorporer la mini-pioche via un Accessory de
+     taille rigide. Tester le réglage de l’expérience sur R15 standard.
+  2. Unifier à terme le spawn de la carte générée et celui de la carte figée.
+     Attendre MondeConstruit et déclencher une seule création par apparition
+     ou réapparition via Player:LoadCharacterWithHumanoidDescriptionAsync.
+     Prévoir un repli vers le spawn standard si les ressources de tenue sont
+     indisponibles. Vérifier l’ordre d’arrivée, mort et réapparition.
+  3. Laisser le système d’inventaire rétablir les visuels d’équipement après
+     l’initialisation de ce personnage. Garder la description réservée à
+     la création du personnage. Le masque de chapeaux d’EquipementVisuel
+     doit cacher le casque de mineur et sa lampe quand une armure de tête
+     est équipée, puis les restaurer au retrait. Tester aussi la ceinture
+     avec les plastrons et la vraie pioche au dos et en main. Si nécessaire,
+     masquer uniquement la mini-pioche cosmétique pendant le port du plastron
+     qui la recouvre.
+
+Repères dans le projet
+
+  Spawn et état de la carte       src/server/Monde.server.lua
+  Application et retrait armure  src/server/EquipementVisuel.lua
+  Profil et actualisation        src/server/Sac.server.lua
+  Pioche jouable au dos           src/server/PiocheDos.server.lua
+  Direction visuelle             DIRECTION_ARTISTIQUE.md, src/monde/Outils.lua,
+                                 src/client/DecorTaverne.lua
+
+Documentation Roblox pour la mise en œuvre
+
+  Apparence du personnage
+  https://create.roblox.com/docs/characters/appearance
+
+  Création par HumanoidDescription
+  https://create.roblox.com/docs/reference/engine/classes/Player#LoadCharacterWithHumanoidDescriptionAsync
