@@ -359,7 +359,7 @@ local titre = texte({Text = "INVENTAIRE", Font = Enum.Font.Fantasy, TextXAlignme
 UI.dore(titre, 1.5)
 local sousTitre = texte({Font = Enum.Font.GothamBold, TextColor3 = DISCRET, TextXAlignment = Enum.TextXAlignment.Left,
 	Position = UDim2.fromScale(0.036, 0.096), Size = UDim2.fromScale(0.45, 0.03), Parent = fenetre}, 15)
-local aideTouches = texte({Text = "[B] fermer", Font = Enum.Font.GothamBold, TextColor3 = DISCRET, TextTransparency = 0.35,
+local aideTouches = texte({Text = "[Échap] fermer", Font = Enum.Font.GothamBold, TextColor3 = DISCRET, TextTransparency = 0.35,
 	TextXAlignment = Enum.TextXAlignment.Right, AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.fromScale(0.925, 0.075),
 	Size = UDim2.fromScale(0.2, 0.03), Parent = fenetre}, 13)
 aideTouches.Visible = not UserInputService.TouchEnabled
@@ -1630,41 +1630,24 @@ end
 
 boutonSac.Activated:Connect(function()
 	UI.gerbe(socle, T.Or, 8, Vector2.new(0.5, 0.4))
-	basculer(not ouverte)
+	basculer(true)
+end)
+-- Seuls la croix et la touche Échap ferment le sac : un clic dehors, B ou un équipement ne le ferment jamais.
+-- Échap ouvre aussi le menu Roblox, qui peut capter la touche : MenuOpened sert de relais.
+GuiService.MenuOpened:Connect(function()
+	basculer(false)
 end)
 fermer.Activated:Connect(function()
 	jouer("clic", 0.9)
 	basculer(false)
 end)
--- Fermeture par le voile : seulement un clic simple commencé ET fini hors de la fenêtre (jamais la fin d'un glisser)
-local appuiDehors: Vector3? = nil
-local function horsFenetre(p: Vector3): boolean
-	local a, t = fenetre.AbsolutePosition, fenetre.AbsoluteSize
-	local inset = if gui.IgnoreGuiInset then GuiService:GetGuiInset() else Vector2.zero
-	local x, y = p.X + inset.X, p.Y + inset.Y
-	return x < a.X or y < a.Y or x > a.X + t.X or y > a.Y + t.Y
-end
-UserInputService.InputBegan:Connect(function(input)
-	if ouverte and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-		appuiDehors = if horsFenetre(input.Position) and not glisse then input.Position else nil
-	end
-end)
-UserInputService.InputEnded:Connect(function(input)
-	local depart = appuiDehors
-	if depart and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-		appuiDehors = nil
-		if ouverte and not glisse and horsFenetre(input.Position) and (input.Position - depart).Magnitude < 12 then
-			basculer(false)
-		end
-	end
-end)
 UserInputService.InputBegan:Connect(function(input, traite)
-	if input.KeyCode == TOUCHE and not traite then
-		basculer(not ouverte)
+	if input.KeyCode == Enum.KeyCode.Escape then
+		basculer(false)
+	elseif input.KeyCode == TOUCHE and not traite then
+		basculer(true)
 	elseif not ouverte then
 		return
-	elseif input.KeyCode == Enum.KeyCode.ButtonB then
-		basculer(false)
 	elseif input.KeyCode == Enum.KeyCode.ButtonL1 or input.KeyCode == Enum.KeyCode.ButtonR1 then
 		local i = 1
 		for k, c in CATEGORIES do
