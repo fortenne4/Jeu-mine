@@ -11,6 +11,11 @@
 		4 CasqueFer, 5 CasqueCharbonFer, 6 CasqueBronzeFer, 7 CasqueOr, 8 CasqueCharbonOr, 9 CasqueBronzeOr, 10 CasqueFerOr.
 		Lumieres (PointLight / SpotLight) et Particules (ParticleEmitter discret) déclarées dans chaque module.
 		Lueur.Piece (optionnel, format voxel) = nom de la pièce qui porte la PointLight (défaut "Cristal").
+		Casques des minerais (Format = "Code", Parts construites en jeu, aucun asset importé), générés par
+		blender/armes/casques_minerais.py d'après previews/minerais/maquette-casques-epees.png (aperçus :
+		previews/armes/casques_minerais/) : CasqueQuartz, CasqueSoufre, CasqueArgent, CasqueObsidienne,
+		CasqueGivrite, CasqueEmeraude, CasqueRubis, CasqueLunarite, CasqueMagmaite, CasqueDiamant,
+		CasqueOrichalque, CasqueNeantite.
 
 	construire(id, teinte?, tailleTete?) : tailleTete = taille visuelle de la tête (Vector3) ; le modèle est mis à
 		l'échelle (Model:ScaleTo) par rapport à la tête R15 de référence 1.2 stud. Omis = taille 1.2.

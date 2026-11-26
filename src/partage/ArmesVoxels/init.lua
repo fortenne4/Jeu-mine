@@ -29,6 +29,11 @@ local MATERIAUX: { [string]: Enum.Material } = {
 	Wood = Enum.Material.Wood,
 	Neon = Enum.Material.Neon,
 	SmoothPlastic = Enum.Material.SmoothPlastic,
+	Glass = Enum.Material.Glass,
+	Ice = Enum.Material.Ice,
+	Slate = Enum.Material.Slate,
+	Basalt = Enum.Material.Basalt,
+	Sandstone = Enum.Material.Sandstone,
 }
 
 type Donnees = {
@@ -38,6 +43,8 @@ type Donnees = {
 	TrailA: Vector3,
 	TrailB: Vector3,
 	Lueur: { Couleur: Color3, Portee: number, Luminosite: number }?,
+	-- facultatif : étincelles discrètes émises par la Lame (texture Roblox intégrée, visible par tous)
+	Particules: { Couleur: Color3, Taux: number, Taille: number }?,
 }
 
 -------------------------------------------------------------------- épées mesh (fidèles à la référence)
@@ -245,11 +252,18 @@ function ArmesVoxels.construire(id: string): Model
 	local pieces: { BasePart } = {}
 	for _, pc in d.Pieces do
 		local nom: string, cle: string, taille: Vector3, pos: Vector3, rotY: number = pc[1], pc[2], pc[3], pc[4], pc[5]
+		-- facultatifs : pc[6] = rotation Z (degrés, dans le plan de la lame, appliquée après rotY),
+		-- pc[7] = forme ("Coin" = WedgePart, "Boule" = sphère)
+		local rotZ: number = pc[6] or 0
+		local forme: string? = pc[7]
 		local c = d.Couleurs[cle]
-		local p = Instance.new("Part")
+		local p: BasePart = if forme == "Coin" then Instance.new("WedgePart") else Instance.new("Part")
+		if forme == "Boule" then
+			(p :: Part).Shape = Enum.PartType.Ball
+		end
 		p.Name = nom
 		p.Size = taille
-		p.CFrame = CFrame.new(pos) * CFrame.Angles(0, math.rad(rotY or 0), 0)
+		p.CFrame = CFrame.new(pos) * CFrame.Angles(0, 0, math.rad(rotZ)) * CFrame.Angles(0, math.rad(rotY or 0), 0)
 		p.Color = Color3.fromRGB(c[2], c[3], c[4])
 		p.Material = MATERIAUX[c[1]] or Enum.Material.SmoothPlastic
 		p.Reflectance = c[5] or 0
@@ -291,6 +305,24 @@ function ArmesVoxels.construire(id: string): Model
 	b.Name = "TrailB"
 	b.CFrame = lame.CFrame:Inverse() * CFrame.new(d.TrailB)
 	b.Parent = lame
+	if d.Particules then
+		local e = Instance.new("ParticleEmitter")
+		e.Name = "Etincelles"
+		e.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		e.Color = ColorSequence.new(d.Particules.Couleur)
+		e.LightEmission = 1
+		e.Rate = d.Particules.Taux
+		e.Lifetime = NumberRange.new(0.5, 1.1)
+		e.Speed = NumberRange.new(0.2, 0.6)
+		e.SpreadAngle = Vector2.new(180, 180)
+		e.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(0.4, d.Particules.Taille),
+			NumberSequenceKeypoint.new(1, 0),
+		})
+		e.Transparency = NumberSequence.new(0.2)
+		e.Parent = lame
+	end
 	return modele
 end
 

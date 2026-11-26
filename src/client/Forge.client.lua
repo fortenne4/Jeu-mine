@@ -293,11 +293,21 @@ local annulerChoix = bouton({Text = "Annuler", AnchorPoint = Vector2.new(1, 0), 
 	Size = UDim2.fromScale(0.25, 0.11), ZIndex = 11, Parent = panneauChoix}, 18)
 local listeChoix = creer("ScrollingFrame", {Position = UDim2.fromScale(0, 0.14), Size = UDim2.fromScale(1, 0.86),
 	BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 5, ScrollBarImageColor3 = T.OrFonce,
-	CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y,
+	CanvasSize = UDim2.new(), ScrollingDirection = Enum.ScrollingDirection.Y,
 	ZIndex = 11, Parent = panneauChoix}, {
 	creer("UIListLayout", {Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center}),
 	creer("UIPadding", {PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4)}),
 })
+-- Hauteur défilable calculée sur la vraie taille des lignes (le UIAspectRatioConstraint les agrandit :
+-- AutomaticCanvasSize se trompait et coupait le bas de la liste, les minerais rares n'étaient plus atteignables)
+do
+	local disposition = listeChoix:FindFirstChildOfClass("UIListLayout") :: UIListLayout
+	local function majCanevas()
+		listeChoix.CanvasSize = UDim2.fromOffset(0, disposition.AbsoluteContentSize.Y + 16)
+	end
+	disposition:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(majCanevas)
+	majCanevas()
+end
 
 -- ================= État =================
 local etat: Etat = {minerais = {}, objets = {}}

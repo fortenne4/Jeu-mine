@@ -1,0 +1,48 @@
+-- Généré par blender/armes/epees_minerais.py (EpeeQuartz, 26 pièces). Ne pas modifier à la main.
+-- Reproduit l'épée « Épée de quartz » de previews/minerais/maquette-casques-epees.png.
+-- Repère = Poignee : origine au centre de la prise, lame vers +Y, unités = studs.
+return {
+	Nom = "Épée de quartz",
+	Couleurs = {
+		["quartz"] = {"SmoothPlastic", 214, 188, 200, 0.05},
+		["quartzC"] = {"SmoothPlastic", 238, 220, 229, 0.05},
+		["quartzF"] = {"SmoothPlastic", 190, 160, 176, 0},
+		["arete"] = {"SmoothPlastic", 250, 242, 246, 0},
+		["pierre"] = {"Slate", 132, 112, 112, 0},
+		["pierreC"] = {"Slate", 156, 136, 134, 0},
+		["pierreF"] = {"Slate", 98, 82, 84, 0},
+		["cuir"] = {"Fabric", 82, 52, 40, 0},
+		["lien"] = {"Fabric", 132, 84, 62, 0},
+	},
+	-- nom, couleur, taille, position, rotation Y, [rotation Z, forme]
+	Pieces = {
+		{"Lame", "quartz", Vector3.new(0.54, 1.8, 0.144), Vector3.new(0, 1.512, 0), 0},
+		{"Facette", "quartzC", Vector3.new(0.27, 1.8, 0.162), Vector3.new(-0.135, 1.512, 0), 0},
+		{"Arete", "arete", Vector3.new(0.045, 1.8, 0.18), Vector3.new(0, 1.512, 0), 0},
+		{"Pointe", "quartzC", Vector3.new(0.144, 0.558, 0.27), Vector3.new(-0.135, 2.691, 0), 90, 0, "Coin"},
+		{"Pointe", "quartz", Vector3.new(0.144, 0.558, 0.27), Vector3.new(0.135, 2.691, 0), -90, 0, "Coin"},
+		{"Facette", "quartzF", Vector3.new(0.393, 0.027, 0.171), Vector3.new(0.149, 1.238, 0), 0, 56.689},
+		{"Facette", "quartzF", Vector3.new(0.356, 0.027, 0.171), Vector3.new(-0.149, 1.98, 0), 0, 52.524},
+		{"Garde", "pierre", Vector3.new(1.17, 0.216, 0.288), Vector3.new(0, 0.504, 0), 0},
+		{"Garde", "pierreC", Vector3.new(1.17, 0.054, 0.306), Vector3.new(0, 0.594, 0), 0},
+		{"Garde", "pierreF", Vector3.new(0.09, 0.09, 0.324), Vector3.new(0, 0.495, 0), 0, 45},
+		{"Garde", "pierreF", Vector3.new(0.144, 0.306, 0.324), Vector3.new(0.63, 0.504, 0), 0},
+		{"Garde", "pierreF", Vector3.new(0.324, 0.054, 0.144), Vector3.new(0.63, 0.684, 0), -90, 0, "Coin"},
+		{"Garde", "pierreF", Vector3.new(0.144, 0.306, 0.324), Vector3.new(-0.63, 0.504, 0), 0},
+		{"Garde", "pierreF", Vector3.new(0.324, 0.054, 0.144), Vector3.new(-0.63, 0.684, 0), 90, 0, "Coin"},
+		{"Poignee", "cuir", Vector3.new(0.234, 0.756, 0.234), Vector3.new(0, 0.018, 0), 0},
+		{"Lien", "lien", Vector3.new(0.279, 0.068, 0.279), Vector3.new(0, -0.266, 0), 0, 22},
+		{"Lien", "lien", Vector3.new(0.279, 0.068, 0.279), Vector3.new(0, -0.076, 0), 0, 22},
+		{"Lien", "lien", Vector3.new(0.279, 0.068, 0.279), Vector3.new(0, 0.113, 0), 0, 22},
+		{"Lien", "lien", Vector3.new(0.279, 0.068, 0.279), Vector3.new(0, 0.302, 0), 0, 22},
+		{"Pommeau", "pierreF", Vector3.new(0.27, 0.09, 0.27), Vector3.new(0, -0.405, 0), 0},
+		{"Gemme", "quartzC", Vector3.new(0.216, 0.18, 0.288), Vector3.new(-0.108, -0.666, 0), 0},
+		{"Gemme", "quartz", Vector3.new(0.216, 0.18, 0.288), Vector3.new(0.108, -0.666, 0), 0},
+		{"Gemme", "quartzC", Vector3.new(0.288, 0.144, 0.216), Vector3.new(-0.108, -0.504, 0), 90, 0, "Coin"},
+		{"Gemme", "quartz", Vector3.new(0.288, 0.144, 0.216), Vector3.new(0.108, -0.504, 0), -90, 0, "Coin"},
+		{"Gemme", "quartzC", Vector3.new(0.288, 0.198, 0.216), Vector3.new(-0.108, -0.855, 0), -90, -180, "Coin"},
+		{"Gemme", "quartz", Vector3.new(0.288, 0.198, 0.216), Vector3.new(0.108, -0.855, 0), 90, -180, "Coin"},
+	},
+	TrailA = Vector3.new(0, 0.72, 0),
+	TrailB = Vector3.new(0, 2.925, 0),
+}

@@ -35,8 +35,8 @@ Forge.MINERAIS = {
 	Gold = {id = "Gold", rang = 4, nom = "Or", mat = "or", couleur = Color3.fromRGB(255, 196, 48), force = 11},
 } :: {[string]: Minerai}
 
--- Nouveaux minerais de la mine privée (Partage › MineraisPropositions) : au sac et vendables chez Gaspard,
--- mais PAS encore forgeables (forgeable = false, refusés par Forge.calculer ; absents de ORDRE_MINERAIS).
+-- Nouveaux minerais de la mine privée (Partage › MineraisPropositions) : au sac et vendables chez Gaspard ;
+-- forgeable = false par défaut (refusés par Forge.calculer), levé plus bas pour ceux de FORGEABLES_PROFONDS.
 -- ORDRE_SAC = tous les minerais du sac (sac, comptoir de Gaspard), du plus commun au plus rare.
 Forge.ORDRE_SAC = table.clone(Forge.ORDRE_MINERAIS)
 do
@@ -49,14 +49,17 @@ do
 	end
 end
 
--- Minerais de la mine privée devenus forgeables (butin du Léviathan des abysses, palier 7 −900 m, et minés là-bas) :
--- force = qualité par unité (Or = 11). ORDRE_FORGE = minerais proposés dans la forge de Brom (4 de départ + ceux-ci).
--- Épée / Casque : seulement par leur échelle (rang « des marées » plus bas) ; Plastron / Jambières : alliages libres.
-Forge.FORGEABLES_PROFONDS = {Lunarite = 16, Magmaite = 19} :: {[string]: number}
+-- Minerais de la mine privée devenus forgeables : force = qualité par unité (Or = 11), croissante avec le prix.
+-- ORDRE_FORGE = minerais proposés dans la forge de Brom (4 de départ + ceux-ci).
+-- Épée / Casque : seulement par leur échelle (2 du même minerai, ou lunarite + magmaïte) ; Plastron / Jambières : alliages libres.
+Forge.FORGEABLES_PROFONDS = {
+	Soufre = 2.5, Quartz = 4.5, Argent = 8, Obsidienne = 9, Givrite = 10, Emeraude = 12.5,
+	Rubis = 13.5, Lunarite = 16, Magmaite = 19, Diamant = 23, Orichalque = 26, Neantite = 29,
+} :: {[string]: number}
 Forge.ORDRE_FORGE = table.clone(Forge.ORDRE_MINERAIS)
-for _, id in {"Lunarite", "Magmaite"} do
+for _, id in Forge.ORDRE_SAC do
 	local m = Forge.MINERAIS[id] :: any
-	if m then
+	if m and Forge.FORGEABLES_PROFONDS[id] then
 		m.force, m.forgeable = Forge.FORGEABLES_PROFONDS[id], nil
 		table.insert(Forge.ORDRE_FORGE, id)
 	end
@@ -71,43 +74,70 @@ Forge.TYPES = {
 } :: {[string]: TypeObjet}
 
 -- Échelles de pièces nommées (1 ou 2 minerais, proportions libres) : remplacent les alliages pour ce type.
--- valeur = base × min(bonus quantité × bonus proportion, FACTEUR_MAX), toujours < base du rang suivant
+-- valeur = base × min(bonus quantité × bonus proportion, FACTEUR_MAX), toujours < base strictement supérieure suivante.
+-- rang = position après tri par base (calculé au chargement, jamais sauvegardé : Donnees le redéduit du modèle).
 export type Palier = {rang: number, minerais: {string}, dominant: string?, modele: string, nom: string, base: number, cout: number, rarete: string}
 Forge.BONUS_QTE = 0.3 -- +30 % au maximum de minerais
 Forge.BONUS_PROPORTION = 0.1 -- ±10 % selon la part du minerai le plus fort (duo)
 Forge.FACTEUR_MAX = 1.35 -- floor(base × 1.35) < base suivante (vérifié + écrêté)
 Forge.ECHELLES = {
 	Casque = {
-		{rang = 1, minerais = {"Charbon"}, modele = "CasqueCharbon", nom = "Casque de charbon", base = 8, cout = 20, rarete = "Commun"},
-		{rang = 2, minerais = {"Bronze"}, modele = "CasqueBronze", nom = "Casque de bronze", base = 11, cout = 35, rarete = "Commun"},
-		{rang = 3, minerais = {"Charbon", "Bronze"}, modele = "CasqueCharbonBronze", nom = "Casque de charbon et bronze", base = 15, cout = 55, rarete = "Peu commun"},
-		{rang = 4, minerais = {"Fer"}, modele = "CasqueFer", nom = "Casque de fer", base = 21, cout = 80, rarete = "Peu commun"},
-		{rang = 5, minerais = {"Charbon", "Fer"}, modele = "CasqueCharbonFer", nom = "Casque de charbon et fer", base = 29, cout = 110, rarete = "Rare"},
-		{rang = 6, minerais = {"Bronze", "Fer"}, modele = "CasqueBronzeFer", nom = "Casque de bronze et fer", base = 40, cout = 150, rarete = "Rare"},
-		{rang = 7, minerais = {"Gold"}, modele = "CasqueOr", nom = "Casque d'or", base = 55, cout = 200, rarete = "Légendaire"},
-		{rang = 8, minerais = {"Charbon", "Gold"}, modele = "CasqueCharbonOr", nom = "Casque de charbon et or", base = 75, cout = 260, rarete = "Légendaire"},
-		{rang = 9, minerais = {"Bronze", "Gold"}, modele = "CasqueBronzeOr", nom = "Casque de bronze et or", base = 102, cout = 330, rarete = "Mythique"},
-		{rang = 10, minerais = {"Fer", "Gold"}, modele = "CasqueFerOr", nom = "Casque de fer et or", base = 138, cout = 420, rarete = "Divin"},
+		{minerais = {"Charbon"}, modele = "CasqueCharbon", nom = "Casque de charbon", base = 8, cout = 20, rarete = "Commun"},
+		{minerais = {"Bronze"}, modele = "CasqueBronze", nom = "Casque de bronze", base = 11, cout = 35, rarete = "Commun"},
+		{minerais = {"Charbon", "Bronze"}, modele = "CasqueCharbonBronze", nom = "Casque de charbon et bronze", base = 15, cout = 55, rarete = "Peu commun"},
+		{minerais = {"Fer"}, modele = "CasqueFer", nom = "Casque de fer", base = 21, cout = 80, rarete = "Peu commun"},
+		{minerais = {"Charbon", "Fer"}, modele = "CasqueCharbonFer", nom = "Casque de charbon et fer", base = 29, cout = 110, rarete = "Rare"},
+		{minerais = {"Bronze", "Fer"}, modele = "CasqueBronzeFer", nom = "Casque de bronze et fer", base = 40, cout = 150, rarete = "Rare"},
+		{minerais = {"Gold"}, modele = "CasqueOr", nom = "Casque d'or", base = 55, cout = 200, rarete = "Légendaire"},
+		{minerais = {"Charbon", "Gold"}, modele = "CasqueCharbonOr", nom = "Casque de charbon et or", base = 75, cout = 260, rarete = "Légendaire"},
+		{minerais = {"Bronze", "Gold"}, modele = "CasqueBronzeOr", nom = "Casque de bronze et or", base = 102, cout = 330, rarete = "Mythique"},
+		{minerais = {"Fer", "Gold"}, modele = "CasqueFerOr", nom = "Casque de fer et or", base = 138, cout = 420, rarete = "Divin"},
 		-- butin du Léviathan des abysses (1 lunarite + 1 magmaïte = le minimum pour un casque)
-		{rang = 11, minerais = {"Lunarite", "Magmaite"}, modele = "CasqueMarees", nom = "Heaume des marées", base = 190, cout = 520, rarete = "Divin"},
+		{minerais = {"Lunarite", "Magmaite"}, modele = "CasqueMarees", nom = "Heaume des marées", base = 190, cout = 520, rarete = "Divin"},
+		-- 2 du même minerai de la mine privée (même base qu'un palier existant, ou au-dessus des marées)
+		{minerais = {"Soufre"}, modele = "CasqueSoufre", nom = "Casque de soufre", base = 11, cout = 35, rarete = "Commun"},
+		{minerais = {"Quartz"}, modele = "CasqueQuartz", nom = "Casque de quartz", base = 15, cout = 55, rarete = "Peu commun"},
+		{minerais = {"Argent"}, modele = "CasqueArgent", nom = "Casque d'argent", base = 21, cout = 80, rarete = "Peu commun"},
+		{minerais = {"Obsidienne"}, modele = "CasqueObsidienne", nom = "Casque d'obsidienne", base = 29, cout = 110, rarete = "Rare"},
+		{minerais = {"Givrite"}, modele = "CasqueGivrite", nom = "Casque de givrite", base = 40, cout = 150, rarete = "Rare"},
+		{minerais = {"Emeraude"}, modele = "CasqueEmeraude", nom = "Casque d'émeraude", base = 55, cout = 200, rarete = "Légendaire"},
+		{minerais = {"Rubis"}, modele = "CasqueRubis", nom = "Casque de rubis", base = 75, cout = 260, rarete = "Légendaire"},
+		{minerais = {"Lunarite"}, modele = "CasqueLunarite", nom = "Casque de lunarite", base = 102, cout = 330, rarete = "Mythique"},
+		{minerais = {"Magmaite"}, modele = "CasqueMagmaite", nom = "Casque de magmaïte", base = 138, cout = 420, rarete = "Divin"},
+		{minerais = {"Diamant"}, modele = "CasqueDiamant", nom = "Casque de diamant", base = 190, cout = 520, rarete = "Divin"},
+		{minerais = {"Orichalque"}, modele = "CasqueOrichalque", nom = "Casque d'orichalque", base = 257, cout = 650, rarete = "Divin"},
+		{minerais = {"Neantite"}, modele = "CasqueNeantite", nom = "Casque de néantite", base = 347, cout = 800, rarete = "Divin"},
 	},
 	-- Charbon + Bronze : deux modèles selon le minerai dominant (voir Forge.dominant)
 	Epee = {
-		{rang = 1, minerais = {"Charbon"}, modele = "EpeeCharbon", nom = "Épée de charbon", base = 10, cout = 25, rarete = "Commun"},
-		{rang = 2, minerais = {"Bronze"}, modele = "EpeeBronze", nom = "Épée de bronze", base = 14, cout = 40, rarete = "Commun"},
-		{rang = 3, minerais = {"Charbon", "Bronze"}, dominant = "Charbon", modele = "EpeeCharbonBronze", nom = "Épée de charbon et bronze", base = 19, cout = 55, rarete = "Peu commun"},
-		{rang = 4, minerais = {"Charbon", "Bronze"}, dominant = "Bronze", modele = "EpeeBronzeCharbon", nom = "Épée de bronze et charbon", base = 26, cout = 70, rarete = "Peu commun"},
-		{rang = 5, minerais = {"Fer"}, modele = "EpeeFerPur", nom = "Épée de fer pur", base = 36, cout = 95, rarete = "Peu commun"},
-		{rang = 6, minerais = {"Charbon", "Fer"}, modele = "EpeeCharbonFer", nom = "Épée de charbon et fer", base = 49, cout = 130, rarete = "Rare"},
-		{rang = 7, minerais = {"Bronze", "Fer"}, modele = "EpeeBronzeFer", nom = "Épée de bronze et fer", base = 67, cout = 175, rarete = "Rare"},
-		{rang = 8, minerais = {"Gold"}, modele = "EpeeOr", nom = "Épée d'or", base = 91, cout = 230, rarete = "Légendaire"},
-		{rang = 9, minerais = {"Charbon", "Gold"}, modele = "EpeeCharbonOr", nom = "Épée de charbon et or", base = 124, cout = 300, rarete = "Légendaire"},
-		{rang = 10, minerais = {"Bronze", "Gold"}, modele = "EpeeBronzeOr", nom = "Épée de bronze et or", base = 169, cout = 380, rarete = "Mythique"},
-		{rang = 11, minerais = {"Fer", "Gold"}, modele = "EpeeFerOr", nom = "Épée de fer et or", base = 230, cout = 480, rarete = "Divin"},
+		{minerais = {"Charbon"}, modele = "EpeeCharbon", nom = "Épée de charbon", base = 10, cout = 25, rarete = "Commun"},
+		{minerais = {"Bronze"}, modele = "EpeeBronze", nom = "Épée de bronze", base = 14, cout = 40, rarete = "Commun"},
+		{minerais = {"Charbon", "Bronze"}, dominant = "Charbon", modele = "EpeeCharbonBronze", nom = "Épée de charbon et bronze", base = 19, cout = 55, rarete = "Peu commun"},
+		{minerais = {"Charbon", "Bronze"}, dominant = "Bronze", modele = "EpeeBronzeCharbon", nom = "Épée de bronze et charbon", base = 26, cout = 70, rarete = "Peu commun"},
+		{minerais = {"Fer"}, modele = "EpeeFerPur", nom = "Épée de fer pur", base = 36, cout = 95, rarete = "Peu commun"},
+		{minerais = {"Charbon", "Fer"}, modele = "EpeeCharbonFer", nom = "Épée de charbon et fer", base = 49, cout = 130, rarete = "Rare"},
+		{minerais = {"Bronze", "Fer"}, modele = "EpeeBronzeFer", nom = "Épée de bronze et fer", base = 67, cout = 175, rarete = "Rare"},
+		{minerais = {"Gold"}, modele = "EpeeOr", nom = "Épée d'or", base = 91, cout = 230, rarete = "Légendaire"},
+		{minerais = {"Charbon", "Gold"}, modele = "EpeeCharbonOr", nom = "Épée de charbon et or", base = 124, cout = 300, rarete = "Légendaire"},
+		{minerais = {"Bronze", "Gold"}, modele = "EpeeBronzeOr", nom = "Épée de bronze et or", base = 169, cout = 380, rarete = "Mythique"},
+		{minerais = {"Fer", "Gold"}, modele = "EpeeFerOr", nom = "Épée de fer et or", base = 230, cout = 480, rarete = "Divin"},
 		-- butin du Léviathan des abysses (1 lunarite + 1 magmaïte = le minimum pour une épée)
-		{rang = 12, minerais = {"Lunarite", "Magmaite"}, modele = "EpeeMarees", nom = "Lame des marées", base = 315, cout = 600, rarete = "Divin"},
+		{minerais = {"Lunarite", "Magmaite"}, modele = "EpeeMarees", nom = "Lame des marées", base = 315, cout = 600, rarete = "Divin"},
+		-- 2 du même minerai de la mine privée (même base qu'un palier existant, ou au-dessus des marées)
+		{minerais = {"Soufre"}, modele = "EpeeSoufre", nom = "Épée de soufre", base = 14, cout = 40, rarete = "Commun"},
+		{minerais = {"Quartz"}, modele = "EpeeQuartz", nom = "Épée de quartz", base = 19, cout = 55, rarete = "Peu commun"},
+		{minerais = {"Argent"}, modele = "EpeeArgent", nom = "Épée d'argent", base = 36, cout = 95, rarete = "Peu commun"},
+		{minerais = {"Obsidienne"}, modele = "EpeeObsidienne", nom = "Épée d'obsidienne", base = 49, cout = 130, rarete = "Rare"},
+		{minerais = {"Givrite"}, modele = "EpeeGivrite", nom = "Épée de givrite", base = 67, cout = 175, rarete = "Rare"},
+		{minerais = {"Emeraude"}, modele = "EpeeEmeraude", nom = "Épée d'émeraude", base = 91, cout = 230, rarete = "Légendaire"},
+		{minerais = {"Rubis"}, modele = "EpeeRubis", nom = "Épée de rubis", base = 124, cout = 300, rarete = "Légendaire"},
+		{minerais = {"Lunarite"}, modele = "EpeeLunarite", nom = "Épée de lunarite", base = 169, cout = 380, rarete = "Mythique"},
+		{minerais = {"Magmaite"}, modele = "EpeeMagmaite", nom = "Épée de magmaïte", base = 230, cout = 480, rarete = "Divin"},
+		{minerais = {"Diamant"}, modele = "EpeeDiamant", nom = "Épée de diamant", base = 315, cout = 600, rarete = "Divin"},
+		{minerais = {"Orichalque"}, modele = "EpeeOrichalque", nom = "Épée d'orichalque", base = 426, cout = 750, rarete = "Divin"},
+		{minerais = {"Neantite"}, modele = "EpeeNeantite", nom = "Épée de néantite", base = 576, cout = 900, rarete = "Divin"},
 	},
-} :: {[string]: {Palier}}
+} :: any -- {[string]: {Palier}} (rang ajouté ci-dessous)
 
 -- Épée de base donnée à tout joueur sans épée forgée équipée (Epee.server.lua)
 Forge.EPEE_BASE = {modele = "EpeeFer", nom = "Épée de fer", valeur = 6}
@@ -133,11 +163,27 @@ end
 
 local parCle: {[string]: {[string]: Palier}} = {}
 local parModele: {[string]: Palier} = {}
+local plafonds: {[Palier]: number} = {}
 for typeId, echelle in Forge.ECHELLES do
+	local ordre = {}
+	for i, p in echelle do
+		ordre[p] = i
+	end
+	table.sort(echelle, function(a, b)
+		return if a.base ~= b.base then a.base < b.base else ordre[a] < ordre[b]
+	end)
 	parCle[typeId] = {}
-	for _, p in echelle do
+	for i, p in echelle do
+		p.rang = i
 		parCle[typeId][cleMinerais(p.minerais, p.dominant)] = p
 		parModele[p.modele] = p
+		for j = i + 1, #echelle do
+			if echelle[j].base > p.base then
+				plafonds[p] = echelle[j].base - 1
+				assert(math.floor(p.base * Forge.FACTEUR_MAX) <= plafonds[p], "[Forge] base trop proche : " .. p.modele)
+				break
+			end
+		end
 	end
 end
 
@@ -300,8 +346,7 @@ function Forge.calculer(typeId: any, composition: any): (Resultat?, string?)
 			local fort = if Forge.MINERAIS[a[1]].rang > Forge.MINERAIS[c[1]].rang then a else c
 			m = 1 + Forge.BONUS_PROPORTION * (2 * fort[2] / total - 1)
 		end
-		local suivant = echelle[p.rang + 1]
-		local valeur = math.floor(p.base * math.min(q * m, Forge.FACTEUR_MAX))
+		local valeur = math.min(math.floor(p.base * math.min(q * m, Forge.FACTEUR_MAX)), plafonds[p] or math.huge)
 		return {
 			type = t.id,
 			nom = nomAffiche(p),
@@ -309,7 +354,7 @@ function Forge.calculer(typeId: any, composition: any): (Resultat?, string?)
 			rang = p.rang,
 			couleur = couleur,
 			stat = t.stat,
-			valeur = if suivant then math.min(valeur, suivant.base - 1) else valeur,
+			valeur = valeur,
 			total = total,
 			prix = p.cout + total * Forge.FRAIS_PAR_MINERAI,
 			composition = liste,

@@ -1,6 +1,6 @@
 -- Nouveaux minerais (ReplicatedStorage › Partage › MineraisPropositions).
 -- Minables dans la mine privée seulement (couches de Partage › CouchesMine), vendables chez Gaspard (PrixMinerais),
--- pas encore forgeables (Forge.MINERAIS : forgeable = false). Exposés aussi dans la vitrine de la plaine des mobs.
+-- forgeables chez Brom (Forge.FORGEABLES_PROFONDS : 2 du même minerai = casque / épée). Exposés aussi dans la vitrine de la plaine des mobs.
 -- Même format que MineraisModeles.VISUEL (qui les reprend) + « speciaux » (effets en plus, à partir de la rareté Épique).
 -- Aperçu de travail : previews/minerais/atelier-minerais.html (mêmes valeurs).
 

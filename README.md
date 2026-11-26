@@ -279,12 +279,11 @@ Pour revenir à l'ancien système (Pièces au minage) : `CONFIG.GAIN_DIRECT = tr
 
 Prix de vente (un seul endroit : `src/partage/PrixMinerais.lua`) : Charbon **1**, Bronze **3**, Fer **8**, Or **25** Pièces.
 Nouveaux minerais de la mine privée : Soufre **2**, Quartz **4**, Argent **12**, Obsidienne **18**, Givrite **22**, Émeraude **40**,
-Rubis **45**, Lunarite **75**, Magmaïte **90**, Diamant **150**, Orichalque **200**, Néantite **250**. Ils vont au sac et se vendent
-chez Gaspard, mais **ne se forgent pas encore** (`forgeable = false` dans `Forge.MINERAIS`, hors de `Forge.ORDRE_MINERAIS`),
-sauf la **lunarite** (force 16) et la **magmaïte** (force 19), butin du Léviathan des abysses : elles sont dans la forge de Brom
-(`Forge.ORDRE_FORGE`, `Forge.FORGEABLES_PROFONDS`). Ensemble, elles forgent la **Lame des marées** (épée, rang 12, 315 dégâts
-à 1 + 1, jusqu'à 425) et le **Heaume des marées** (casque, rang 11, défense 190, jusqu'à 256), rareté Divin, sans modèle 3D
-dédié pour l'instant (épée de fer / casque générique teintés ; modèles `EpeeMarees` / `CasqueMarees` à créer).
+Rubis **45**, Lunarite **75**, Magmaïte **90**, Diamant **150**, Orichalque **200**, Néantite **250**. Ils vont au sac, se vendent
+chez Gaspard et **se forgent chez Brom** (`Forge.ORDRE_FORGE`, force dans `Forge.FORGEABLES_PROFONDS`) : voir « Casques et épées
+des minerais de la mine privée » plus bas. La **lunarite** et la **magmaïte** ensemble (butin du Léviathan des abysses) forgent
+la **Lame des marées** (épée, 315 dégâts à 1 + 1, jusqu'à 425) et le **Heaume des marées** (casque, défense 190, jusqu'à 256),
+rareté Divin, sans modèle 3D dédié pour l'instant (épée de fer / casque générique teintés ; modèles `EpeeMarees` / `CasqueMarees` à créer).
 
 Le comptoir : touche **E** (manette X, mobile : toucher l'invite) près de Gaspard. À gauche, les minerais du sac
 (modèle 3D, rareté, stock, prix à l'unité, valeur totale) ; à droite, le minerai choisi avec le choix de la quantité
@@ -324,7 +323,33 @@ Recettes d'épées (`Forge.ECHELLES.Epee` dans `src/partage/Forge.lua`) — dég
 
 Minerai **dominant** = celui en plus grande quantité ; à égalité, le minerai le plus rare (Bronze avant Charbon).
 L'ordre des minerais ne compte pas pour les autres paires (Fer + Charbon = EpeeCharbonFer).
-Les casques suivent la même logique (`Forge.ECHELLES.Casque`, 10 rangs, Défense).
+Les casques suivent la même logique (`Forge.ECHELLES.Casque`, Défense).
+
+### Casques et épées des minerais de la mine privée
+
+**2 du même minerai** (jusqu'à 12 pour +35 %) + des Pièces : 2 quartz → Casque de quartz ou Épée de quartz, etc.
+Modèles `Casque<Id>` (`ArmuresVoxels`) et `Epee<Id>` (`ArmesVoxels`) ; tant qu'un modèle manque, casque générique / épée
+de fer teintés. Chaque pièce prend la base d'un palier existant de même valeur (Soufre = Bronze, Argent = Fer, Émeraude = Or…) ;
+diamant, orichalque et néantite passent au-dessus des marées. Le **rang** affiché est recalculé au chargement en triant par base
+(jamais lu dans la sauvegarde). Mélanger deux minerais de la mine privée (sauf lunarite + magmaïte) ne donne pas d'épée / casque.
+
+| Minerai | Défense casque | Dégâts épée | Rareté (casque / épée) |
+|---|---|---|---|
+| Soufre | 11 | 14 | Commun |
+| Quartz | 15 | 19 | Peu commun |
+| Argent | 21 | 36 | Peu commun |
+| Obsidienne | 29 | 49 | Rare |
+| Givrite | 40 | 67 | Rare |
+| Émeraude | 55 | 91 | Légendaire |
+| Rubis | 75 | 124 | Légendaire |
+| Lunarite | 102 | 169 | Mythique |
+| Magmaïte | 138 | 230 | Divin |
+| Diamant | 190 | 315 | Divin |
+| Orichalque | 257 | 426 | Divin |
+| Néantite | 347 | 576 | Divin |
+
+Valeurs à 2 minerais ; plafond = base × 1,35 sans atteindre le palier suivant (néantite : 468 / 777, sous l'Épée des astres 900).
+Plastrons et jambières acceptent aussi ces minerais (alliages libres, force 2,5 pour le soufre … 29 pour la néantite).
 
 Deux pioches décoratives reprennent les couleurs des épées extérieures du râtelier mural de la forge. Leur position et leur échelle sont réglables en tête de `src/server/PiochesMurales.server.lua`.
 Les pioches sont fixées à l'intérieur des bords du mur. Le dallage rejoint le seuil au niveau de la rue et la toiture à deux pans ménage un passage pour la cheminée.
