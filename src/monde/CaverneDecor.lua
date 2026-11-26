@@ -61,6 +61,29 @@ local function sol(x, z)
 	return if r then r.Position.Y else D.CAVERNE_SOL
 end
 
+local function reglerSonCascade(son: Sound)
+	son.Volume = 0.25
+	son.RollOffMode = Enum.RollOffMode.LinearSquare
+	son.RollOffMinDistance = 12
+	son.RollOffMaxDistance = 82
+end
+
+local function replacerCristalDuBassin(caverne)
+	-- Amas violet presque horizontal dans la paroi, à gauche du point d'eau depuis le ponton.
+	local ancien = Vector3.new(81, -55, -379)
+	for _, objet in caverne:GetChildren() do
+		if objet:IsA("Model") and objet.Name == "Cristal" and objet.PrimaryPart then
+			local coeur = objet.PrimaryPart
+			if (coeur.Position - ancien).Magnitude < 6 and math.abs(coeur.CFrame.UpVector.Y) < 0.5 then
+				local x, z = 79, -384
+				local pied = CFrame.new(x, sol(x, z) - 0.3, z) * CFrame.Angles(math.rad(9), math.rad(-20), math.rad(-7))
+				objet:PivotTo(pied * CFrame.new(0, coeur.Size.Y / 2, 0))
+				return
+			end
+		end
+	end
+end
+
 local function plafond(x, z, y0)
 	local r = workspace:Raycast(Vector3.new(x, y0 + 4, z), Vector3.new(0, 160, 0), params)
 	return r and r.Position.Y
@@ -694,9 +717,7 @@ local function bassin(m, rng)
 	son.Name = "Cascade"
 	son.SoundId = "rbxassetid://9120550180" -- boucle d'eau (déjà utilisée par la cascade du Lac des Lueurs)
 	son.Looped = true
-	son.Volume = 0.5
-	son.RollOffMinDistance = 10
-	son.RollOffMaxDistance = 90
+	reglerSonCascade(son)
 	son.Parent = basK
 	son:Play()
 	O.lumiere(ancre(cascade, cfK * CFrame.new(0, haut / 2, -3), nil, "LueurCascade"), TURQUOISE, 1.2, 24)
@@ -996,9 +1017,19 @@ function CaverneDecor.preparer(mine)
 	local caverne = mine:FindFirstChild("Caverne")
 	if caverne then adoucir(caverne) end
 	local existant = mine:FindFirstChild("DecorCaverne")
-	if existant and existant:GetAttribute("Version") == VERSION then return end
-	if existant then existant:Destroy() end
-	construire(mine)
+	if existant and existant:GetAttribute("Version") == VERSION then
+		local pointEau = existant:FindFirstChild("PointEau")
+		local cascade = pointEau and pointEau:FindFirstChild("Cascade")
+		local remous = cascade and cascade:FindFirstChild("Remous")
+		local son = remous and remous:FindFirstChild("Cascade")
+		if son and son:IsA("Sound") then
+			reglerSonCascade(son)
+		end
+	else
+		if existant then existant:Destroy() end
+		construire(mine)
+	end
+	if caverne then replacerCristalDuBassin(caverne) end
 end
 
 return CaverneDecor
