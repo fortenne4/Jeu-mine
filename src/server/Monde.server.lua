@@ -1,7 +1,18 @@
 -- Construit la carte au lancement du serveur (sauf si elle a déjà été figée dans la place).
 -- Les joueurs n'apparaissent qu'une fois la carte prête.
-local Players = game:GetService("Players")
 local ServerStorage = game:GetService("ServerStorage")
+
+-- Une erreur de décoration sur une carte déjà jouable ne doit pas bloquer l'apparition.
+task.delay(35, function()
+	if workspace:GetAttribute("ApparitionAutorisee") then return end
+	local carte = workspace:FindFirstChild("Carte")
+	local village = carte and carte:FindFirstChild("Village")
+	if village and village:FindFirstChild("Apparitions") then
+		warn("[Monde] Préparation incomplète. Apparitions ouvertes sur le village disponible.")
+		workspace:SetAttribute("MondeConstruit", true)
+		workspace:SetAttribute("ApparitionAutorisee", true)
+	end
+end)
 
 -- Les cartes figées conservent leurs anciennes enseignes : harmoniser uniquement
 -- les textes de surface créés par Outils.texte, sans toucher aux interfaces.
@@ -57,12 +68,11 @@ if carte then
 		end
 		require(monde:WaitForChild("MursInvisibles")).construire(carte)
 		workspace:SetAttribute("MondeConstruit", true)
+		workspace:SetAttribute("ApparitionAutorisee", true)
 		return
 	end
 	print("[Monde] Les modèles 3D ont changé : reconstruction de la carte")
 end
-
-Players.CharacterAutoLoads = false
 
 local Monde = require(ServerStorage:WaitForChild("Monde"))
 local ok, erreur = pcall(Monde.construire)
@@ -81,12 +91,4 @@ if carteConstruite then
 	end
 end
 workspace:SetAttribute("MondeConstruit", true)
-
-Players.CharacterAutoLoads = true
-for _, joueur in Players:GetPlayers() do
-	if not joueur.Character then
-		task.spawn(function()
-			joueur:LoadCharacter()
-		end)
-	end
-end
+workspace:SetAttribute("ApparitionAutorisee", true)

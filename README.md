@@ -35,6 +35,20 @@ Le build de test contient le contenu géré par Rojo. Pour vérifier les modèle
 
 Pour l'analyse Luau, l'[extension officielle de luau-lsp](https://github.com/JohnnyMorganz/luau-lsp#installation) charge les types Roblox et peut utiliser ce `sourcemap.json`. Avec le CLI, utiliser `luau-lsp analyze --platform=roblox --definitions:@roblox=.luau-lsp/globalTypes.d.luau --sourcemap=sourcemap.json src` après avoir téléchargé les [définitions Roblox de la version 1.70.1](https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/1.70.1/scripts/globalTypes.d.luau) dans `.luau-lsp/`.
 
+### Tenue de départ du Mineur du Pic Doré
+
+`src/server/ApparitionMineur.server.lua` crée le personnage R15 standard à la
+connexion et à chaque réapparition, après la préparation de la carte.
+`src/monde/TenueMineur.lua` assemble la salopette ardoise, le casque à lampe
+ambrée, les gants, les bottes et la petite pioche décorative à la hanche gauche.
+Le modèle Blender de `SkinModel3D/FBX/Mineur_Complet.fbx` s’installe dans
+`ServerStorage` sous le nom `MineurDuPicDore3D`. Au spawn, `TenueMineur3D`
+calibre ses 27 MeshParts importées, puis les soude aux segments R15.
+Si ce modèle est absent ou incomplet, la tenue assemblée en jeu sert de repli.
+Le casque de mineur est soudé à la tête. La tenue le masque quand un casque
+d’armure est équipé et le restaure au retrait. La pioche jouable conserve ses visuels au
+dos et en main. La planche de référence est dans `SkinPlans/`.
+
 ### Écran de chargement à la connexion
 
 `src/premier/ChargementJeu.client.lua` (ReplicatedFirst › ChargementJeu) s'affiche dès la connexion, avant le reste du jeu,
