@@ -52,6 +52,36 @@ local ancrages = {
 	["09_Botte_D"] = "RightFoot",
 }
 
+-- Pièces du skin couvertes par chaque emplacement d'armure : elles disparaissent quand l'armure est portée.
+local zones = {
+	Head = "Casque",
+	["02_Visage"] = "Casque",
+	["02_Casque"] = "Casque",
+	["03_Lampe"] = "Casque",
+	UpperTorso = "Plastron",
+	LeftUpperArm = "Plastron",
+	RightUpperArm = "Plastron",
+	["04_Torse_Lin"] = "Plastron",
+	["04_Manche_LeftUpperArm"] = "Plastron",
+	["04_Manche_RightUpperArm"] = "Plastron",
+	["05_Salopette"] = "Plastron",
+	LowerTorso = "Jambieres",
+	["05_Salopette_LowerTorso"] = "Jambieres",
+	["05_Jambe_LeftUpperLeg"] = "Jambieres",
+	["05_Jambe_LeftLowerLeg"] = "Jambieres",
+	["05_Jambe_RightUpperLeg"] = "Jambieres",
+	["05_Jambe_RightLowerLeg"] = "Jambieres",
+	["06_Ceinture"] = "Jambieres",
+	["07_Pioche"] = "Jambieres",
+}
+
+-- Segments du rig R15 réaffichés sous l'armure : les armures sont dessinées pour ces volumes standard.
+TenueMineur3D.PARTIES_ZONE = {
+	Casque = { "Head" },
+	Plastron = { "UpperTorso", "LeftUpperArm", "RightUpperArm" },
+	Jambieres = { "LowerTorso", "LeftUpperLeg", "RightUpperLeg", "LeftLowerLeg", "RightLowerLeg" },
+}
+
 local sourceConnue: Model? = nil
 local modeleCalibre: Model? = nil
 local repereCalibre: CFrame? = nil
@@ -141,6 +171,9 @@ function TenueMineur3D.appliquer(personnage: Model, parties: { [string]: BasePar
 		soudure.Part0 = partie
 		soudure.Part1 = mesh
 		soudure.Parent = mesh
+		if zones[nom] then
+			mesh:SetAttribute("ZoneArmure", zones[nom])
+		end
 		mesh.Parent = if nom == "02_Casque" or nom == "03_Lampe" then casque else tenue
 	end
 	for nom in pivots do
@@ -153,7 +186,7 @@ function TenueMineur3D.appliquer(personnage: Model, parties: { [string]: BasePar
 		end
 	end
 	tenue.Parent = personnage
-	return casque
+	return tenue
 end
 
 return TenueMineur3D

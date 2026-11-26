@@ -205,6 +205,61 @@ local function suivreVisibiliteCasque(personnage: Model, modele: Model)
 	actualiserCasque()
 end
 
+-- Tenue 3D : une armure portée remplace la partie du skin qu'elle couvre. Les pièces du skin de cette zone
+-- disparaissent et les segments du rig réapparaissent dessous, aux volumes pour lesquels l'armure est dessinée.
+local ARMURES = { Casque = "ArmureCasque", Plastron = "ArmurePlastron", Jambieres = "ArmureJambieres" }
+local NOMS_ARMURES = { ArmureCasque = true, ArmurePlastron = true, ArmureJambieres = true }
+-- Les armures des minerais ont une pièce « Dessous » qui a déjà le volume du segment : le segment reste
+-- alors caché, sinon les deux surfaces se superposent et la toile du rig traverse le cuir de l'armure.
+local COUVERTS_PAR_DESSOUS = {
+	Plastron = { UpperTorso = true },
+	Jambieres = { LeftUpperLeg = true, RightUpperLeg = true, LeftLowerLeg = true, RightLowerLeg = true },
+}
+
+local function suivreArmures3D(personnage: Model, tenue: Model, parties: { [string]: BasePart })
+	local pieces: { [string]: { { piece: BasePart, transparence: number } } } = {}
+	for _, element in tenue:GetDescendants() do
+		local zone = element:GetAttribute("ZoneArmure")
+		if element:IsA("BasePart") and type(zone) == "string" then
+			pieces[zone] = pieces[zone] or {}
+			table.insert(pieces[zone], { piece = element, transparence = element.Transparency })
+		end
+	end
+
+	local function actualiser()
+		for zone, nomArmure in ARMURES do
+			local armure = personnage:FindFirstChild(nomArmure)
+			local portee = armure ~= nil
+			local dessous = armure ~= nil and armure:FindFirstChild("Dessous", true) ~= nil
+			for _, entree in pieces[zone] or {} do
+				entree.piece.Transparency = if portee then 1 else entree.transparence
+			end
+			for _, nom in TenueMineur3D.PARTIES_ZONE[zone] do
+				local partie = parties[nom]
+				local couverts = COUVERTS_PAR_DESSOUS[zone]
+				local visible = portee and not (dessous and couverts and couverts[nom])
+				partie.Transparency = if visible then 0 else 1
+				if visible then
+					partie.Color = couleurs[nom]
+				end
+				for _, couche in partie:GetChildren() do
+					if couche:IsA("Decal") then
+						couche.Transparency = if visible then 0 else 1
+					end
+				end
+			end
+		end
+	end
+	local function armureModifiee(element: Instance)
+		if NOMS_ARMURES[element.Name] then
+			actualiser()
+		end
+	end
+	personnage.ChildAdded:Connect(armureModifiee)
+	personnage.ChildRemoved:Connect(armureModifiee)
+	actualiser()
+end
+
 local function casque(personnage: Model, tete: BasePart)
 	-- Le casque a plusieurs pièces. Un modèle soudé les conserve lors du chargement du personnage.
 	local modele = Instance.new("Model")
@@ -342,9 +397,9 @@ function TenueMineur.appliquer(personnage: Model): boolean
 		parties[nom] = partie
 	end
 
-	local casque3D = TenueMineur3D.appliquer(personnage, parties)
-	if casque3D then
-		suivreVisibiliteCasque(personnage, casque3D)
+	local tenue3D = TenueMineur3D.appliquer(personnage, parties)
+	if tenue3D then
+		suivreArmures3D(personnage, tenue3D, parties)
 	else
 		for nom, couleur in couleurs do
 			parties[nom].Color = couleur

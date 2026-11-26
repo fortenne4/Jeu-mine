@@ -46,7 +46,13 @@ Le modèle Blender de `SkinModel3D/FBX/Mineur_Complet.fbx` s’installe dans
 calibre ses 27 MeshParts importées, puis les soude aux segments R15.
 Si ce modèle est absent ou incomplet, la tenue assemblée en jeu sert de repli.
 Le casque de mineur est soudé à la tête. La tenue le masque quand un casque
-d’armure est équipé et le restaure au retrait. La pioche jouable conserve ses visuels au
+d’armure est équipé et le restaure au retrait. Avec la tenue 3D, chaque armure
+portée remplace la zone du skin qu’elle couvre : tête, visage et casque pour le
+casque ; torse, haut des manches et épaules pour le plastron ; bassin, jambes,
+ceinture et pioche de hanche pour les jambières. Les segments R15 standard
+réapparaissent dessous, aux couleurs de la tenue, pour que l’armure ne soit
+jamais traversée par le skin. Quand l’armure a sa propre pièce `Dessous`
+(plastrons et jambières des minerais), le segment qu’elle couvre reste caché. Les avant-bras, gants et bottes restent visibles. La pioche jouable conserve ses visuels au
 dos et en main. La planche de référence est dans `SkinPlans/`.
 
 ### Écran de chargement à la connexion
