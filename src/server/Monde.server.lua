@@ -55,6 +55,7 @@ if carte then
 			local okChemin, erreurChemin = pcall(require(monde:WaitForChild("Village")).preparerCheminMoulin, villageFige)
 			if not okChemin then warn("[Monde] Chemin du moulin non tracé : " .. tostring(erreurChemin)) end
 		end
+		require(monde:WaitForChild("MursInvisibles")).construire(carte)
 		workspace:SetAttribute("MondeConstruit", true)
 		return
 	end

@@ -18,6 +18,7 @@ local DecorVillage = require(script.DecorVillage)
 local DecorFontaine = require(script.DecorFontaine)
 local MineursDecor = require(script.MineursDecor)
 local Bordures = require(script.Bordures)
+local MursInvisibles = require(script.MursInvisibles)
 
 local Monde = {}
 
@@ -113,6 +114,7 @@ function Monde.construire()
 
 	carte:SetAttribute("Modeles3D", Modeles3D.signature())
 	carte.Parent = workspace
+	MursInvisibles.construire(carte)
 	workspace:SetAttribute("MondeConstruit", true)
 	print(string.format("[Monde] Carte construite en %.1f s", os.clock() - debut))
 	return carte
