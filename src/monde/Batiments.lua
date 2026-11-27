@@ -1374,6 +1374,40 @@ function B.preparerToitForge(forge)
 	forge:SetAttribute("VersionToitForge", 1)
 end
 
+-- Les parements des colombages sont décalés aux intersections, avec leur dos dans le plâtre.
+function B.preparerColombagesForge(forge)
+	local murPlatre
+	for _, p in forge:GetChildren() do
+		if p:IsA("BasePart") and p.Name == "MurFond" and p.Material == M.Platre then
+			murPlatre = p
+			break
+		end
+	end
+	if not murPlatre then return end
+	local faceInterieure = -murPlatre.Size.Z / 2
+	for _, p in forge:GetChildren() do
+		if p:IsA("BasePart") and (p.Name == "Colombage" or p.Name == "CroixColombage") then
+			local centre = murPlatre.CFrame:PointToObjectSpace(p.Position)
+			local axe = murPlatre.CFrame:VectorToObjectSpace(p.CFrame.LookVector)
+			local normale = murPlatre.CFrame:VectorToObjectSpace(p.CFrame.UpVector)
+			if normale.Z < -0.99 and math.abs(centre.Z - faceInterieure) < 0.5
+				and math.abs(centre.X) <= murPlatre.Size.X / 2 + 0.01
+				and math.abs(centre.Y) < murPlatre.Size.Y / 2 then
+				local diagonale = math.abs(axe.X) > 0.25 and math.abs(axe.Y) > 0.25
+				local saillie = if math.abs(axe.X) > 0.99 then 0.04 else 0.025
+				if diagonale then
+					saillie = if axe.X * axe.Y > 0 then 0.08 else 0.05
+					p.Name = "CroixColombage"
+				end
+				local z = faceInterieure + p.Size.Y / 2 - saillie
+				p.CFrame += murPlatre.CFrame.ZVector * (z - centre.Z)
+				p.Material = M.Bois
+				p.Color = COUL_AUBERGE.Bois
+			end
+		end
+	end
+end
+
 function B.preparerAmenagementForge(forge)
 	local sol = forge:FindFirstChild("Sol")
 	if not (sol and sol:IsA("BasePart")) then return end
@@ -1464,6 +1498,50 @@ function B.preparerBalustradesForge(forge)
 	m.Parent = forge
 end
 
+-- Affine les panneaux en conservant la position de leur face extérieure.
+function B.affinerMursForge(forge)
+	local toiture = forge:FindFirstChild("Forge_Toit")
+	local pan = toiture and toiture:FindFirstChild("Toit")
+	local sol = forge:FindFirstChild("Sol")
+	if not (pan and pan:IsA("BasePart") and sol and sol:IsA("BasePart")) then return end
+
+	local epaisseur = pan.Size.Y
+	local axe = sol.CFrame.XVector
+	local enfants = forge:GetChildren()
+	local anciensMurs = {}
+	for _, p in enfants do
+		if p:IsA("BasePart") and p.Name == "MurCote" then
+			local x = axe:Dot(p.Position - sol.Position)
+			local cote = math.sign(x)
+			local retrait = p.Size.X - epaisseur
+			if retrait > 0.001 then
+				if p.Material == M.Pierre then
+					anciensMurs[cote] = {faceInterieure = math.abs(x) - p.Size.X / 2, retrait = retrait}
+				end
+				p.Size = Vector3.new(epaisseur, p.Size.Y, p.Size.Z)
+				p.CFrame += axe * (cote * retrait / 2)
+			end
+		end
+	end
+
+	-- Le râtelier et ses objets restent à la même distance de la face intérieure.
+	-- Les fenêtres des pignons et les lanternes des poteaux gardent leurs supports.
+	for _, objet in enfants do
+		local barre = objet:IsA("BasePart") and objet.Name == "Barre"
+		local modele = objet:IsA("Model") and (objet.Name == "Epee" or objet.Name == "Forge_PiochesMurales")
+		if barre or modele then
+			local pivot = if barre then objet.CFrame else objet:GetPivot()
+			local x = axe:Dot(pivot.Position - sol.Position)
+			local cote = math.sign(x)
+			local mur = anciensMurs[cote]
+			if mur and math.abs(math.abs(x) - mur.faceInterieure) < 0.8 then
+				local position = pivot + axe * (cote * mur.retrait)
+				if barre then objet.CFrame = position else objet:PivotTo(position) end
+			end
+		end
+	end
+end
+
 -- La forge du forgeron : atelier ouvert (même structure qu'avant), dans le style des maisons du village :
 -- murs de pierre et colombages, toit de tuiles à deux pans, pignon de façade avec l'enseigne, bannières et lanternes.
 function B.forge(parent, cf)
@@ -1549,7 +1627,9 @@ function B.forge(parent, cf)
 	B.armure(m, cf * CFrame.new(8, 1, -6), Color3.fromRGB(226, 176, 70), M.Metal, C.CristalViolet)
 	B.preparerAmenagementForge(m)
 	B.preparerToitForge(m)
+	B.preparerColombagesForge(m)
 	B.preparerBalustradesForge(m)
+	B.affinerMursForge(m)
 	return m
 end
 

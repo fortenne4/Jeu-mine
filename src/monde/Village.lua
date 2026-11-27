@@ -213,6 +213,7 @@ function Village.preparerAteliers(village)
 	local forge = village:FindFirstChild("Forge", true)
 	if forge and forge:IsA("Model") then
 		B.preparerToitForge(forge)
+		B.preparerColombagesForge(forge)
 		local actuel = forge:FindFirstChild("Fourneau")
 		if not (actuel and actuel:GetAttribute("VersionFourneau") == B.VERSION_FOURNEAU) then
 			local base = actuel and actuel:GetAttribute("Base")
@@ -231,6 +232,7 @@ function Village.preparerAteliers(village)
 		end
 		B.preparerAmenagementForge(forge)
 		B.preparerBalustradesForge(forge)
+		B.affinerMursForge(forge)
 	end
 	-- Puits
 	for _, puits in village:GetDescendants() do
@@ -720,24 +722,61 @@ function Village.preparerSentiers(village)
 	preparerEscaliersPont(village, sentiers)
 end
 
+function Village.preparerApparition(village)
+	local fontaine = village:FindFirstChild("Monument")
+	local bassin = fontaine and fontaine:FindFirstChild("FondBassin")
+	if not bassin or not bassin:IsA("BasePart") then return end
+
+	local dossier = village:FindFirstChild("Apparitions")
+	if not dossier then
+		dossier = Instance.new("Folder")
+		dossier.Name = "Apparitions"
+		dossier.Parent = village
+	end
+	local apparition = dossier:FindFirstChild("ApparitionFontaine")
+	if not apparition then
+		apparition = Instance.new("SpawnLocation")
+		apparition.Name = "ApparitionFontaine"
+		apparition.Anchored = true
+		apparition.Size = Vector3.new(4, 0.5, 4)
+		apparition.Transparency = 1
+		apparition.CanCollide = false
+		apparition.CanTouch = false
+		apparition.CanQuery = false
+		apparition.Duration = 0
+		apparition.Parent = dossier
+	end
+	-- Au nord du bassin, entre les deux anciennes dalles, face à la mine.
+	apparition.CFrame = CFrame.new(bassin.Position + Vector3.new(0, 1, -14))
+	apparition.Neutral = true
+	apparition.AllowTeamChangeOnTouch = false
+	apparition.Enabled = true
+
+	for _, objet in dossier:GetChildren() do
+		if objet:IsA("SpawnLocation") and objet ~= apparition then
+			local dalles = dossier:FindFirstChild("DallesDecoratives")
+			if not dalles then
+				dalles = Instance.new("Folder")
+				dalles.Name = "DallesDecoratives"
+				dalles.Parent = dossier
+			end
+			objet.Enabled = false
+			objet.Parent = dalles
+		end
+	end
+	for _, objet in workspace:GetDescendants() do
+		if objet:IsA("SpawnLocation") and objet ~= apparition then
+			objet.Enabled = false
+		end
+	end
+end
+
 local function apparitions(v)
-	local dossier = Instance.new("Folder")
-	dossier.Name = "Apparitions"
-	dossier.Parent = v
+	Village.preparerApparition(v)
+	local dossier = v.Apparitions
 	for i = 0, 7 do
 		local pos = polaire(i * math.pi / 4 + math.pi / 8, 15, 0.65)
-		local s = Instance.new("SpawnLocation")
-		s.Name = "Apparition"
-		s.Anchored = true
-		s.Size = Vector3.new(5, 0.5, 5)
-		s.CFrame = CFrame.new(pos) -- orientation par défaut : le joueur regarde le nord, donc la mine
-		s.Material = M.Ardoise
-		s.Color = C.PierreFoncee
-		s.Duration = 0
-		s.Neutral = true
-		s.TopSurface = Enum.SurfaceType.Smooth
-		s.BottomSurface = Enum.SurfaceType.Smooth
-		s.Parent = dossier
+		O.bloc(dossier, Vector3.new(5, 0.5, 5), CFrame.new(pos), C.PierreFoncee, M.Ardoise, "Dalle")
 		local rune = O.decor(O.bloc(dossier, Vector3.new(3, 0.1, 3), CFrame.new(pos + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, math.rad(45), 0),
 			C.Cristal, M.Neon, "Rune"))
 		rune.Transparency = 0.55

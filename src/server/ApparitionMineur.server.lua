@@ -42,6 +42,13 @@ local function charger(joueur: Player, etat)
 		return
 	end
 	etat.chargement = true
+	local carte = workspace:FindFirstChild("Carte")
+	local village = carte and carte:FindFirstChild("Village")
+	local dossier = village and village:FindFirstChild("Apparitions")
+	local apparition = dossier and dossier:FindFirstChild("ApparitionFontaine")
+	if apparition and apparition:IsA("SpawnLocation") then
+		joueur.RespawnLocation = apparition
+	end
 	local ok, erreur = pcall(joueur.LoadCharacterWithHumanoidDescriptionAsync, joueur, description)
 	if not ok and joueur.Parent == Players then
 		warn("[ApparitionMineur] Description indisponible : " .. tostring(erreur))
