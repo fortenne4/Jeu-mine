@@ -50,6 +50,60 @@ end
 
 -- ================= Gare du village =================
 
+local function poserToitGare(gare, repere, taille)
+	local toiture = O.modele(nil, "ToitureGare")
+	local demiLargeur, demiLongueur = taille.X / 2, taille.Z / 2
+	local hauteur = 6.4
+	local pente = math.atan(hauteur / demiLargeur)
+	local rampant = Vector2.new(demiLargeur, hauteur).Magnitude
+	for _, cote in {-1, 1} do
+		local pan = O.bloc(toiture, Vector3.new(rampant + 0.035, 0.65, taille.Z),
+			repere * CFrame.new(cote * demiLargeur / 2, hauteur / 2, 0) * CFrame.Angles(0, 0, -cote * pente),
+			C.Toit, M.Tuiles, "Pan")
+		pan:SetAttribute("ToitRebond", true)
+		O.decor(O.bloc(toiture, Vector3.new(0.29, 0.55, taille.Z),
+			repere * CFrame.new(cote * demiLargeur, -0.18, 0), C.BoisFonce, M.Bois, "Bandeau"))
+		-- La sablière prolonge la poutre existante jusqu'au dessous du pan.
+		O.decor(O.bloc(toiture, Vector3.new(1.2, 1.66, taille.Z - 3),
+			repere * CFrame.new(cote * 8, 0.45, 0), C.BoisFonce, M.Bois, "Sabliere"))
+	end
+	O.decor(O.bloc(toiture, Vector3.new(0.78, 0.38, taille.Z + 0.18), repere * CFrame.new(0, hauteur + 0.32, 0),
+		C.Toit:Lerp(C.PierreFoncee, 0.38), M.Tuiles, "Faitage"))
+
+	local zPignon = demiLongueur - 1.65
+	for _, bout in {-1, 1} do
+		for _, cote in {-1, 1} do
+			local base = CFrame.fromMatrix(Vector3.new(cote * demiLargeur / 2, hauteur / 2 - 0.31, bout * zPignon),
+				Vector3.zAxis * cote, Vector3.yAxis, -Vector3.xAxis * cote)
+			O.decor(O.coin(toiture, Vector3.new(0.42, hauteur, demiLargeur), repere * base,
+				C.Bois, M.Planches, "Pignon"))
+			local rive = repere * CFrame.new(cote * demiLargeur / 2, hauteur / 2 - 0.1, bout * demiLongueur)
+				* CFrame.Angles(0, 0, -cote * pente)
+			O.decor(O.bloc(toiture, Vector3.new(rampant, 0.48, 0.25), rive, C.BoisFonce, M.Bois, "Rive"))
+		end
+		O.decor(O.bloc(toiture, Vector3.new(0.4, hauteur, 0.18),
+			repere * CFrame.new(0, hauteur / 2 - 0.32, bout * (zPignon + 0.245)),
+			C.BoisFonce, M.Bois, "PoinconPignon"))
+	end
+	for _, z in {-19, 0, 19} do
+		O.decor(O.bloc(toiture, Vector3.new(17.2, 0.72, 0.84),
+			repere * CFrame.new(0, 0.04, z), C.BoisFonce, M.Bois, "Entrait"))
+		O.decor(O.bloc(toiture, Vector3.new(0.52, hauteur - 0.72, 0.59),
+			repere * CFrame.new(0, hauteur / 2 - 0.02, z), C.Bois, M.Bois, "Poincon"))
+	end
+
+	local enseigne = gare:FindFirstChild("Enseigne")
+	if enseigne and enseigne:IsA("BasePart") then
+		-- La même enseigne est suspendue sous le pignon, à hauteur lisible depuis l'avenue.
+		enseigne.CFrame = repere * CFrame.new(0, -0.72, zPignon + 0.62)
+		for _, x in {-5.85, 5.85} do
+			O.decor(O.bloc(toiture, Vector3.new(0.22, 1.14, 0.8),
+				repere * CFrame.new(x, 0.42, zPignon + 0.28), C.Fer, M.Metal, "SuspenteEnseigne"))
+		end
+	end
+	toiture.Parent = gare
+end
+
 -- Cartes figées : retire l'ancien guichet et l'ancien levier de départ (le départ est automatique).
 local function nettoyerGare(m)
 	local g = vers(Vector3.new(14, 0, -114), Vector3.new(0, 0, -114))
@@ -68,6 +122,11 @@ local function nettoyerGare(m)
 	end
 	local levier = m:FindFirstChild("LevierDepart")
 	if levier then levier:Destroy() end
+	local ancienToit = m:FindFirstChild("Toit")
+	if not m:FindFirstChild("ToitureGare") and ancienToit and ancienToit:IsA("BasePart") then
+		poserToitGare(m, ancienToit.CFrame, ancienToit.Size)
+		ancienToit:Destroy()
+	end
 end
 
 -- Wagon du retour posé au terminus, tourné vers la gare ; remplace l'ancien levier sur les cartes figées.
@@ -115,9 +174,9 @@ local function gare(f, rng)
 		end
 		O.bloc(m, Vector3.new(1.2, 1.2, 46), CFrame.new(x, 13, zc), C.BoisFonce, M.Bois, "Poutre")
 	end
-	O.bloc(m, Vector3.new(21, 0.7, 49), CFrame.new(x0, 13.95, zc), C.Toit, M.Tuiles, "Toit")
 	local enseigne = O.bloc(m, Vector3.new(17, 3, 0.5), CFrame.new(x0, 15.8, -100.2), C.BoisFonce, M.Planches, "Enseigne")
 	O.texte(enseigne, Enum.NormalId.Back, "GARE DE LA GRANDE MINE")
+	poserToitGare(m, CFrame.new(x0, 13.95, zc), Vector3.new(21, 0.7, 49))
 
 	for i, z in {-112, -134} do
 		B.bancJardinieres(m, CFrame.new(-18, 2.2, z) * CFrame.Angles(0, -math.pi / 2, 0), 10 + i)
