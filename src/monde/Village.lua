@@ -3,6 +3,7 @@
 local D = require(script.Parent.Disposition)
 local O = require(script.Parent.Outils)
 local B = require(script.Parent.Batiments)
+local Clocher = require(script.Parent.Clocher)
 local Lampadaires = require(script.Parent.Lampadaires)
 local T = require(script.Parent.Terrain)
 local M, C = O.M, O.C
@@ -209,6 +210,7 @@ local enseigneStand -- défini plus bas (boutiques)
 -- Cartes figées : remplace l'ancien foyer de la forge, les puits et les enseignes des deux marchands
 -- par les versions actuelles (B.fourneau, B.puits, enseigneStand), une seule fois par version.
 function Village.preparerAteliers(village)
+	Clocher.preparer(village)
 	-- Fourneau du forgeron
 	local forge = village:FindFirstChild("Forge", true)
 	if forge and forge:IsA("Model") then
@@ -858,27 +860,6 @@ function enseigneStand(m, e, texte, largeur, couleur)
 	return planche
 end
 
--- Tour de comptoir en pierre (Gaspard) : coffre-fort et réserve de minerai
-local function tourComptoir(m, cf, couleur)
-	local t = O.modele(m, "TourComptoir")
-	O.bloc(t, Vector3.new(10, 3, 10), cf * CFrame.new(0, 1.5, 0), C.PierreFoncee, M.Pierre, "Socle")
-	O.bloc(t, Vector3.new(9, 22, 9), cf * CFrame.new(0, 13, 0), C.Pierre, M.Pierre, "Tour")
-	O.bloc(t, Vector3.new(10, 1, 10), cf * CFrame.new(0, 24.5, 0), C.PierreClaire, M.Pierre, "Corniche")
-	for k = 0, 3 do -- toit pyramidal d'ardoise (4 pans en coin)
-		O.coin(t, Vector3.new(10.4, 8, 5.2), cf * CFrame.Angles(0, k * math.pi / 2, 0) * CFrame.new(0, 29, -2.6) * CFrame.Angles(0, math.pi, 0),
-			C.Toit, M.Ardoise, "Toit")
-	end
-	O.decor(O.bloc(t, Vector3.new(0.8, 3, 0.8), cf * CFrame.new(0, 34.4, 0), C.Or, M.Metal, "Fleche"))
-	for _, y in {9, 16} do
-		O.decor(O.bloc(t, Vector3.new(2, 3, 0.3), cf * CFrame.new(0, y, -4.6), C.Fenetre, M.Neon, "Fenetre"))
-		O.decor(O.bloc(t, Vector3.new(2.6, 0.5, 0.6), cf * CFrame.new(0, y - 1.8, -4.7), C.PierreClaire, M.Pierre, "Appui"))
-	end
-	O.bloc(t, Vector3.new(4, 6.5, 0.4), cf * CFrame.new(0, 6.25, -4.6), C.Fer, M.Metal, "PorteFerree")
-	O.decor(O.bloc(t, Vector3.new(3.2, 6, 0.2), cf * CFrame.new(0, 17, -4.75), couleur, M.Tissu, "Banniere"))
-	O.decor(O.bloc(t, Vector3.new(1.2, 1.2, 0.25), cf * CFrame.new(0, 18, -4.9) * CFrame.Angles(0, 0, math.pi / 4), C.Or, M.Metal, "Embleme"))
-	return t
-end
-
 -- Atelier de Liesel : appentis ouvert, meule, établi, râtelier d'outils et grande pioche-enseigne
 local function atelierOutils(m, cf, couleur)
 	local a = O.modele(m, "AtelierOutils")
@@ -954,7 +935,7 @@ local function boutiques(v, rng, obstacles)
 	local maisonComptoir, cf, largeur, facade = batimentVendeur(m, dir, STAND + 6.4, {largeur = 22, echelle = 0.82, mur = C.Ocre, toit = C.Toit,
 		volet = Color3.fromRGB(120, 52, 44), nom = "ComptoirMinerais", rng = rng, modele = 2, prestige = true, couleur = rouge})
 	table.insert(obstacles, cf.Position)
-	tourComptoir(m, cf * CFrame.new(-(largeur / 2 + 5.5), 0, facade + 6), rouge)
+	Clocher.construire(m, cf * CFrame.new(-(largeur / 2 + 5.5), 0, facade + 6), rouge)
 	local e = vers(dir.Unit * STAND, Vector3.zero)
 	B.echoppe(m, e, 10, rouge)
 	enseigneStand(m, e, "COMPTOIR DES MINERAIS", 10, rouge)
