@@ -322,10 +322,26 @@ Test en Studio : la partie de test donne 50 de chaque minerai (`TEST_STUDIO` dan
 ## Forge de Brom : épées et casques
 
 Tout joueur reçoit l'**épée de base** (`EpeeFer`, 6 dégâts). Chez Brom (touche **E**), il forge de meilleures épées
-avec ses minerais (1 ou 2 minerais, de 2 à 12 au total, + des Pièces). Une épée forgée **équipée dans le sac** (case Épée)
+avec ses minerais (+ des Pièces). Une épée forgée **équipée dans le sac** (case Épée)
 remplace l'épée de base dans la main ; on la retire → retour à l'épée de base.
 
-Recettes d'épées (`Forge.ECHELLES.Epee` dans `src/partage/Forge.lua`) — dégâts de base, jusqu'à +35 % avec plus de minerais :
+**Règles de la forge** (`Forge.TYPES[...].requis` et `Forge.calculer`, vérifiées par le serveur) :
+- chaque objet demande une quantité fixe **par minerai** : Épée **3**, Casque **4**, Plastron **6**, Jambières **5** ;
+- le premier minerai est obligatoire ; on peut en ajouter d'autres sortes (jusqu'à `Forge.MAX_MINERAIS` = 4),
+  chacune dans la **même quantité** que le principal (6 rubis + 6 émeraudes pour un plastron) ;
+- tous les minerais d'un objet ont la **même rareté** (`Forge.rarete`). Les recettes qui mélangent des raretés
+  (Charbon + Bronze, Fer + Or…) restent dans les tables pour les objets déjà forgés, mais ne se forgent plus.
+  Lunarite + Magmaïte (toutes deux Légendaires) reste possible.
+
+**Interface** (`src/client/Forge.client.lua`) : en haut, l'objet à forger avec son nombre de minerais (« Plastron · 6 ») ;
+à gauche, le **sac** : une case carrée par minerai forgeable possédé, sans défilement. Dès qu'un minerai est posé, ceux d'une autre rareté sont
+cadenassés. Au centre : la condition (« Plastron : 6 minerais requis »), le compteur, la **rareté verrouillée**,
+l'**enclume** en 3D (billot cerclé, bigorne, talon), avec une alvéole creusée par unité à poser (une gemme taillée la remplit), les minerais posés dessous (on reclique sur un minerai du sac pour le retirer) et le bouton **+ Ajouter un minerai (optionnel)**.
+À droite, l'aperçu 3D, la stat, le coût. **FORGER** (marteau de forgeron en 3D) est centré en bas : gris tant que la forge est impossible
+(minerais manquants, pièces insuffisantes, recette refusée), couleur braise dès qu'elle est possible.
+Aucun minerai n'est proposé d'office.
+
+Recettes d'épées (`Forge.ECHELLES.Epee` dans `src/partage/Forge.lua`) — dégâts de base (+ bonus si on ajoute un 2e minerai) :
 
 | Rang | Minerais | Modèle | Dégâts |
 |---|---|---|---|
@@ -347,7 +363,7 @@ Les casques suivent la même logique (`Forge.ECHELLES.Casque`, Défense).
 
 ### Casques et épées des minerais de la mine privée
 
-**2 du même minerai** (jusqu'à 12 pour +35 %) + des Pièces : 2 quartz → Casque de quartz ou Épée de quartz, etc.
+**Un seul minerai** (3 pour une épée, 4 pour un casque) + des Pièces : 4 quartz → Casque de quartz, 3 quartz → Épée de quartz, etc.
 Modèles `Casque<Id>` (`ArmuresVoxels`) et `Epee<Id>` (`ArmesVoxels`) ; tant qu'un modèle manque, casque générique / épée
 de fer teintés. Chaque pièce prend la base d'un palier existant de même valeur (Soufre = Bronze, Argent = Fer, Émeraude = Or…) ;
 diamant, orichalque et néantite passent au-dessus des marées. Le **rang** affiché est recalculé au chargement en triant par base
@@ -368,7 +384,7 @@ diamant, orichalque et néantite passent au-dessus des marées. Le **rang** affi
 | Orichalque | 257 | 426 | Divin |
 | Néantite | 347 | 576 | Divin |
 
-Valeurs à 2 minerais ; plafond = base × 1,35 sans atteindre le palier suivant (néantite : 468 / 777, sous l'Épée des astres 900).
+Valeurs de base ; plafond = base × 1,35 sans atteindre le palier suivant (néantite : 468 / 777, sous l'Épée des astres 900).
 Plastrons et jambières acceptent aussi ces minerais (alliages libres, force 2,5 pour le soufre … 29 pour la néantite).
 Forgés avec **un seul** de ces minerais, ils prennent leur modèle 3D assorti au casque et à l'épée (`ArmuresVoxels/Plastron<Minerai>`,
 `Jambieres<Minerai>`, générés par `blender/armes/armures_minerais.py`, aperçus `previews/armes/sets_minerais/`) ; même valeur que l'alliage libre.
@@ -387,7 +403,7 @@ la fenêtre de Brom se cache pendant et affiche le résultat après.
 | `src/partage/Forge.lua` | Recettes (logique pure partagée) : échelles épée/casque, minerai dominant, dégâts/défense, prix. |
 | `src/server/Forge.server.lua` | Valide la recette, débite minerais et Pièces, crée l'objet, lance la cinématique. |
 | `src/server/Epee.server.lua` | Construit l'épée en main (épée forgée équipée ou épée de base), attribut `Degats` sur l'outil. |
-| `src/client/Forge.client.lua` | Interface de la forge (aperçu 3D, proportions, célébration après la cinématique). |
+| `src/client/Forge.client.lua` | Interface de la forge (objet et minerais requis, sac avec cadenas de rareté, enclume, aperçu 3D, FORGER centré, célébration après la cinématique). |
 | `src/client/ForgeCinematique.client.lua` | Cinématique locale (~5,7 s) : Brom (clone, sur une estrade) martèle 6 fois un lingot de lave sur la grosse enclume, qui s'étire vers l'épée ou le casque, refroidit et révèle l'objet. Attribut joueur `ForgeCinematique` pendant ; repli en fondu si la forge n'est pas chargée. |
 
 ## Guilde des Mineurs (quêtes de Margot)

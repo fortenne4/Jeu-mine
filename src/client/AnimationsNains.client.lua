@@ -238,6 +238,8 @@ local function suivre(modele: Model)
 			for _, p in modele[g]:GetDescendants() do
 				if p:IsA("BasePart") then
 					table.insert(pieces, {p, p.CFrame})
+					-- pose d'origine, relue par le portrait des fenêtres PNJ (photo de profil droite, pas en plein geste)
+					p:SetAttribute("CFrameRepos", p.CFrame)
 				end
 			end
 			info.groupes[g] = pieces

@@ -989,6 +989,50 @@ local function cadragePortrait(copie: Model, fov: number): (CFrame, Vector3, Vec
 	return CFrame.lookAt(cible + dir * (demi / math.tan(math.rad(fov / 2))), cible), avant, droite, true
 end
 
+-- Le PNJ est copié dans sa pose du moment (ex. Brom en plein coup de marteau) : on cache dans la copie ce qui passe
+-- entre la caméra et le visage (bras levé, marteau, outil), sans toucher à la tête, sa coiffe ni ses accessoires.
+local function masquerDevantVisage(copie: Model, oeil: Vector3)
+	local tete: BasePart? = nil
+	for _, d in copie:GetDescendants() do
+		if d:IsA("BasePart") and (d.Name == "Head" or string.match(d.Name, "_Tete_Peau$")) then
+			tete = d
+			break
+		end
+	end
+	if not tete then
+		return
+	end
+	local t = tete :: BasePart
+	local groupeTete = if t.Parent and t.Parent:IsA("Model") and t.Parent ~= copie then t.Parent else nil
+	local rayon = t.Size.Magnitude / 2
+	local versTete = t.Position - oeil
+	local distance = versTete.Magnitude
+	local dir = versTete.Unit
+	for _, p in copie:GetDescendants() do
+		if not p:IsA("BasePart") or p == t or p.Transparency >= 1 then
+			continue
+		end
+		if (groupeTete and p:IsDescendantOf(groupeTete)) or p:FindFirstAncestorOfClass("Accessory") then
+			continue
+		end
+		local w = p.Position - oeil
+		local long = w:Dot(dir)
+		-- devant le visage (côté caméra) et assez proche de l'axe caméra → visage pour gêner la vue
+		if long > 0 and long < distance - rayon * 0.9 then
+			local ecart = (w - dir * long).Magnitude
+			local demi = math.min(p.Size.X, p.Size.Y, p.Size.Z) / 2 + (p.Size.Magnitude / 2) * 0.35
+			if ecart < rayon * 1.15 + demi then
+				p.Transparency = 1
+				for _, dec in p:GetChildren() do
+					if dec:IsA("Decal") or dec:IsA("Texture") then
+						dec.Transparency = 1
+					end
+				end
+			end
+		end
+	end
+end
+
 function UI.portrait(service: string, vp: ViewportFrame): boolean
 	if vp:FindFirstChild("Objet") then
 		return true
@@ -1010,12 +1054,21 @@ function UI.portrait(service: string, vp: ViewportFrame): boolean
 			d:Destroy()
 		elseif d:IsA("Humanoid") then
 			d.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+		elseif d:IsA("BasePart") then
+			-- nain animé (AnimationsNains) : remis dans sa pose d'origine, tête droite, pour une vraie photo de profil
+			local repos = d:GetAttribute("CFrameRepos")
+			if typeof(repos) == "CFrame" then
+				d.CFrame = repos
+			end
 		end
 	end
 	local cam = vp.CurrentCamera or creer("Camera", {FieldOfView = 30, Parent = vp})
 	vp.CurrentCamera = cam
 	local cfCam, avant, droite, teteTrouvee = cadragePortrait(copie, cam.FieldOfView)
 	cam.CFrame = cfCam
+	if teteTrouvee then
+		masquerDevantVisage(copie, cfCam.Position)
+	end
 	-- Gardé en cache (« Objet ») seulement si la tête a été trouvée ; sinon portrait provisoire, retenté à la prochaine ouverture
 	local ancien = vp:FindFirstChild("ObjetProvisoire")
 	if ancien then

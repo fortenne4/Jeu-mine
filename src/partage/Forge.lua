@@ -4,7 +4,7 @@
 -- Composition : {{idMinerai, quantite}, ...} — N minerais différents (jusqu'à MAX_MINERAIS).
 
 export type Minerai = {id: string, nom: string, mat: string, couleur: Color3, force: number, rang: number}
-export type TypeObjet = {id: string, nom: string, icone: string, stat: string, mult: number, min: number, max: number, frais: number}
+export type TypeObjet = {id: string, nom: string, icone: string, stat: string, mult: number, min: number, max: number, frais: number, requis: number}
 export type Alliage = {nom: string, mat: string, couleur: Color3, bonus: number, parts: {[string]: {number}}}
 export type Resultat = {
 	type: string,
@@ -66,12 +66,25 @@ for _, id in Forge.ORDRE_SAC do
 end
 
 Forge.ORDRE_TYPES = {"Epee", "Casque", "Plastron", "Jambieres"}
+-- requis = quantité exacte de CHAQUE minerai de la composition. Le premier minerai est obligatoire, les autres
+-- (optionnels, jusqu'à MAX_MINERAIS) se posent dans la même quantité. Tous les minerais ont la même rareté.
+-- min / max = bornes du total (1 seul minerai → MAX_MINERAIS minerais), gardées pour les formules de valeur.
 Forge.TYPES = {
-	Epee = {id = "Epee", nom = "Épée", icone = "🗡️", stat = "Dégâts", mult = 2, min = 2, max = 12, frais = 20},
-	Casque = {id = "Casque", nom = "Casque", icone = "⛑️", stat = "Défense", mult = 1, min = 2, max = 12, frais = 15},
-	Plastron = {id = "Plastron", nom = "Plastron", icone = "🛡️", stat = "Défense", mult = 1.6, min = 4, max = 30, frais = 30},
-	Jambieres = {id = "Jambieres", nom = "Jambières", icone = "👖", stat = "Défense", mult = 1.3, min = 3, max = 20, frais = 25},
-} :: {[string]: TypeObjet}
+	Epee = {id = "Epee", nom = "Épée", icone = "🗡️", stat = "Dégâts", mult = 2, requis = 3, frais = 20},
+	Casque = {id = "Casque", nom = "Casque", icone = "⛑️", stat = "Défense", mult = 1, requis = 4, frais = 15},
+	Plastron = {id = "Plastron", nom = "Plastron", icone = "🛡️", stat = "Défense", mult = 1.6, requis = 6, frais = 30},
+	Jambieres = {id = "Jambieres", nom = "Jambières", icone = "👖", stat = "Défense", mult = 1.3, requis = 5, frais = 25},
+} :: any
+for _, t in Forge.TYPES do
+	t.min, t.max = t.requis, t.requis * Forge.MAX_MINERAIS
+end
+
+-- Rareté d'un minerai (même source que les couleurs du sac) : une composition n'en mélange jamais deux
+local MineraisModeles = require(script.Parent:WaitForChild("MineraisModeles"))
+function Forge.rarete(id: string): string
+	local v = MineraisModeles.VISUEL[id]
+	return if v and v.rarete then v.rarete else "Commun"
+end
 
 -- Échelles de pièces nommées (1 ou 2 minerais, proportions libres) : remplacent les alliages pour ce type.
 -- valeur = base × min(bonus quantité × bonus proportion, FACTEUR_MAX), toujours < base strictement supérieure suivante.
@@ -306,6 +319,10 @@ function Forge.calculer(typeId: any, composition: any): (Resultat?, string?)
 			return nil, "Même minerai deux fois"
 		elseif type(q) ~= "number" or q ~= q or q < 1 or q > Forge.QTE_MAX or q % 1 ~= 0 then
 			return nil, "Quantité invalide"
+		elseif q ~= t.requis then
+			return nil, string.format("Il faut %d %s par minerai", t.requis, if t.requis > 1 then "unités" else "unité")
+		elseif i > 1 and Forge.rarete(id) ~= Forge.rarete(composition[1][1]) then
+			return nil, "Tous les minerais doivent être de la même rareté"
 		end
 		vus[id] = true
 		total += q
