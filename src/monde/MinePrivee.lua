@@ -1,6 +1,6 @@
 -- Mine privée : une galerie par joueur, construite en Parts (pas en terrain) pour être creusée.
--- Galerie étayée (~28 studs), torches, rail, petit wagonnet, creusée DANS un très grand massif de roche en blocs
--- de 2 studs (80 de large, 836 de long, 696 de haut) ; au bout, une descente en pente (~35°) : on creuse en descendant.
+-- Galerie étayée, torches, rail et wagonnet, creusée dans un massif de roche en blocs de 2 studs.
+-- Au bout de la galerie, une descente ouverte mène à la zone de minage.
 -- 8 couches de minage selon la profondeur (Partage › CouchesMine) : couleur de roche, minerais, pioche requise.
 -- Grille virtuelle côté serveur : le massif est plein par défaut, on ne stocke que les cases CREUSÉES ;
 -- seules les cases pleines EXPOSÉES (voisines de l'air) existent en Parts (tag « BlocMine », attributs
@@ -26,34 +26,42 @@ MinePrivee.TAILLE_BLOC = 2
 MinePrivee.ZONE_COUP = Vector3.new(4.5, 5.5, 3) -- zone d'un coup : largeur × hauteur × profondeur (≈ le joueur)
 
 local T = MinePrivee.TAILLE_BLOC
-local LARGEUR = 16                        -- intérieur de la galerie (X)
-local LARGEUR_MASSIF = 80                 -- intérieur du massif (X)
+local LARGEUR = 32                        -- intérieur de la galerie (X)
+local LARGEUR_MASSIF = 160                -- intérieur du massif (X)
 local HAUTEUR = 12                        -- hauteur de la galerie
 local Z_ARRIERE = 8                       -- paroi derrière le point d'apparition
-local Z_MUR = -20                         -- bout de la galerie : la descente commence ici
-local LONGUEUR_MASSIF = 800
-local Z_FOND = Z_MUR - LONGUEUR_MASSIF    -- -820, roche-mère au bout du massif
+local LONGUEUR_GALERIE = 56
+local Z_MUR = Z_ARRIERE - LONGUEUR_GALERIE
+local LONGUEUR_MASSIF = 1672              -- entre les parois de roche-mère
 local Y_BAS = -676                        -- roche-mère au fond du massif (338 m sous la galerie)
 -- Marge de roche minable entre la galerie / la descente et la roche-mère (3 blocs) : la galerie est creusée DANS
 -- le massif, qui l'entoure sur les côtés, au-dessus et derrière
 local MARGE = 3 * T
 local Y_HAUT = HAUTEUR + 2 + MARGE        -- 20 : haut du massif (plafond de la galerie 12..14 + 3 blocs)
 local Z_AVANT = Z_ARRIERE + 2 + MARGE     -- 16 : avant du massif (fond arrière de la galerie 8..10 + 3 blocs)
-local PENTE = math.tan(math.rad(35))      -- pente de la face de départ
-local LONGUEUR_PENTE = 16                 -- partie déjà ouverte de la descente
-local LARGEUR_PENTE = LARGEUR + 8         -- 24 : largeur de la descente ouverte (la roche l'entoure)
+local Z_FOND = Z_AVANT - LONGUEUR_MASSIF
+local LONGUEUR_PENTE = 32                 -- longueur horizontale de la descente ouverte
+local DENIVELE_PENTE = 16 * math.tan(math.rad(35))
+local PENTE = DENIVELE_PENTE / LONGUEUR_PENTE
+local LARGEUR_PENTE = LARGEUR + 16        -- 48 : la roche minable entoure la descente
 local Z_RETOUR = 1.5                      -- cercle de sortie (anneau r 5.5)
 local Z_APPARITION = -7
 
 -- Grille : Colonne i (X, 1 = gauche vu du joueur), Ligne j (Y, 1 = bas), Couche k (profondeur, 1 = avant du massif,
 -- derrière la galerie). Les cases de la galerie (intérieur, murs, sol, plafond) ne font pas partie du massif.
-local NX = LARGEUR_MASSIF // T            -- 40
-local NY = (Y_HAUT - Y_BAS) // T          -- 348
-local NZ = (Z_AVANT - Z_FOND) // T        -- 418
+local NX = LARGEUR_MASSIF // T
+local NY = (Y_HAUT - Y_BAS) // T
+local NZ = (Z_AVANT - Z_FOND) // T
 MinePrivee.COLONNES, MinePrivee.LIGNES, MinePrivee.COUCHES = NX, NY, NZ
 
 -- Repères pour les autres scripts (RemonterMine.server) : repère local de mine.base
-MinePrivee.LIMITES = {demiLargeur = LARGEUR_MASSIF / 2 + 4, zMin = Z_FOND - 10, zMax = Z_AVANT + 6, yMin = Y_BAS - 15}
+MinePrivee.LIMITES = {
+	demiLargeur = LARGEUR_MASSIF / 2 + 4,
+	zMin = Z_FOND - 10,
+	zMax = Z_AVANT + 6,
+	yMin = Y_BAS - 15,
+	yMax = Y_HAUT + 6,
+}
 
 -- Nœuds de minerai enfouis et roche : selon la COUCHE de minage (Partage › CouchesMine, profondeur en m =
 -- blocs sous le sol de la galerie). Le massif est découpé en paquets de 3 × 3 × 3 cases : chaque paquet abrite
@@ -118,7 +126,7 @@ end
 
 -- Moellons irréguliers qui dépassent des parois de la galerie (aspect « roche taillée en blocs »)
 local function moellons(m, base, rng)
-	for _ = 1, 18 do
+	for _ = 1, 40 do
 		local s = rng:NextNumber(2, 3.6)
 		local z = rng:NextNumber(Z_MUR + 1, Z_ARRIERE - 1)
 		local teinte = PAROI:Lerp(PIERRE, rng:NextNumber(0, 0.7))
@@ -131,15 +139,15 @@ local function moellons(m, base, rng)
 		end
 		O.decor(O.bloc(m, Vector3.new(s, s, s), base * cf, teinte, if rng:NextNumber() < 0.5 then M.Ardoise else M.Pierre, "Moellon"))
 	end
-	for _ = 1, 4 do
+	for _ = 1, 8 do
 		local w = rng:NextNumber(3, 6)
-		O.decor(O.bloc(m, Vector3.new(w, 0.06, w * 0.7), base * CFrame.new(rng:NextNumber(-5, 5), 0.03, rng:NextNumber(Z_MUR + 2, Z_ARRIERE - 2))
+		O.decor(O.bloc(m, Vector3.new(w, 0.06, w * 0.7), base * CFrame.new(rng:NextNumber(-LARGEUR / 2 + 3, LARGEUR / 2 - 3), 0.03, rng:NextNumber(Z_MUR + 2, Z_ARRIERE - 2))
 			* CFrame.Angles(0, rng:NextNumber(0, math.pi), 0), C.Terre:Lerp(PAROI, 0.4), M.Terre, "Terre"))
 	end
 end
 
 local function torche(m, base, cote, z)
-	local tige = base * CFrame.new(cote * 6.6, 7, z) * CFrame.Angles(0, 0, cote * math.rad(22))
+	local tige = base * CFrame.new(cote * (LARGEUR / 2 - 1.4), 7, z) * CFrame.Angles(0, 0, cote * math.rad(22))
 	O.decor(O.bloc(m, Vector3.new(0.35, 1.6, 0.35), tige, C.Bois, M.Bois, "Torche"))
 	local flamme = O.decor(O.bloc(m, Vector3.new(0.5, 0.5, 0.5), tige * CFrame.new(0, 0.95, 0), FLAMME, M.Neon, "Flamme"))
 	O.lumiere(flamme, FLAMME, 1.5, 18)
@@ -166,7 +174,7 @@ end
 -- Bout de voie étroite, côté droit, avec un petit wagonnet de charbon (65 %)
 local ECHELLE_WAGON = 0.65
 local function rail(m, base, rng)
-	local x, z0, z1 = 4.5, -5.5, Z_MUR + 0.5
+	local x, z0, z1 = LARGEUR / 2 - 3.5, -5.5, Z_MUR + 0.5
 	local L = z0 - z1
 	for _, dx in {-1.6, 1.6} do
 		O.decor(O.bloc(m, Vector3.new(0.25, 0.3, L), base * CFrame.new(x + dx, 0.48, (z0 + z1) / 2), Color3.fromRGB(87, 68, 54), M.Rouille, "Rail"))
@@ -181,11 +189,12 @@ local function rail(m, base, rng)
 end
 
 local function details(m, base, joueur)
-	B.caisse(m, base * CFrame.new(-6.1, 0, -9) * CFrame.Angles(0, 0.15, 0))
-	B.caisse(m, base * CFrame.new(-6, 2.6, -8.9) * CFrame.Angles(0, -0.3, 0), 1.8)
-	B.tonneau(m, base * CFrame.new(-6, 0, -14.5))
+	local x = -LARGEUR / 2 + 2
+	B.caisse(m, base * CFrame.new(x - 0.1, 0, -9) * CFrame.Angles(0, 0.15, 0))
+	B.caisse(m, base * CFrame.new(x, 2.6, -8.9) * CFrame.Angles(0, -0.3, 0), 1.8)
+	B.tonneau(m, base * CFrame.new(x, 0, -14.5))
 	-- Pioche plantée dans le sol, près du mur
-	local p = base * CFrame.new(-4.4, 0.6, -16.5) * CFrame.Angles(0, 0.7, 0) * CFrame.Angles(math.rad(35), 0, 0)
+	local p = base * CFrame.new(x + 1.6, 0.6, -16.5) * CFrame.Angles(0, 0.7, 0) * CFrame.Angles(math.rad(35), 0, 0)
 	O.decor(O.bloc(m, Vector3.new(0.35, 0.35, 2.6), p, Color3.fromRGB(150, 154, 162), M.Metal, "TetePioche"))
 	O.decor(O.bloc(m, Vector3.new(0.3, 3.6, 0.3), p * CFrame.new(0, 1.8, 0), C.Bois, M.Bois, "ManchePioche"))
 	-- Toiles d'araignée dans les coins du plafond

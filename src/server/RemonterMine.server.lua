@@ -9,13 +9,12 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local MinePrivee = require(ServerStorage:WaitForChild("Monde"):WaitForChild("MinePrivee"))
 
--- Repères de la mine (repère local de mine.base, voir MinePrivee.LIMITES : galerie au sol y = 0, massif de 80 de
--- large, 800 de long, fond à y = -676). Profondeur affichée en mètres : 1 bloc de 2 studs = 1 m (Partage › CouchesMine).
+-- Repères locaux de la mine : y = 0 au sol de la galerie. Un bloc de 2 studs = 1 m.
 local CouchesMine = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("CouchesMine"))
 local SEUIL = 3 -- studs sous le sol de la galerie à partir desquels on a « commencé à descendre »
 local DEMI_LARGEUR = MinePrivee.LIMITES.demiLargeur
 local Z_MIN, Z_MAX = MinePrivee.LIMITES.zMin, MinePrivee.LIMITES.zMax
-local Y_MIN = MinePrivee.LIMITES.yMin
+local Y_MIN, Y_MAX = MinePrivee.LIMITES.yMin, MinePrivee.LIMITES.yMax
 local BLOC = MinePrivee.TAILLE_BLOC
 local ATTENTE = 2 -- secondes entre deux remontées
 
@@ -39,7 +38,7 @@ local function position(joueur: Player): number?
 	local _, racine = vivant(joueur)
 	if not racine then return nil end
 	local rel = mine.base:PointToObjectSpace(racine.Position)
-	if math.abs(rel.X) > DEMI_LARGEUR or rel.Z < Z_MIN or rel.Z > Z_MAX or rel.Y < Y_MIN then return nil end
+	if math.abs(rel.X) > DEMI_LARGEUR or rel.Z < Z_MIN or rel.Z > Z_MAX or rel.Y < Y_MIN or rel.Y > Y_MAX then return nil end
 	return -(rel.Y - 3) -- le centre du corps est ~3 studs au-dessus des pieds
 end
 

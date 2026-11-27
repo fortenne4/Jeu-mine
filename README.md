@@ -457,8 +457,8 @@ Pour la tester dans Studio : **Fichier › Paramètres du jeu › Sécurité ›
 ## Caméra des tunnels privés
 
 Dans les tunnels privés (mines privées), la caméra est forcée en **1re personne**. En ressortant, elle repasse en
-3e personne. La mine publique et les grottes profondes gardent la caméra libre. Zone : `src/client/CameraMine.client.lua`
-(mêmes coordonnées que `src/monde/Disposition.lua`, à mettre à jour ensemble).
+3e personne. La mine publique et les grottes profondes gardent la caméra libre. `src/client/CameraMine.client.lua`
+lit l'attribut joueur `CoucheMine` calculé par le serveur à partir des limites de sa mine.
 
 ## Tunnels privés (mines privées)
 
@@ -476,12 +476,12 @@ Une brume blanche et une lumière douce sont ajoutées côté client autour de c
 Le centre de l'anneau reste dégagé. Les planches du parvis se rejoignent au niveau du seuil.
 
 La mine privée est construite côté serveur pour ce joueur seul (au premier passage), sur une grille d'emplacements
-loin de la carte et en hauteur (`D.MINES_PRIVEES_*` dans `Disposition.lua` : x ≥ 1400, y = 700, écart 400 en X et 1000
-en Z). Elle est détruite quand le joueur prend la Sortie ou quitte le jeu (moins de pièces répliquées). C'est une galerie
-étayée de 28 studs en Parts (torches, rail et petit wagonnet, caisses, pioche plantée, toiles) **creusée dans** un très
-grand **massif de roche** à creuser en descendant : blocs de 2 studs, 40 × 348 × 418 cases (80 de large, 696 de haut,
-836 de long ; fond à 676 studs, soit **338 m**, sous la galerie : 1 bloc = 1 m). Au bout de la galerie, une descente déjà
-ouverte en pente (35°, 16 studs, 24 de large). Le massif entoure la galerie et la descente : au moins 3 blocs de roche
+loin de la carte et en hauteur (`D.MINES_PRIVEES_*` dans `Disposition.lua`, x ≥ 1400, y = 700, écart 400 en X et 2000
+en Z). Elle est détruite quand le joueur prend la Sortie ou quitte le jeu (moins de pièces répliquées). La galerie
+étayée de 32 × 56 studs (torches, rail et petit wagonnet, caisses, pioche plantée, toiles) est creusée dans un
+**massif de roche** de 80 × 348 × 836 blocs de 2 studs. Le massif mesure 160 studs de large, 696 de haut et 1672 de long.
+Le fond se trouve à 676 studs, soit **338 m**, sous la galerie. La descente ouverte au bout de la galerie mesure
+48 studs de large et 32 horizontalement, avec un dénivelé d'environ 11 studs. Le massif entoure la galerie et la descente avec au moins 3 blocs de roche
 minable sur les côtés, au-dessus et derrière la galerie (`MARGE`), dans la couleur de la couche (terre battue en haut).
 Grille virtuelle côté serveur : le massif est plein par défaut, seules les cases creusées sont mémorisées, et seuls les
 blocs exposés à l'air existent en Parts (tag `BlocMine`, attributs `Colonne`, `Ligne` = 1 en bas, `Couche` = 1 à l'avant,
