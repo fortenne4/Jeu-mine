@@ -40,7 +40,6 @@ if carte then
 			Village.retirerSauleDuPont(village)
 			Village.preparerFontaine(village)
 			Village.preparerApparition(village)
-			Village.preparerToits(village)
 			Village.preparerSentiers(village)
 			local okMoulin, erreurMoulin = pcall(Village.preparerMoulin, village)
 			if not okMoulin then warn("[Monde] Moulin de la rive sud non construit : " .. tostring(erreurMoulin)) end
@@ -66,8 +65,10 @@ if carte then
 		-- Après degagerTonneaux : le chemin du moulin pousse les tonneaux qui débordent dessus
 		local villageFige = carte:FindFirstChild("Village")
 		if villageFige then
-			local okChemin, erreurChemin = pcall(require(monde:WaitForChild("Village")).preparerCheminMoulin, villageFige)
+			local Village = require(monde:WaitForChild("Village"))
+			local okChemin, erreurChemin = pcall(Village.preparerCheminMoulin, villageFige)
 			if not okChemin then warn("[Monde] Chemin du moulin non tracé : " .. tostring(erreurChemin)) end
+			Village.preparerToits(villageFige)
 		end
 		require(monde:WaitForChild("MursInvisibles")).construire(carte)
 		workspace:SetAttribute("MondeConstruit", true)

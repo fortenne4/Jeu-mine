@@ -2757,16 +2757,55 @@ function Village.preparerCercleBoss(village)
 	return m
 end
 
+local TOITS_BLOCS = {Auvent = true, Toit = true, Faitage = true, Bardeaux = true, CoffreToit = true, RiveToit = true}
+local TOITS_IMPORTES = {ToitPrincipal = true, ToitGauche = true, ToitDroit = true, Lucarne = true}
+
+local function activerCollisionToit(piece)
+	piece.CanCollide = true
+	piece.CanQuery = true
+	piece:SetAttribute("ToitRebond", true)
+end
+
+local function poserCollisionAuvent(planches)
+	-- Le maillage de l'auvent alterne les planches avec des pièces réunies aux poteaux.
+	-- Un seul plan incliné sous la couverture laisse le passage libre entre les poteaux.
+	local charpente = planches.Parent:FindFirstChild("Auberge_Auvent_Colombage")
+	local repere = planches.CFrame
+	local largeur = planches.Size.X
+	if charpente and charpente:IsA("BasePart") then
+		largeur = math.max(largeur, charpente.Size.X)
+		repere += repere.XVector * repere:PointToObjectSpace(charpente.Position).X
+	end
+	local pente = math.atan(1.2 / 6.4) -- pente des planches dans blender/auberge.py
+	local collision = planches:FindFirstChild("Auvent")
+	if not collision then
+		collision = Instance.new("Part")
+		collision.Name = "Auvent" -- lu par RebondToits pour le saut assisté
+		collision.Anchored = true
+		collision.CanTouch = false
+		collision.CastShadow = false
+		collision.Transparency = 1
+	end
+	collision.Size = Vector3.new(largeur, 0.15, planches.Size.Z / math.cos(pente))
+	collision.CFrame = repere * CFrame.Angles(-pente, 0, 0)
+	activerCollisionToit(collision)
+	collision.Parent = planches
+end
+
 function Village.preparerToits(village)
-	local noms = {Auvent = true, Toit = true, Faitage = true}
 	for _, piece in village:GetDescendants() do
-		if piece:IsA("BasePart") and noms[piece.Name] then
-			if piece.Name == "Auvent" then
-				piece.CanCollide = true
-				piece.CanQuery = true
-			end
-			if piece.CanCollide then
-				piece:SetAttribute("ToitRebond", true)
+		if piece:IsA("BasePart") then
+			if TOITS_BLOCS[piece.Name] then
+				activerCollisionToit(piece)
+			elseif piece:IsA("MeshPart") then
+				if piece.Name == "Auberge_Auvent_Planches" then
+					poserCollisionAuvent(piece)
+				else
+					local groupe, finition = string.match(piece.Name, "^Auberge_([^_]+)_(Tuiles%a*)$")
+					if TOITS_IMPORTES[groupe] and finition then
+						activerCollisionToit(piece)
+					end
+				end
 			end
 		end
 	end
