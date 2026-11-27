@@ -53,14 +53,14 @@ local function nettoyer(modele: Model)
 	end
 end
 
--- Les pièces viennent directement de la forge : casques dédiés et plastron /
--- jambières génériques teintés avec la couleur d'alliage du rang choisi.
-function Exposition.assembler(mannequin: Model, cadreBase: CFrame, id: string, couleur: Color3?): (boolean, {string})
+-- Un ensemble de minerai utilise au complet les mêmes modèles que l'équipement du joueur.
+function Exposition.assembler(mannequin: Model, cadreBase: CFrame, id: string, couleur: Color3?, minerai: string?): (boolean, {string})
 	local erreurs = {}
+	local suffixe = minerai or ""
 	for _, piece in {
 		{id = id, hauteur = HAUTEUR_CASQUE},
-		{id = "Plastron", hauteur = HAUTEUR_PLASTRON},
-		{id = "Jambieres", hauteur = HAUTEUR_JAMBIERES},
+		{id = "Plastron" .. suffixe, hauteur = HAUTEUR_PLASTRON},
+		{id = "Jambieres" .. suffixe, hauteur = HAUTEUR_JAMBIERES},
 	} do
 		if not ArmuresVoxels.existe(piece.id) then
 			table.insert(erreurs, "Modèle absent : " .. piece.id)

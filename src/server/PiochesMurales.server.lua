@@ -3,10 +3,9 @@ local PICKAXE_LENGTH_RATIO = 0.7
 local ESPACE_AU_DESSUS_EPEE = 0.45
 local MARGE_HAUT_MUR = 0.4
 local MARGE_BORD_MUR = 0.2
-local VERSION_PRESENTOIR = 2
+local VERSION_PRESENTOIR = 3
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Pioches = require(ReplicatedStorage:WaitForChild("Partage"):WaitForChild("PiochesVoxels"))
+local PiochesModeles = require(script.Parent:WaitForChild("PiochesModeles"))
 
 local debut = os.clock()
 while not workspace:GetAttribute("MondeConstruit") and os.clock() - debut < 90 do task.wait(0.25) end
@@ -15,12 +14,10 @@ local forge = carte and carte:FindFirstChild("Forge", true)
 if not forge then warn("[PiochesMurales] Forge introuvable") return end
 local ancien = forge:FindFirstChild("Forge_PiochesMurales")
 if ancien and ancien:GetAttribute("Version") == VERSION_PRESENTOIR then return end
-if ancien then ancien:Destroy() end
 
 local groupe = Instance.new("Model")
 groupe.Name = "Forge_PiochesMurales"
 groupe:SetAttribute("Version", VERSION_PRESENTOIR)
-groupe.Parent = forge
 for _, epee in forge:GetChildren() do
 	if not (epee:IsA("Model") and epee.Name == "Epee") then continue end
 	local lame, garde, poignee, pommeau = epee:FindFirstChild("Lame"), epee:FindFirstChild("Garde"), epee:FindFirstChild("Poignee"), epee:FindFirstChild("Pommeau")
@@ -40,23 +37,12 @@ for _, epee in forge:GetChildren() do
 	local hautMur = mur.Position.Y + mur.Size.Y / 2 - MARGE_HAUT_MUR
 	local hauteur = math.min(PICKAXE_LENGTH_RATIO * tailleEpee.Y, hautMur - basPioche)
 	if hauteur < 1.5 then continue end
-	local pioche = Pioches.construire("Fer")
-	if not pioche then warn("[PiochesMurales] Modèle Fer indisponible") break end
-	local nomLame = if lame.Material == Enum.Material.Neon then "Cyan" elseif lame.Color.R > 0.9 then "Doree" else "Grise"
-	pioche.Name = "Pioche_Epee_" .. nomLame
-	pioche:SetAttribute("CouleurEpee", lame.Color)
-	-- Les blocs hauts de la pioche Fer composent la tête ; les pièces basses
-	-- en métal sont ses ferrures et les autres blocs forment le manche.
-	for _, p in pioche:GetDescendants() do
-		if p:IsA("BasePart") then
-			local source = if p.Material == Enum.Material.Metal and p.Position.Y > 1.1 then lame
-				elseif p.Material == Enum.Material.Metal then garde else poignee
-			p.Material, p.Color, p.Reflectance, p.Transparency = source.Material, source.Color, source.Reflectance, source.Transparency
-			p.Anchored, p.CanCollide, p.CanTouch, p.CanQuery = true, false, false, false
-		elseif p:IsA("BaseScript") or p:IsA("Tool") or p:IsA("ProximityPrompt") or p:IsA("Humanoid") then
-			p:Destroy()
-		end
-	end
+	local id = if lame.Material == Enum.Material.Neon then "Givre" else "Volcan"
+	local modele = PiochesModeles.gabarit(id)
+	if not modele then continue end
+	local pioche = modele:Clone()
+	pioche.Name = "Pioche_" .. id
+	pioche:SetAttribute("ModelePioche", id)
 	local _, taillePioche = pioche:GetBoundingBox()
 	pioche:ScaleTo(pioche:GetScale() * hauteur / taillePioche.Y)
 	-- Le manche suit Y ; le profil du pic (axe Z du modèle) longe le mur.
@@ -83,3 +69,10 @@ for _, epee in forge:GetChildren() do
 	crochet.Anchored, crochet.CanCollide, crochet.CanTouch, crochet.CanQuery = true, false, false, false
 	crochet.Parent = pioche
 end
+if #groupe:GetChildren() ~= 2 then
+	groupe:Destroy()
+	warn("[PiochesMurales] Impossible de monter les deux pioches de la forge")
+	return
+end
+groupe.Parent = forge
+if ancien then ancien:Destroy() end

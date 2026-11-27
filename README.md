@@ -389,11 +389,11 @@ Plastrons et jambières acceptent aussi ces minerais (alliages libres, force 2,5
 Forgés avec **un seul** de ces minerais, ils prennent leur modèle 3D assorti au casque et à l'épée (`ArmuresVoxels/Plastron<Minerai>`,
 `Jambieres<Minerai>`, générés par `blender/armes/armures_minerais.py`, aperçus `previews/armes/sets_minerais/`) ; même valeur que l'alliage libre.
 
-Deux pioches décoratives reprennent les couleurs des épées extérieures du râtelier mural de la forge. Leur position et leur échelle sont réglables en tête de `src/server/PiochesMurales.server.lua`.
+Les pioches Givre et Volcan sont accrochées au-dessus des épées extérieures du râtelier de la forge. Elles reprennent les modèles et les couleurs du catalogue. Leur position et leur échelle sont réglables en tête de `src/server/PiochesMurales.server.lua`.
 Les pioches sont fixées à l'intérieur des bords du mur. Le dallage rejoint le seuil au niveau de la rue et la toiture à deux pans ménage un passage pour la cheminée.
 La rue à l'est de la forge comporte quatre tonneaux éclairés, et le baquet de trempe a été remplacé par un seau en bois avec une surface d'eau animée.
 
-Deux supports présentent l'armure générique et le casque de bronze à la forge. Les autres porte-armures et les deux anciens modèles de la forge sont conservés en réserve derrière le portail de retour de la plaine des mobs. Les plastrons et jambières réutilisent les modèles génériques du jeu. Les réglages de placement et d'affichage sont en tête de `src/server/ExpositionArmures.server.lua`. Si les meshes importés sont inaccessibles, l'exposition utilise les casques lisses existants du projet.
+Deux supports présentent les ensembles complets de diamant et de magmaïte à la forge, avec leurs casques, plastrons et jambières assortis. Les autres porte-armures et les anciens modèles de la forge sont conservés en réserve derrière le portail de retour de la plaine des mobs. Les réglages de placement et d'affichage sont en tête de `src/server/ExpositionArmures.server.lua`. Si les meshes importés sont inaccessibles, l'exposition utilise les modèles de repli du projet.
 
 Après une forge réussie, le serveur lance la **cinématique de forge** (`ForgeCinematique`, voir `src/client/ForgeCinematique.client.lua`) ;
 la fenêtre de Brom se cache pendant et affiche le résultat après.

@@ -15,6 +15,10 @@ local RESERVE_ORIGINE = Vector3.new(4985, 0, 270)
 local RESERVE_COLONNES = 6
 local RESERVE_ECART = 6
 local RESERVE_ECART_RANGEES = 11
+local ENSEMBLES_FORGE = {
+	CasqueDiamant = {rang = 1, minerai = "Diamant", precedent = "PorteArmure_Casque"},
+	CasqueMagmaite = {rang = 2, minerai = "Magmaite", precedent = "PorteArmure_CasqueBronze"},
+}
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
@@ -31,20 +35,22 @@ if not workspace:GetAttribute("MondeConstruit") then
 	warn("[ExpositionArmures] Monde non construit : exposition non créée.")
 	return
 end
-if workspace:FindFirstChild("PorteArmures") then
-	warn("[ExpositionArmures] Une exposition existe déjà : aucune copie ajoutée.")
-	return
+local dossier = workspace:FindFirstChild("PorteArmures")
+local expositionExistante = dossier ~= nil
+if not dossier then
+	dossier = Instance.new("Folder")
+	dossier.Name = "PorteArmures"
+	dossier.Parent = workspace
 end
-
-local dossier = Instance.new("Folder")
-dossier.Name = "PorteArmures"
-dossier.Parent = workspace
-local reserve = Instance.new("Folder")
-reserve.Name = "ReservePlaine"
-reserve.Parent = dossier
+local reserve = dossier:FindFirstChild("ReservePlaine")
+if not reserve then
+	reserve = Instance.new("Folder")
+	reserve.Name = "ReservePlaine"
+	reserve.Parent = dossier
+end
 local forge = workspace:FindFirstChild("Forge", true)
 local anciens = {}
-if forge then
+if forge and not expositionExistante then
 	for _, objet in forge:GetChildren() do
 		if objet:IsA("Model") and objet.Name == "Armure" and objet:FindFirstChild("Socle") then table.insert(anciens, objet) end
 	end
@@ -58,25 +64,15 @@ if #anciens == 2 then
 		local hauteur = if sol and sol:IsA("BasePart") then sol.Position.Y + sol.Size.Y / 2 else socle.Position.Y - socle.Size.Y / 2
 		emplacements[i] = CFrame.new(socle.Position.X, hauteur, socle.Position.Z) * socle.CFrame.Rotation
 	end
-else
+elseif not expositionExistante then
 	warn("[ExpositionArmures] Nombre d'emplacements de forge inattendu : " .. #anciens)
 end
-local indexReserve = 0
+local indexReserve = #reserve:GetChildren()
 local function positionReserve()
 	local colonne = indexReserve % RESERVE_COLONNES
 	local rang = math.floor(indexReserve / RESERVE_COLONNES)
 	indexReserve += 1
 	return RESERVE_ORIGINE + Vector3.new(colonne * RESERVE_ECART, 0, rang * RESERVE_ECART_RANGEES)
-end
-if #emplacements == 2 then
-	for i, ancien in anciens do
-		local pos = positionReserve()
-		local socle = ancien.Socle
-		local base = socle.Position - Vector3.new(0, socle.Size.Y / 2, 0)
-		ancien:PivotTo(ancien:GetPivot() + (pos - base))
-		ancien.Name = "AncienneArmureForge_" .. i
-		ancien.Parent = reserve
-	end
 end
 
 local function plaque(modele: Model, cf: CFrame, nom: string)
@@ -106,23 +102,60 @@ for _, palier in Forge.ECHELLES.Casque do
 	table.insert(modeles, {modele = palier.modele, nom = palier.nom, rarete = palier.rarete, couleur = minerai and minerai.couleur or Color3.fromRGB(152, 158, 170)})
 end
 
-for index, entree in modeles do
-	local choisi = entree.modele == "Casque" and 1 or (entree.modele == "CasqueBronze" and 2 or nil)
-	local cf, parent
-	if choisi and emplacements[choisi] then
-		cf, parent = emplacements[choisi], dossier
-	else
-		cf, parent = CFrame.new(positionReserve()) * CFrame.Angles(0, math.pi, 0), reserve
-	end
-	local mannequin = PorteArmure.creer(parent, cf, ECHELLE_SUPPORT, {Bois = COULEUR_BOIS, Fer = COULEUR_FER})
+local function construireMannequin(cf, entree, minerai)
+	local mannequin = PorteArmure.creer(nil, cf, ECHELLE_SUPPORT, {Bois = COULEUR_BOIS, Fer = COULEUR_FER})
 	mannequin.Name = "PorteArmure_" .. entree.modele
 	mannequin:SetAttribute("ModeleArmure", entree.modele)
 	mannequin:SetAttribute("NomArmure", entree.nom)
 	mannequin:SetAttribute("Rarete", entree.rarete)
-	local ok, erreur = ArmuresExposition.assembler(mannequin, cf, entree.modele, entree.couleur)
+	mannequin:SetAttribute("MineraiEnsemble", minerai)
+	local ok, erreur = ArmuresExposition.assembler(mannequin, cf, entree.modele, entree.couleur, minerai)
 	if not ok then warn("[ExpositionArmures] " .. entree.modele .. " : " .. tostring(erreur)) end
 	if AFFICHER_PLAQUES then plaque(mannequin, cf, entree.nom) end
+	return mannequin, ok
 end
+
+for _, entree in modeles do
+	local ensemble = ENSEMBLES_FORGE[entree.modele]
+	if expositionExistante then
+		if not ensemble or dossier:FindFirstChild("PorteArmure_" .. entree.modele) then continue end
+		local precedent = dossier:FindFirstChild(ensemble.precedent)
+		if not precedent or not precedent:IsA("Model") then continue end
+		local mannequin, ok = construireMannequin(precedent:GetPivot(), entree, ensemble.minerai)
+		if not ok then
+			mannequin:Destroy()
+			continue
+		end
+		local enReserve = reserve:FindFirstChild(mannequin.Name)
+		local pivot = if enReserve and enReserve:IsA("Model") then enReserve:GetPivot()
+			else CFrame.new(positionReserve()) * CFrame.Angles(0, math.pi, 0)
+		precedent:PivotTo(pivot)
+		precedent.Parent = reserve
+		if enReserve then enReserve:Destroy() end
+		mannequin.Parent = dossier
+	else
+		local cf = ensemble and emplacements[ensemble.rang]
+		if cf then
+			local mannequin, ok = construireMannequin(cf, entree, ensemble.minerai)
+			if ok then
+				local ancien = anciens[ensemble.rang]
+				local socle = ancien.Socle
+				local base = socle.Position - Vector3.new(0, socle.Size.Y / 2, 0)
+				ancien:PivotTo(ancien:GetPivot() + (positionReserve() - base))
+				ancien.Name = "AncienneArmureForge_" .. ensemble.rang
+				ancien.Parent = reserve
+				mannequin.Parent = dossier
+			else
+				mannequin:Destroy()
+			end
+		else
+			local mannequin = construireMannequin(CFrame.new(positionReserve()) * CFrame.Angles(0, math.pi, 0), entree)
+			mannequin.Parent = reserve
+		end
+	end
+end
+
+if expositionExistante then return end -- conserve les éclairages existants
 
 -- Deux sources seulement pour l'ensemble, sans retoucher à l'éclairage global.
 for _, colonne in {1, 4} do
