@@ -112,7 +112,7 @@ local function creer(parent, nom, cf, pieces, couleur, portee)
 			lumiere.Color = couleur or Color3.fromRGB(255, 171, 70)
 			lumiere.Brightness = 2.2
 			lumiere.Range = portee or 14
-			lumiere.Shadows = true
+			lumiere.Shadows = false -- fluidité : des dizaines de lanternes ; la forge, le clocher et le cristal de la mine gardent leurs ombres
 			lumiere.Parent = p
 			CollectionService:AddTag(lumiere, "LueurLanterne")
 		end

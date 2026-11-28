@@ -42,6 +42,16 @@
       }
     },
 
+    "Workspace": {
+      "$ignoreUnknownInstances": true,
+      "$properties": {
+        "StreamingEnabled": true,
+        "StreamingTargetRadius": 600,
+        "StreamingMinRadius": 128,
+        "StreamOutBehavior": "Opportunistic"
+      }
+    },
+
     "Lighting": {
       "$properties": {
         "Technology": "Future"

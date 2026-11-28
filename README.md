@@ -1067,6 +1067,33 @@ fine et des étincelles aux couleurs du boss s'élèvent du cercle.
 Les FBX (et `Rochers.fbx`, `Lierre.fbx`) sont importés dans `ServerStorage › Modeles3D` de la place.
 Sans import, le petit château en blocs de `HorizonMine.lua` reste affiché : rien ne casse.
 
+## Fluidité de l'affichage
+
+Réglages qui allègent le rendu chez tous les joueurs, sans perte visible :
+- **Cascades** (`Bordures.lua`) : filets à 6 particules/s par stud de largeur (au lieu de 22), plus larges pour garder un
+  rideau plein ; gouttelettes ×3 (au lieu de ×8) ; éclaboussures 24/s (au lieu de 50).
+- **Lanternes** (`Lampadaires.lua`) : plus d'ombre de lumière. Ne gardent leurs ombres que la forge, le clocher, le cristal de la mine,
+  les projecteurs des grottes et les cinématiques.
+- **Petits décors sans ombre** (`src/server/Fluidite.server.lua`) : toute pièce dont la plus grande dimension fait 2 studs
+  ou moins ne projette plus d'ombre (`CastShadow`), dans la carte, les grottes et les mines privées (aussi pour ce qui est posé
+  après coup). Les lanternes d'une carte figée perdent aussi leur ombre de lumière.
+
+Mesuré dans Studio au point d'apparition : lumières à ombres 93 → 9, particules 11 030 → 3 984 par seconde (cascades
+10 391 → 3 467), pièces à ombre 18 900 → 11 041.
+
+**Chargement par zone (streaming)** : seul ce qui est à moins de **600 studs** du joueur est chargé
+(`StreamingTargetRadius = 600`, `StreamingMinRadius = 128`, `StreamOutBehavior = Opportunistic` : ce qui est loin est déchargé).
+La vallée entière tient dans ce rayon depuis le spawn ; les grottes (≈ 3 700 studs) et les mines privées (≈ 1 800 studs)
+sont loin, donc en grotte le village est déchargé. Le château fort, les sommets lointains et l'horizon de la mine restent
+toujours chargés (`ModelStreamingMode = Persistent`, posé par `Fluidite.server.lua`) pour garder l'horizon de la vallée.
+Mesuré : 25 855 pièces chargées au spawn, **6 174 dans une grotte** (village : 0), village rechargé en entier au retour.
+⚠ Rojo ne synchronise pas ces réglages en direct : ils sont réglés dans la place (Studio, barre de commande ou
+Propriétés de Workspace). L'entrée `Workspace` de `default.project.json` ne s'applique qu'avec `rojo build`.
+
+Pistes suivantes, non faites : pioches et armures en un seul modèle 3D (environ 2 500 pièces par personnage aujourd'hui,
+il faut un groupe Roblox pour que les modèles se chargent chez tous), éclairage « ShadowMap » au lieu de « Future »,
+mouvement des mobs interpolé côté client, animations de la fontaine et des lanternes coupées au loin.
+
 ## Plan de la carte
 
 - Nord (-Z) : montagne de la mine. Les joueurs apparaissent sur la place (0, 0, 0), face à la mine.

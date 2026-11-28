@@ -298,8 +298,8 @@ local function cascade(parent, def)
 				EmissionDirection = Enum.NormalId.Front, Shape = Enum.ParticleEmitterShape.Box,
 				Speed = NumberRange.new(avant * 0.9, avant * 1.2), SpreadAngle = Vector2.new(4, 4),
 				Acceleration = Vector3.new(0, -GRAVITE, 0), Drag = 0.15,
-				Lifetime = NumberRange.new(duree * 0.95, duree * 1.1), Rate = largeur * 22,
-				Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 1.1), NumberSequenceKeypoint.new(1, 2.8)}),
+				Lifetime = NumberRange.new(duree * 0.95, duree * 1.1), Rate = largeur * 6, -- 6 au lieu de 22 (fluidité) : filets plus larges pour garder un rideau plein
+				Size = NumberSequence.new({NumberSequenceKeypoint.new(0, 1.8), NumberSequenceKeypoint.new(1, 4.4)}),
 				Squash = NumberSequence.new(-1.6),
 				Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(0.8, 0.45),
 					NumberSequenceKeypoint.new(1, 1)}),
@@ -311,7 +311,7 @@ local function cascade(parent, def)
 				EmissionDirection = Enum.NormalId.Front, Shape = Enum.ParticleEmitterShape.Box,
 				Speed = NumberRange.new(avant * 0.6, avant * 1.6), SpreadAngle = Vector2.new(18, 18),
 				Acceleration = Vector3.new(0, -GRAVITE, 0), Lifetime = NumberRange.new(duree * 0.8, duree * 1.05),
-				Rate = largeur * 8, Size = NumberSequence.new(0.35, 0.15), Squash = NumberSequence.new(-1),
+				Rate = largeur * 3, Size = NumberSequence.new(0.4, 0.15), Squash = NumberSequence.new(-1),
 				Transparency = NumberSequence.new(0.2, 0.8), Color = ColorSequence.new(Color3.fromRGB(255, 255, 255)),
 				LightEmission = 0.8,
 			})
@@ -359,7 +359,7 @@ local function cascade(parent, def)
 	emetteurEau(pied, {
 		Name = "Eclaboussures", Texture = TEX_ECUME, Orientation = Enum.ParticleOrientation.VelocityParallel,
 		Color = ColorSequence.new(Color3.fromRGB(255, 255, 255)), Size = NumberSequence.new(0.6, 0.2), Squash = NumberSequence.new(-1),
-		Transparency = NumberSequence.new(0.15, 0.9), Lifetime = NumberRange.new(0.6, 1.2), Rate = 50,
+		Transparency = NumberSequence.new(0.15, 0.9), Lifetime = NumberRange.new(0.6, 1.2), Rate = 24,
 		Speed = NumberRange.new(10, 20), SpreadAngle = Vector2.new(55, 55), Acceleration = Vector3.new(0, -GRAVITE * 0.8, 0),
 		LightEmission = 0.7, Shape = Enum.ParticleEmitterShape.Box,
 	})
